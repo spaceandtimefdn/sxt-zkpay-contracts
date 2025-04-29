@@ -1,0 +1,30 @@
+[profile.default]
+src = "src"
+libs = ["dependencies"]
+evm_version = 'cancun'
+solc = "0.8.28"
+ffi = true
+ast = true
+build_info = true
+extra_output = ["storageLayout"]
+fs_permissions = [{ access = "read-write", path = "./" }]
+optimizer = true
+optimizer_runs = 2000
+# Only show coverage for files that do not match the specified regex pattern.
+no_match_coverage = "test/mocks/**|script/**"
+
+remappings = [
+    "@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.2.0/",
+    "@openzeppelin/contracts-upgradeable/=dependencies/@openzeppelin-contracts-upgradeable-5.2.0/",
+    "@chainlink/contracts/=dependencies/@chainlink-contracts-0.8.0/",
+]
+
+[dependencies]
+forge-std = "1.9.6"
+"@openzeppelin-contracts" = "5.2.0"
+"@openzeppelin-contracts-upgradeable" = "5.2.0"
+openzeppelin-foundry-upgrades = "0.4.0"
+"@chainlink-contracts" = "0.8.0"
+
+[fuzz]
+runs = 20000

@@ -1,2 +1,1 @@
-# sxt-zkpay-contracts
-Space and Time | ZKPay smart contracts
+# Space and Time | ZKPay Smart Contracts

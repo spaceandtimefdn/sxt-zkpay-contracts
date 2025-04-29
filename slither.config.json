@@ -1,0 +1,5 @@
+{
+    "fail_on": "pedantic",
+    "filter_paths": "openzeppelin,chainlink",
+    "detectors_to_exclude": "naming-convention,assembly-usage"
+}

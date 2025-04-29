@@ -1,0 +1,15 @@
+{
+  "zkpayOwner": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6",
+  "zkpayTreasury": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6",
+  "nativeTokenPriceFeed": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+  "nativeTokenDecimals": 18,
+  "nativeTokenStalePriceThresholdInSeconds": 3600,
+  "posqlPayoutAddress": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6",
+  "Usdc payment asset Section": "----------------------------------",
+  "usdcTokenAddress": "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238",
+  "usdcTokenPriceFeed": "0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E",
+  "usdcTokenDecimals": 6,
+  "usdcTokenStalePriceThresholdInSeconds": 86400,
+  "Client contract section": "----------------------------------",
+  "clientContractOwner": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6"
+}

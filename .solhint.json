@@ -1,0 +1,23 @@
+{
+    "extends": "solhint:recommended",
+    "rules": {
+        "gas-calldata-parameters": "warn",
+        "gas-increment-by-one": "warn",
+        "gas-indexed-events": "off",
+        "gas-length-in-loops": "warn",
+        "gas-multitoken1155": "warn",
+        "gas-named-return-values": "off",
+        "gas-small-strings": "warn",
+        "gas-strict-inequalities": "off",
+        "gas-struct-packing": "warn",
+        "no-inline-assembly": "off",
+        "one-contract-per-file": "off",
+        "no-complex-fallback": "off",
+        "func-visibility": [
+            "warn",
+            {
+                "ignoreConstructors": true
+            }
+        ]
+    }
+}

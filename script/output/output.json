@@ -1,0 +1,21 @@
+{
+  "deployedContracts": {
+    "ZKPayProxy": "0xa735143283a6e686723403a820841e5774951a63",
+    "ZKPayImplementation": "0x7c4ed0d62a574deb7755b75664210fae58a978d8",
+    "ZKPayProxyAdmin": "0xa13633f9c440caafc919a9a6272f8364879d50b2",
+    "PoSQLVerifierCustomLogic": "0xb9855cac19c706448b0d04e417df9409e9854bc7",
+    "ClientContractExample": "0xcb8a45c5fa8e6f7f1d9813b2170f78c47f9798db"
+  },
+  "deploymentConfig": {
+    "zkpayOwner": "0xd341df0d9335e55a095912f7f76ed5289e64e4c6",
+    "zkpayTreasury": "0xd341df0d9335e55a095912f7f76ed5289e64e4c6",
+    "nativeTokenDecimals": 18,
+    "nativeTokenStalePriceThresholdInSeconds": 3600,
+    "posqlPayoutAddress": "0xd341df0d9335e55a095912f7f76ed5289e64e4c6",
+    "usdcTokenAddress": "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238",
+    "usdcTokenPriceFeed": "0xa2f78ab2355fe2f984d808b5cee7fd0a93d5270e",
+    "usdcTokenDecimals": 6,
+    "usdcTokenStalePriceThresholdInSeconds": 86400,
+    "clientContractOwner": "0xd341df0d9335e55a095912f7f76ed5289e64e4c6"
+  }
+}

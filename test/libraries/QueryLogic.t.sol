@@ -6,7 +6,7 @@ import {QueryLogic} from "../../src/libraries/QueryLogic.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {AssetManagement} from "../../src/libraries/AssetManagement.sol";
 import {MockCustomLogic} from "../mocks/MockCustomLogic.sol";
-import {NATIVE_ADDRESS} from "../../src/libraries/Constants.sol";
+import {NATIVE_ADDRESS, MAX_GAS_CLIENT_CALLBACK} from "../../src/libraries/Constants.sol";
 import {ICustomLogic} from "../../src/interfaces/ICustomLogic.sol";
 import {Setup} from "./Setup.sol";
 
@@ -74,6 +74,7 @@ contract QueryLogicTest is Test {
     function testFuzzSubmitQuery(QueryLogic.QueryRequest calldata queryRequest, QueryLogic.QueryPayment memory payment)
         public
     {
+        vm.assume(queryRequest.callbackGasLimit < MAX_GAS_CLIENT_CALLBACK);
         uint256 timestamp = block.timestamp + 10000;
         vm.warp(timestamp);
 

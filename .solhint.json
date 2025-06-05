@@ -13,6 +13,7 @@
         "no-inline-assembly": "off",
         "one-contract-per-file": "off",
         "no-complex-fallback": "off",
+        "import-path-check": "off",
         "func-visibility": [
             "warn",
             {

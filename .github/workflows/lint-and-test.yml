@@ -22,7 +22,19 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Install dependencies
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install JavaScript dependencies
+        run: |
+          npm install --no-save @openzeppelin/upgrades-core keccak
+
+      - name: Fix script permissions
+        run: chmod -R +x node_modules/.bin
+
+      - name: Install Forge dependencies
         run: |
           forge soldeer install
 
@@ -37,8 +49,12 @@ jobs:
 
       - name: Run tests
         run: |
+          export OZ_NO_VALIDATE=true
           forge clean && forge test --gas-price 1000000000
         id: test
+
+      - name: Make coverage script executable
+        run: chmod +x jobs/check_coverage.sh
 
       - name: Check code coverage
         run: jobs/check_coverage.sh
@@ -49,8 +65,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Install solhint
         run: npm install -g solhint
+
       - name: Run lints
         run: |
           solhint "**/*.sol" -w 0
@@ -61,14 +79,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
-      - name: Install dependencies
+
+      - name: Install Forge dependencies
         run: forge soldeer install
+
       - name: Run slither
         uses: crytic/slither-action@d86660fe7e45835a0ec7b7aeb768d271fb421ea0
+
       - name: Run slither without ignoring openzeppelin
         uses: crytic/slither-action@d86660fe7e45835a0ec7b7aeb768d271fb421ea0
         with:

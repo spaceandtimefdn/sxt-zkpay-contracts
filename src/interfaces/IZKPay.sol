@@ -32,9 +32,17 @@ interface IZKPay {
 
     /// @notice Emitted when a query payment is settled.
     /// @param queryHash The hash of the query that was settled.
-    /// @param usedAmount The amount of payment used for fulfilling the query.
-    /// @param remainingAmount The amount of payment remaining after fulfilling the query.
-    event PaymentSettled(bytes32 indexed queryHash, uint248 usedAmount, uint248 remainingAmount);
+    /// @param paidAmount The amount of payment used for fulfilling the query.
+    /// @param refundAmount The amount of payment remaining after fulfilling the query.
+    /// @param merchantPayoutAmount The amount of payment paid to the merchant.
+    /// @param protocolFeeAmount The amount of protocol fee in source token.
+    event PaymentSettled(
+        bytes32 indexed queryHash,
+        uint248 paidAmount,
+        uint248 refundAmount,
+        uint248 merchantPayoutAmount,
+        uint248 protocolFeeAmount
+    );
 
     /// @notice Emitted when a query is fulfilled.
     /// @param queryHash The hash of the query that was fulfilled.
@@ -51,6 +59,7 @@ interface IZKPay {
     event SendPayment(
         address indexed asset,
         uint248 amount,
+        uint248 protocolFeeAmount,
         bytes32 onBehalfOf,
         address indexed target,
         bytes memo,

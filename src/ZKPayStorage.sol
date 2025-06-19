@@ -13,4 +13,6 @@ contract ZKPayStorage {
     uint248[1] internal _queryNonce;
     mapping(bytes32 queryHash => QueryLogic.QueryPayment queryPayment) internal _queryPayments;
     mapping(address merchantAddress => MerchantLogic.MerchantConfig merchantConfig) internal _merchantConfigs;
+
+    address internal _sxt;
 }

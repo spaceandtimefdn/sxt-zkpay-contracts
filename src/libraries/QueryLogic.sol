@@ -5,7 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AssetManagement} from "./AssetManagement.sol";
 import {ICustomLogic} from "../interfaces/ICustomLogic.sol";
-import {MAX_GAS_CLIENT_CALLBACK} from "./Constants.sol";
+import {MAX_GAS_CLIENT_CALLBACK, FEE, FEE_PRECISION} from "./Constants.sol";
 
 /// @title QueryLogic
 library QueryLogic {
@@ -202,31 +202,50 @@ library QueryLogic {
      * @param customLogicContractAddress The address of the custom logic contract.
      * @param gasUsed The amount of gas used for fulfilling the query.
      * @param payment The payment details.
+     * @param treasury The address of the treasury.
+     * @param sxt The address of the SXT token.
+     * @return paidAmount The amount paid to the merchant in source token.
+     * @return refundAmount The amount refunded to the user in source token.
+     * @return merchantPayoutAmount The amount paid to the merchant in source token.
+     * @return protocolFeeAmount The amount of protocol fee paid in source token.
      */
     function settleQueryPayment(
         mapping(address asset => AssetManagement.PaymentAsset) storage _assets,
         address customLogicContractAddress,
         uint248 gasUsed,
-        QueryPayment memory payment
-    ) internal returns (uint248 payoutAmount, uint248 refundAmount) {
+        QueryPayment memory payment,
+        address treasury,
+        address sxt
+    )
+        internal
+        returns (uint248 paidAmount, uint248 refundAmount, uint248 merchantPayoutAmount, uint248 protocolFeeAmount)
+    {
         uint248 usedGasInWei = uint248(gasUsed * block.basefee);
         uint248 usedGasInPaymentToken = AssetManagement.convertNativeToToken(_assets, payment.asset, usedGasInWei);
 
-        (address merchantAddress, uint248 fee) = ICustomLogic(customLogicContractAddress).getMerchantAddressAndFee();
-        uint248 feeInPaymentToken = AssetManagement.convertUsdToToken(_assets, payment.asset, fee);
-        payoutAmount = usedGasInPaymentToken + feeInPaymentToken;
+        (address merchantAddress, uint248 merchantFeeInUsdValue) =
+            ICustomLogic(customLogicContractAddress).getMerchantAddressAndFee();
+        uint248 merchantFeeInPaymentToken =
+            AssetManagement.convertUsdToToken(_assets, payment.asset, merchantFeeInUsdValue);
 
-        if (payoutAmount > payment.amount) {
-            payoutAmount = payment.amount;
+        paidAmount = usedGasInPaymentToken + merchantFeeInPaymentToken;
+        if (paidAmount > payment.amount) {
+            paidAmount = payment.amount;
         }
 
-        refundAmount = payment.amount - payoutAmount;
+        protocolFeeAmount = payment.asset == sxt ? 0 : uint248((uint256(paidAmount) * FEE) / FEE_PRECISION);
+        merchantPayoutAmount = paidAmount - protocolFeeAmount;
 
-        if (payoutAmount > 0) {
-            IERC20(payment.asset).safeTransfer(merchantAddress, payoutAmount);
+        refundAmount = payment.amount - paidAmount;
+
+        if (merchantPayoutAmount > 0) {
+            IERC20(payment.asset).safeTransfer(merchantAddress, merchantPayoutAmount);
         }
         if (refundAmount > 0) {
             IERC20(payment.asset).safeTransfer(payment.source, refundAmount);
+        }
+        if (protocolFeeAmount > 0) {
+            IERC20(payment.asset).safeTransfer(treasury, protocolFeeAmount);
         }
     }
 }

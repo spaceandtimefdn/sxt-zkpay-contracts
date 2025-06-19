@@ -28,6 +28,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     error QueryHasNotExpired();
     error NotEnoughGasToExecuteCallback();
     error NotErc20Token();
+    error SXTAddressCannotBeZero();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -37,6 +38,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     function initialize(
         address owner,
         address treasury,
+        address sxt,
         address nativeTokenPriceFeed,
         uint8 nativeTokenDecimals,
         uint64 nativeTokenStalePriceThresholdInSeconds
@@ -44,6 +46,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         __Ownable_init(owner);
         __ReentrancyGuard_init();
         _setTreasury(treasury);
+        _setSXT(sxt);
 
         AssetManagement.set(
             _assets,
@@ -55,6 +58,13 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
                 stalePriceThresholdInSeconds: nativeTokenStalePriceThresholdInSeconds
             })
         );
+    }
+
+    function _setSXT(address sxt) internal {
+        if (sxt == ZERO_ADDRESS) {
+            revert SXTAddressCannotBeZero();
+        }
+        _sxt = sxt;
     }
 
     function _setTreasury(address treasury) internal {
@@ -196,10 +206,10 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
             emit CallbackFailed(queryHash, queryRequest.callbackClientContractAddress);
         }
 
-        (uint248 payoutAmount, uint248 refundAmount) =
-            QueryLogic.settleQueryPayment(_assets, queryRequest.customLogicContractAddress, gasUsed, payment);
+        (uint248 paidAmount, uint248 refundAmount, uint248 merchantPayoutAmount, uint248 protocolFeeAmount) = QueryLogic
+            .settleQueryPayment(_assets, queryRequest.customLogicContractAddress, gasUsed, payment, _treasury, _sxt);
 
-        emit PaymentSettled(queryHash, payoutAmount, refundAmount);
+        emit PaymentSettled(queryHash, paidAmount, refundAmount, merchantPayoutAmount, protocolFeeAmount);
         emit QueryFulfilled(queryHash);
     }
 
@@ -212,8 +222,11 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
             revert NotErc20Token();
         }
 
-        (uint248 actualAmountReceived, uint248 amountInUSD) = _assets.send(asset, amount, target);
-        emit SendPayment(asset, actualAmountReceived, onBehalfOf, target, memo, amountInUSD, msg.sender);
+        (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
+            _assets.send(asset, amount, target, _treasury, _sxt);
+        emit SendPayment(
+            asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, target, memo, amountInUSD, msg.sender
+        );
     }
 
     /// @inheritdoc IZKPay
@@ -224,8 +237,11 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
 
         uint248 amount = uint248(msg.value);
 
-        (uint248 actualAmountReceived, uint248 amountInUSD) = _assets.send(NATIVE_ADDRESS, amount, target);
-        emit SendPayment(NATIVE_ADDRESS, actualAmountReceived, onBehalfOf, target, memo, amountInUSD, msg.sender);
+        (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
+            _assets.send(NATIVE_ADDRESS, amount, target, _treasury, _sxt);
+        emit SendPayment(
+            NATIVE_ADDRESS, actualAmountReceived, protocolFeeAmount, onBehalfOf, target, memo, amountInUSD, msg.sender
+        );
     }
 
     /// @inheritdoc IZKPay

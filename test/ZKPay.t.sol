@@ -30,9 +30,10 @@ contract ZKPayTest is Test, IZKPayClient {
         _treasury = vm.addr(0x2);
 
         _priceFeed = address(new MockV3Aggregator(8, 1000));
+        address sxt = address(new MockERC20());
         vm.prank(_owner);
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _priceFeed, 18, 1000))
+            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, _treasury, sxt, _priceFeed, 18, 1000))
         );
 
         zkpay = ZKPay(zkPayProxyAddress);
@@ -91,8 +92,11 @@ contract ZKPayTest is Test, IZKPayClient {
     }
 
     function testTransparentUpgrade() public {
+        address sxt = address(new MockERC20());
         address proxy = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", msg.sender, abi.encodeCall(ZKPay.initialize, (msg.sender, _treasury, _priceFeed, 18, 1000))
+            "ZKPay.sol",
+            msg.sender,
+            abi.encodeCall(ZKPay.initialize, (msg.sender, _treasury, sxt, _priceFeed, 18, 1000))
         );
         address implAddressV1 = Upgrades.getImplementationAddress(proxy);
         address adminAddress = Upgrades.getAdminAddress(proxy);

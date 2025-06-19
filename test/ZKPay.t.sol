@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {ZKPay} from "../src/ZKPay.sol";
 import {ZKPayV2} from "./mocks/ZKPayV2.sol";
@@ -473,5 +474,34 @@ contract ZKPayTest is Test, IZKPayClient {
         // Expect revert due to failed transfer
         vm.expectRevert(AssetManagement.NativePaymentFailed.selector);
         zkpay.sendNative{value: amount}(onBehalfOf, rejectingTarget, memo);
+    }
+
+    function testSendNativeFeeTransferFailed() public {
+        address onBehalfOfAddr = address(0x123);
+        bytes32 onBehalfOf = bytes32(uint256(uint160(onBehalfOfAddr)));
+        uint64 itemId = 789;
+        bytes memory memo = abi.encode(itemId);
+        uint248 amount = 1 ether;
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance);
+
+        RejectEther rejectingTreasury = new RejectEther();
+        vm.prank(_owner);
+        zkpay.setTreasury(address(rejectingTreasury));
+
+        vm.deal(address(this), amount);
+
+        vm.expectRevert(AssetManagement.NativePaymentFailed.selector);
+        zkpay.sendNative{value: amount}(onBehalfOf, address(0x456), memo);
+    }
+
+    function testInitializeWithZeroSXTAddressReverts() public {
+        address implementation = address(new ZKPay());
+
+        bytes memory initData = abi.encodeCall(ZKPay.initialize, (_owner, _treasury, address(0), _priceFeed, 18, 1000));
+
+        vm.expectRevert(ZKPay.SXTAddressCannotBeZero.selector);
+        new TransparentUpgradeableProxy(implementation, _owner, initData);
     }
 }

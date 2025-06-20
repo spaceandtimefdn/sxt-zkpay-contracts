@@ -43,8 +43,8 @@ contract QueryLogicWrapperWithoutReceive {
         address customLogicContractAddress,
         uint248 gasUsed,
         QueryLogic.QueryPayment calldata payment
-    ) external returns (uint248 payoutAmount, uint248 refundAmount) {
-        (payoutAmount, refundAmount) =
+    ) external returns (uint248 paidAmount, uint248 refundAmount) {
+        (paidAmount, refundAmount) =
             QueryLogic.settleQueryPayment(_assets, customLogicContractAddress, gasUsed, payment);
     }
 
@@ -102,10 +102,10 @@ contract QueryLogicTest is Test {
 
         wrapper.settleQueryPayment(customLogicContractAddress, gasUsed, payment);
 
-        (address payoutAddress,) = ICustomLogic(customLogicContractAddress).getPayoutAddressAndFee();
+        (address merchantAddress,) = ICustomLogic(customLogicContractAddress).getMerchantAddressAndFee();
 
         assertLt(MockERC20(usdc).balanceOf(address(wrapper)), paymentAmount);
-        assertGt(MockERC20(usdc).balanceOf(payoutAddress), 0);
+        assertGt(MockERC20(usdc).balanceOf(merchantAddress), 0);
     }
 
     function testSettleQueryPaymentWithUsdc() public {
@@ -123,10 +123,10 @@ contract QueryLogicTest is Test {
 
         wrapper.settleQueryPayment(customLogicContractAddress, gasUsed, payment);
 
-        (address payoutAddress,) = ICustomLogic(customLogicContractAddress).getPayoutAddressAndFee();
+        (address merchantAddress,) = ICustomLogic(customLogicContractAddress).getMerchantAddressAndFee();
 
         assertLt(MockERC20(usdcAddress).balanceOf(address(wrapper)), paymentAmount);
-        assertGt(MockERC20(usdcAddress).balanceOf(payoutAddress), 0);
+        assertGt(MockERC20(usdcAddress).balanceOf(merchantAddress), 0);
     }
 
     function testPayoutAmountExceedsPaymentAmount() public {
@@ -143,10 +143,10 @@ contract QueryLogicTest is Test {
 
         wrapper.settleQueryPayment(customLogicContractAddress, gasUsed, payment);
 
-        (address payoutAddress,) = ICustomLogic(customLogicContractAddress).getPayoutAddressAndFee();
+        (address merchantAddress,) = ICustomLogic(customLogicContractAddress).getMerchantAddressAndFee();
 
         assertEq(MockERC20(usdc).balanceOf(address(wrapper)), 0);
-        assertEq(MockERC20(usdc).balanceOf(payoutAddress), paymentAmount);
+        assertEq(MockERC20(usdc).balanceOf(merchantAddress), paymentAmount);
     }
 
     function testQueryLogicCancelQuery() public {

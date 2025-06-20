@@ -191,13 +191,13 @@ contract QueryFulfillmentTest is Test, IZKPayClient {
         assertEq(usdc.balanceOf(_queryRequest.customLogicContractAddress), usdcAmount);
     }
 
-    function testCustomLogicPayoutAddress() public {
-        (address customLogicPayoutAddress,) =
-            ICustomLogic(_queryRequest.customLogicContractAddress).getPayoutAddressAndFee();
+    function testCustomLogicMerchantAddress() public {
+        (address customLogicMerchantAddress,) =
+            ICustomLogic(_queryRequest.customLogicContractAddress).getMerchantAddressAndFee();
 
-        uint256 balanceBefore = usdc.balanceOf(customLogicPayoutAddress);
+        uint256 balanceBefore = usdc.balanceOf(customLogicMerchantAddress);
         zkpay.fulfillQuery(_queryHash, _queryRequest, "results");
-        uint256 balanceAfter = usdc.balanceOf(customLogicPayoutAddress);
+        uint256 balanceAfter = usdc.balanceOf(customLogicMerchantAddress);
 
         assertGt(balanceAfter, balanceBefore, "merchant did not receive payment");
     }

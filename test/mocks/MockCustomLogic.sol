@@ -7,7 +7,7 @@ import {QueryLogic} from "../../src/libraries/QueryLogic.sol";
 contract MockCustomLogic is ICustomLogic {
     receive() external payable {}
 
-    function getPayoutAddressAndFee() external view override returns (address, uint248) {
+    function getMerchantAddressAndFee() external view override returns (address, uint248) {
         return (address(this), 1e18); // 1 USD
     }
 

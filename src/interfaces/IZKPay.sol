@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {AssetManagement} from "../libraries/AssetManagement.sol";
 import {QueryLogic} from "../libraries/QueryLogic.sol";
+import {MerchantLogic} from "../libraries/MerchantLogic.sol";
 
 interface IZKPay {
     /// @notice Emitted when the treasury address is set
@@ -120,4 +121,13 @@ interface IZKPay {
     /// @param target The target address to receive the payment
     /// @param memo Additional data or information about the payment
     function sendNative(bytes32 onBehalfOf, address target, bytes calldata memo) external payable;
+
+    /// @notice Sets the merchant configuration for the caller
+    /// @param config Merchant configuration struct
+    function setMerchantConfig(MerchantLogic.MerchantConfig calldata config) external;
+
+    /// @notice Returns the merchant configuration for a given merchant
+    /// @param merchant The merchant address
+    /// @return config The merchant configuration
+    function getMerchantConfig(address merchant) external view returns (MerchantLogic.MerchantConfig memory config);
 }

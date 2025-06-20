@@ -9,6 +9,7 @@ import {ZKPayStorage} from "./ZKPayStorage.sol";
 import {IZKPay} from "./interfaces/IZKPay.sol";
 import {AssetManagement} from "./libraries/AssetManagement.sol";
 import {QueryLogic} from "./libraries/QueryLogic.sol";
+import {MerchantLogic} from "./libraries/MerchantLogic.sol";
 import {IZKPayClient} from "./interfaces/IZKPayClient.sol";
 import {ICustomLogic} from "./interfaces/ICustomLogic.sol";
 import {NATIVE_ADDRESS, ZERO_ADDRESS} from "./libraries/Constants.sol";
@@ -16,6 +17,7 @@ import {NATIVE_ADDRESS, ZERO_ADDRESS} from "./libraries/Constants.sol";
 // slither-disable-next-line locked-ether
 contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
+    using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
 
     error TreasuryAddressCannotBeZero();
     error TreasuryAddressSameAsCurrent();
@@ -224,5 +226,15 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
 
         (uint248 actualAmountReceived, uint248 amountInUSD) = _assets.send(NATIVE_ADDRESS, amount, target);
         emit SendPayment(NATIVE_ADDRESS, actualAmountReceived, onBehalfOf, target, memo, amountInUSD, msg.sender);
+    }
+
+    /// @inheritdoc IZKPay
+    function setMerchantConfig(MerchantLogic.MerchantConfig calldata config) external {
+        _merchantConfigs.set(msg.sender, config);
+    }
+
+    /// @inheritdoc IZKPay
+    function getMerchantConfig(address merchant) external view returns (MerchantLogic.MerchantConfig memory config) {
+        return _merchantConfigs.get(merchant);
     }
 }

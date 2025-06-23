@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {AssetManagement} from "./libraries/AssetManagement.sol";
 import {QueryLogic} from "./libraries/QueryLogic.sol";
+import {MerchantLogic} from "./libraries/MerchantLogic.sol";
 
 contract ZKPayStorage {
     address internal _treasury;
@@ -11,4 +12,5 @@ contract ZKPayStorage {
     mapping(bytes32 queryHash => uint64 querySubmissionTimestamp) internal _querySubmissionTimestamps;
     uint248[1] internal _queryNonce;
     mapping(bytes32 queryHash => QueryLogic.QueryPayment queryPayment) internal _queryPayments;
+    mapping(address merchantAddress => MerchantLogic.MerchantConfig merchantConfig) internal _merchantConfigs;
 }

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+solhint "**/*.sol" -w 0
+slither ./
+forge clean && forge test
+
+if ! bash jobs/check_coverage.sh; then
+  echo "run this command to check coverage details with lcov: forge clean > /dev/null && forge build > /dev/null && forge coverage --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage --ignore-errors category,category,inconsistent"
+  exit 1
+fi

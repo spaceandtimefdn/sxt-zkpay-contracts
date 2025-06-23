@@ -13,10 +13,10 @@ interface ICustomLogic {
     /// @param owner The address of the custom logic contract owner, who receives protocol rewards
     event Execute(QueryLogic.QueryRequest queryRequest, bytes queryResult, address owner);
 
-    /// @notice Returns the address that should receive the payout
-    /// @return payoutAddress The address that should receive the payout
+    /// @notice Returns the address that should receive the merchant payout
+    /// @return merchantAddress The merchant address that should receive the payout
     /// @return fee The fee that should be paid to the custom logic contract in USD with 18 decimals
-    function getPayoutAddressAndFee() external view returns (address payoutAddress, uint248 fee);
+    function getMerchantAddressAndFee() external view returns (address merchantAddress, uint248 fee);
 
     /// @notice Executes custom logic prior to the callback to the client
     /// @param queryRequest The struct containing the query details

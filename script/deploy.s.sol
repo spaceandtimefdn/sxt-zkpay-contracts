@@ -31,7 +31,7 @@ contract Deploy is Script {
         address zkpayOwner;
         address zkpayTreasury;
         address nativeTokenPriceFeed;
-        address posqlPayoutAddress;
+        address posqlMerchantAddress;
         address usdcTokenAddress;
         address usdcTokenPriceFeed;
         address clientContractOwner;
@@ -52,7 +52,7 @@ contract Deploy is Script {
         config.nativeTokenDecimals = uint8(configJson.readUint(".nativeTokenDecimals"));
         config.nativeTokenStalePriceThresholdInSeconds =
             uint64(configJson.readUint(".nativeTokenStalePriceThresholdInSeconds"));
-        config.posqlPayoutAddress = configJson.readAddress(".posqlPayoutAddress");
+        config.posqlMerchantAddress = configJson.readAddress(".posqlMerchantAddress");
 
         // usdc payment asset section
         config.usdcTokenAddress = configJson.readAddress(".usdcTokenAddress");
@@ -101,7 +101,7 @@ contract Deploy is Script {
         zkpay.setPaymentAsset(config.usdcTokenAddress, usdcPaymentAsset);
 
         // Deploy PoSQLVerifier
-        address posqlVerifierCustomLogic = address(new PoSQLVerifier(config.posqlPayoutAddress));
+        address posqlVerifierCustomLogic = address(new PoSQLVerifier(config.posqlMerchantAddress));
         console.log("PoSQLVerifier custom logic deployed at:", posqlVerifierCustomLogic);
 
         // Deploy ClientContractExample
@@ -175,8 +175,8 @@ contract Deploy is Script {
             "    \"nativeTokenStalePriceThresholdInSeconds\": ",
             _uint64ToString(config.nativeTokenStalePriceThresholdInSeconds),
             ",\n",
-            "    \"posqlPayoutAddress\": \"",
-            _addressToString(config.posqlPayoutAddress),
+            "    \"posqlMerchantAddress\": \"",
+            _addressToString(config.posqlMerchantAddress),
             "\",\n",
             "    \"usdcTokenAddress\": \"",
             _addressToString(config.usdcTokenAddress),

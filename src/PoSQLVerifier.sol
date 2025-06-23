@@ -5,7 +5,7 @@ import {ICustomLogic} from "./interfaces/ICustomLogic.sol";
 import {QueryLogic} from "./libraries/QueryLogic.sol";
 
 contract PoSQLVerifier is ICustomLogic {
-    address public immutable PAYOUT_ADDRESS;
+    address public immutable MERCHANT_ADDRESS;
     address private immutable OWNER;
 
     error ZeroAddressNotAllowed();
@@ -16,26 +16,26 @@ contract PoSQLVerifier is ICustomLogic {
         _;
     }
 
-    constructor(address payoutAddress) {
-        if (payoutAddress == address(0)) revert ZeroAddressNotAllowed();
-        PAYOUT_ADDRESS = payoutAddress;
+    constructor(address merchantAddress) {
+        if (merchantAddress == address(0)) revert ZeroAddressNotAllowed();
+        MERCHANT_ADDRESS = merchantAddress;
         OWNER = msg.sender;
     }
 
     receive() external payable {}
 
     /// @notice Returns the payout address and fee
-    /// @return payoutAddress The payout address
+    /// @return merchantAddress The merchant address
     /// @return fee The fee (1 USD)
-    function getPayoutAddressAndFee() external view override returns (address payoutAddress, uint248 fee) {
-        return (PAYOUT_ADDRESS, 1e18);
+    function getMerchantAddressAndFee() external view override returns (address merchantAddress, uint248 fee) {
+        return (MERCHANT_ADDRESS, 1e18);
     }
 
     function execute(QueryLogic.QueryRequest calldata queryRequest, bytes calldata queryResult)
         external
         returns (bytes memory)
     {
-        emit Execute(queryRequest, queryResult, PAYOUT_ADDRESS);
+        emit Execute(queryRequest, queryResult, MERCHANT_ADDRESS);
         return queryResult;
     }
 

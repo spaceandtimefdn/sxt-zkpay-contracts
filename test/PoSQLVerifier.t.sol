@@ -7,23 +7,23 @@ import {QueryLogic} from "../src/libraries/QueryLogic.sol";
 
 contract PoSQLVerifierTest is Test {
     PoSQLVerifier public verifier;
-    address public payoutAddress;
+    address public merchantAddress;
     address public owner;
 
-    event Execute(QueryLogic.QueryRequest queryRequest, bytes queryResult, address payoutAddress);
+    event Execute(QueryLogic.QueryRequest queryRequest, bytes queryResult, address merchantAddress);
 
     // Add receive function to allow the test contract to receive ETH
     receive() external payable {}
 
     function setUp() public {
         owner = address(this);
-        payoutAddress = address(0x123);
-        verifier = new PoSQLVerifier(payoutAddress);
+        merchantAddress = address(0x123);
+        verifier = new PoSQLVerifier(merchantAddress);
     }
 
     function testConstructor() public view {
         // Test that the constructor sets the payout address correctly
-        assertEq(verifier.PAYOUT_ADDRESS(), payoutAddress);
+        assertEq(verifier.MERCHANT_ADDRESS(), merchantAddress);
     }
 
     function testConstructorZeroAddressReverts() public {
@@ -47,12 +47,12 @@ contract PoSQLVerifierTest is Test {
         assertEq(address(verifier).balance, initialBalance + amountToSend);
     }
 
-    function testGetPayoutAddressAndFee() public view {
-        // Test the getPayoutAddressAndFee function
-        (address returnedPayoutAddress, uint248 fee) = verifier.getPayoutAddressAndFee();
+    function testGetMerchantAddressAndFee() public view {
+        // Test the getMerchantAddressAndFee function
+        (address returnedMerchantAddress, uint248 fee) = verifier.getMerchantAddressAndFee();
 
         // Verify the returned payout address matches the one set in the constructor
-        assertEq(returnedPayoutAddress, payoutAddress);
+        assertEq(returnedMerchantAddress, merchantAddress);
 
         // Verify the fee is 1 USD (1e18)
         assertEq(fee, 1e18);
@@ -74,7 +74,7 @@ contract PoSQLVerifierTest is Test {
 
         // Expect the Execute event to be emitted
         vm.expectEmit(true, true, true, true);
-        emit Execute(queryRequest, queryResult, payoutAddress);
+        emit Execute(queryRequest, queryResult, merchantAddress);
 
         // Call the execute function
         bytes memory result = verifier.execute(queryRequest, queryResult);

@@ -212,7 +212,7 @@ library QueryLogic {
         uint248 usedGasInWei = uint248(gasUsed * block.basefee);
         uint248 usedGasInPaymentToken = AssetManagement.convertNativeToToken(_assets, payment.asset, usedGasInWei);
 
-        (address payoutAddress, uint248 fee) = ICustomLogic(customLogicContractAddress).getPayoutAddressAndFee();
+        (address merchantAddress, uint248 fee) = ICustomLogic(customLogicContractAddress).getMerchantAddressAndFee();
         uint248 feeInPaymentToken = AssetManagement.convertUsdToToken(_assets, payment.asset, fee);
         payoutAmount = usedGasInPaymentToken + feeInPaymentToken;
 
@@ -223,7 +223,7 @@ library QueryLogic {
         refundAmount = payment.amount - payoutAmount;
 
         if (payoutAmount > 0) {
-            IERC20(payment.asset).safeTransfer(payoutAddress, payoutAmount);
+            IERC20(payment.asset).safeTransfer(merchantAddress, payoutAmount);
         }
         if (refundAmount > 0) {
             IERC20(payment.asset).safeTransfer(payment.source, refundAmount);

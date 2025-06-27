@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import "./PayWallStorage.sol";
-import "./SwapLogicLib.sol";
+import {SwapLogicLib} from "./libraries/SwapLogicLib.sol";
 import "./interfaces/IPayWall.sol";
 
 /// @title PayWall – ERC‑20 payment router with Uniswap settlement & fee capture.

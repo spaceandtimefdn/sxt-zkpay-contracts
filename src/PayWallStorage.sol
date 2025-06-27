@@ -2,10 +2,10 @@
 pragma solidity 0.8.28;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ISwapRouter} from "@uniswap/v3-periphery//contracts/interfaces/ISwapRouter.sol";
+import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 /// @title PayWallStorage
 /// @dev All layout, modifiers & internal helpers live here, separated from logic.
@@ -23,11 +23,9 @@ abstract contract PayWallStorage is Ownable, ReentrancyGuard {
 
     address public treasury; // protocol‑fee sink
     mapping(address => bool) public whitelistedSource; // ERC‑20 → whitelisted?
-    mapping(address => MerchantConfig) private merchantConfig; // merchant → cfg
+    mapping(address => MerchantConfig) public merchantConfig; // merchant → cfg
 
-    event TreasurySet(address indexed treasury);
-
-    constructor(address _router, address _sxt) {
+    constructor(address _router, address _sxt) Ownable(msg.sender) {
         require(_router != address(0) && _sxt != address(0), "ZERO_ADDRESS");
         swapRouter = ISwapRouter(_router);
         SXT = _sxt;

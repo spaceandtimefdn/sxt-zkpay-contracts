@@ -3,4 +3,5 @@
 @openzeppelin/contracts-upgradeable/=dependencies/@openzeppelin-contracts-upgradeable-5.2.0/
 @uniswap/v3-periphery/=dependencies/@uniswap-v3-periphery-1.4.4/
 forge-std/=dependencies/forge-std-1.9.6/src/
+@uniswap/v3-core/=dependencies/@uniswap-v3-periphery-1.4.4/node_modules/@uniswap/v3-core/
 openzeppelin-foundry-upgrades/=dependencies/openzeppelin-foundry-upgrades-0.4.0/src/

@@ -10,12 +10,14 @@ interface IPayWall {
     event TreasurySet(address indexed treasury);
 
     /// @notice Emitted when a payment is made
-    /// @param asset The asset used for payment
-    /// @param amount The amount of tokens used for payment
-    /// @param onBehalfOf The identifier on whose behalf the payment was made
-    /// @param target The target address
+    /// @param sourceAsset The asset used for payment
+    /// @param sourceAssetAmount The amount of source asset tokens used for payment
+    /// @param targetAsset The target asset received
+    /// @param targetAssetAmount The amount of target asset tokens received
+    /// @param merchant The merchant address
+    /// @param merchantPayoutAddress The merchant's payout address
     /// @param memo Additional data or information about the payment
-    /// @param amountInUSD The amount in USD
+    /// @param onBehalfOf The identifier on whose behalf the payment was made
     /// @param sender The address that initiated the payment
     event SendPayment(
         address indexed sourceAsset,

@@ -48,6 +48,6 @@ library SwapLogicLib {
         amountOut = router.exactInputSingle(params);
 
         // Reset approval to 0 as a hygiene measure.
-        IERC20(tokenIn).safeApprove(address(router), 0);
+        IERC20(tokenIn).safeDecreaseAllowance(address(router), amountIn);
     }
 }

@@ -13,15 +13,17 @@ contract ZKPayMerchantConfigTest is Test {
     address internal _owner;
     address internal _treasury;
     address internal _priceFeed;
+    address internal _sxt;
 
     function setUp() public {
         _owner = vm.addr(0x1);
         _treasury = vm.addr(0x2);
         _priceFeed = address(new MockV3Aggregator(8, 1000));
+        _sxt = vm.addr(0x3);
 
         vm.prank(_owner);
         address proxy = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _priceFeed, 18, 1000))
+            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _sxt, _priceFeed, 18, 1000))
         );
         _zkpay = ZKPay(proxy);
     }

@@ -5,7 +5,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
 import {Utils} from "./Utils.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {NATIVE_ADDRESS, ZERO_ADDRESS, FEE, FEE_PRECISION} from "./Constants.sol";
+import {NATIVE_ADDRESS, ZERO_ADDRESS, PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "./Constants.sol";
 /// @title AssetManagement
 /// @notice Library for managing payment assets,
 /// @dev It allows for setting, removing and getting payment assets. use address(0) as an asset address to refer to native token.
@@ -283,6 +283,8 @@ library AssetManagement {
     /// @param asset The address of the asset to send the payment for.
     /// @param amount The amount of the asset to send.
     /// @param target The address of the target to send the payment to.
+    /// @param treasury The address of the treasury to send the protocol fee to.
+    /// @param sxt The address of the SXT token.
     function send(
         mapping(address asset => PaymentAsset) storage _assets,
         address asset,
@@ -299,7 +301,7 @@ library AssetManagement {
             revert AssetIsNotSupportedForThisMethod();
         }
 
-        protocolFeeAmount = asset == sxt ? 0 : uint248((uint256(amount) * FEE) / FEE_PRECISION);
+        protocolFeeAmount = asset == sxt ? 0 : uint248((uint256(amount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
         uint248 transferAmount = amount - protocolFeeAmount;
 
         if (asset == NATIVE_ADDRESS) {

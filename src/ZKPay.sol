@@ -91,6 +91,11 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     }
 
     /// @inheritdoc IZKPay
+    function getSXT() external view returns (address sxt) {
+        return _sxt;
+    }
+
+    /// @inheritdoc IZKPay
     function setPaymentAsset(address assetAddress, AssetManagement.PaymentAsset calldata paymentAsset)
         external
         onlyOwner

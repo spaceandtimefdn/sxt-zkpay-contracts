@@ -12,7 +12,13 @@ import {AssetManagement} from "../src/libraries/AssetManagement.sol";
 import {QueryLogic} from "../src/libraries/QueryLogic.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {IZKPay} from "../src/interfaces/IZKPay.sol";
-import {NATIVE_ADDRESS, ZERO_ADDRESS, MAX_GAS_CLIENT_CALLBACK} from "../src/libraries/Constants.sol";
+import {
+    NATIVE_ADDRESS,
+    ZERO_ADDRESS,
+    MAX_GAS_CLIENT_CALLBACK,
+    PROTOCOL_FEE,
+    PROTOCOL_FEE_PRECISION
+} from "../src/libraries/Constants.sol";
 import {IZKPayClient} from "../src/interfaces/IZKPayClient.sol";
 import {MockCustomLogic} from "./mocks/MockCustomLogic.sol";
 import {RejectEther} from "./mocks/RejectEther.sol";
@@ -23,6 +29,7 @@ contract ZKPayTest is Test, IZKPayClient {
     address public _treasury;
     address public _priceFeed;
     AssetManagement.PaymentAsset public paymentAssetInstance;
+    address public _sxt;
 
     event CallbackCalled(bytes32 queryHash, bytes queryResult, bytes callbackData);
 
@@ -31,10 +38,10 @@ contract ZKPayTest is Test, IZKPayClient {
         _treasury = vm.addr(0x2);
 
         _priceFeed = address(new MockV3Aggregator(8, 1000));
-        address sxt = address(new MockERC20());
+        _sxt = address(new MockERC20());
         vm.prank(_owner);
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, _treasury, sxt, _priceFeed, 18, 1000))
+            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _sxt, _priceFeed, 18, 1000))
         );
 
         zkpay = ZKPay(zkPayProxyAddress);
@@ -49,6 +56,10 @@ contract ZKPayTest is Test, IZKPayClient {
 
     function testInitiateTreasuryAddress() public view {
         assertEq(zkpay.getTreasury(), _treasury);
+    }
+
+    function testGetSXT() public view {
+        assertEq(zkpay.getSXT(), _sxt);
     }
 
     function testFuzzSetTreasury(address treasury) public {
@@ -385,8 +396,17 @@ contract ZKPayTest is Test, IZKPayClient {
         // fulfill query
         vm.expectEmit(true, true, true, true);
         emit IZKPay.CallbackSucceeded(queryHash, address(this));
+
+        uint248 paidAmount = 1e6; // todo: need to be constant across all tests
+        uint248 refundAmount = usdcAmount - paidAmount;
+        uint248 protocolFeeAmount = uint248(PROTOCOL_FEE * paidAmount / PROTOCOL_FEE_PRECISION);
+        uint248 merchantPayoutAmount = paidAmount - protocolFeeAmount;
+        vm.expectEmit(true, true, true, true);
+        emit IZKPay.PaymentSettled(queryHash, paidAmount, refundAmount, merchantPayoutAmount, protocolFeeAmount);
+
         vm.expectEmit(true, true, true, true);
         emit IZKPay.QueryFulfilled(queryHash);
+
         zkpay.fulfillQuery(queryHash, queryRequest, "results");
     }
 

@@ -51,6 +51,7 @@ interface IZKPay {
     /// @notice Emitted when a payment is made
     /// @param asset The asset used for payment
     /// @param amount The amount of tokens used for payment
+    /// @param protocolFeeAmount The amount of protocol fee in source token.
     /// @param onBehalfOf The identifier on whose behalf the payment was made
     /// @param target The target address
     /// @param memo Additional data or information about the payment
@@ -74,6 +75,10 @@ interface IZKPay {
     /// @notice Gets the treasury address
     /// @return treasury The treasury address
     function getTreasury() external view returns (address treasury);
+
+    /// @notice Gets the SXT token address
+    /// @return sxt The SXT token address
+    function getSXT() external view returns (address sxt);
 
     /// @notice Sets the payment asset
     /// @param assetAddress The asset to set

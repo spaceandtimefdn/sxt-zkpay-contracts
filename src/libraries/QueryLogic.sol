@@ -5,7 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AssetManagement} from "./AssetManagement.sol";
 import {ICustomLogic} from "../interfaces/ICustomLogic.sol";
-import {MAX_GAS_CLIENT_CALLBACK, FEE, FEE_PRECISION} from "./Constants.sol";
+import {MAX_GAS_CLIENT_CALLBACK, PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "./Constants.sol";
 
 /// @title QueryLogic
 library QueryLogic {
@@ -233,7 +233,8 @@ library QueryLogic {
             paidAmount = payment.amount;
         }
 
-        protocolFeeAmount = payment.asset == sxt ? 0 : uint248((uint256(paidAmount) * FEE) / FEE_PRECISION);
+        protocolFeeAmount =
+            payment.asset == sxt ? 0 : uint248((uint256(paidAmount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
         merchantPayoutAmount = paidAmount - protocolFeeAmount;
 
         refundAmount = payment.amount - paidAmount;

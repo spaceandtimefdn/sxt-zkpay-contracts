@@ -11,6 +11,7 @@ import {QueryLogic} from "../../src/libraries/QueryLogic.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {MockCustomLogic} from "../mocks/MockCustomLogic.sol";
+import {DummyData} from "../data/DummyData.sol";
 
 /**
  * @title ClientFallbackMethodTest
@@ -45,7 +46,18 @@ contract ClientFallbackMethodTest is Test {
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
             "ZKPay.sol",
             _owner,
-            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, sxt, _nativeTokenPriceFeed, nativeTokenDecimals, 1000))
+            abi.encodeCall(
+                ZKPay.initialize,
+                (
+                    _owner,
+                    _treasury,
+                    sxt,
+                    _nativeTokenPriceFeed,
+                    nativeTokenDecimals,
+                    1000,
+                    DummyData.getSwapLogicConfig()
+                )
+            )
         );
         zkpay = ZKPay(zkPayProxyAddress);
 
@@ -63,7 +75,7 @@ contract ClientFallbackMethodTest is Test {
             tokenDecimals: usdcDecimals,
             stalePriceThresholdInSeconds: 1000
         });
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance);
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getSwapPath());
 
         vm.stopPrank();
 

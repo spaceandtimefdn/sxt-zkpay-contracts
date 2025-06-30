@@ -9,6 +9,7 @@ import {ZKPay} from "../src/ZKPay.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {NATIVE_ADDRESS, PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "../src/libraries/Constants.sol";
+import {DummyData} from "./data/DummyData.sol";
 
 contract PaymentFunctionsTest is Test {
     ZKPay public zkpay;
@@ -58,7 +59,10 @@ contract PaymentFunctionsTest is Test {
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
             "ZKPay.sol",
             owner,
-            abi.encodeCall(ZKPay.initialize, (owner, treasury, sxt, nativeTokenPriceFeed, nativeTokenDecimals, 1000))
+            abi.encodeCall(
+                ZKPay.initialize,
+                (owner, treasury, sxt, nativeTokenPriceFeed, nativeTokenDecimals, 1000, DummyData.getSwapLogicConfig())
+            )
         );
         zkpay = ZKPay(zkPayProxyAddress);
 
@@ -76,7 +80,8 @@ contract PaymentFunctionsTest is Test {
                 priceFeed: usdcPriceFeed,
                 tokenDecimals: 6,
                 stalePriceThresholdInSeconds: 1000
-            })
+            }),
+            DummyData.getSwapPath()
         );
 
         // Update native token to support Send payment type
@@ -87,7 +92,8 @@ contract PaymentFunctionsTest is Test {
                 priceFeed: nativeTokenPriceFeed,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 1000
-            })
+            }),
+            DummyData.getSwapPath()
         );
 
         vm.stopPrank();
@@ -122,7 +128,8 @@ contract PaymentFunctionsTest is Test {
                 priceFeed: sxtPriceFeed,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 1000
-            })
+            }),
+            DummyData.getSwapPath()
         );
         vm.stopPrank();
 
@@ -209,7 +216,8 @@ contract PaymentFunctionsTest is Test {
                 priceFeed: newTokenPriceFeed,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 1000
-            })
+            }),
+            DummyData.getSwapPath()
         );
         vm.stopPrank();
 
@@ -227,7 +235,7 @@ contract PaymentFunctionsTest is Test {
         });
 
         vm.prank(owner);
-        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance);
+        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getSwapPath());
 
         // Convert onBehalfOf address to bytes32
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));

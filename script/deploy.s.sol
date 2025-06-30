@@ -12,6 +12,7 @@ import {ZKPay} from "../src/ZKPay.sol";
 import {PoSQLVerifier} from "../src/PoSQLVerifier.sol";
 import {ClientContractExample} from "../test/mocks/ClientContractExample.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
+import {SwapLogic} from "../src/libraries/Swap.sol";
 
 /// @title Deploy
 /// @notice Deploy the ZKPay contract and PoSQLVerifier custom logic
@@ -36,6 +37,11 @@ contract Deploy is Script {
         address usdcTokenAddress;
         address usdcTokenPriceFeed;
         address clientContractOwner;
+        address router;
+        address usdt;
+        address sxt;
+        bytes defaultTargetAssetPath;
+        bytes usdcToUsdtPath;
     }
     /* solhint-enable gas-struct-packing */
 
@@ -66,6 +72,12 @@ contract Deploy is Script {
         // client contract section
         config.clientContractOwner = configJson.readAddress(".clientContractOwner");
 
+        // swap logic section
+        config.router = configJson.readAddress(".router");
+        config.usdt = configJson.readAddress(".usdt");
+        config.sxt = configJson.readAddress(".sxt");
+        config.defaultTargetAssetPath = configJson.readBytes(".defaultTargetAssetPath");
+
         vm.startBroadcast();
 
         // Deploy ZKPay as a transparent proxy
@@ -80,7 +92,13 @@ contract Deploy is Script {
                     config.sxtTokenAddress,
                     config.nativeTokenPriceFeed,
                     config.nativeTokenDecimals,
-                    config.nativeTokenStalePriceThresholdInSeconds
+                    config.nativeTokenStalePriceThresholdInSeconds,
+                    SwapLogic.SwapLogicConfig({
+                        router: [config.router],
+                        usdt: [config.usdt],
+                        sxt: [config.sxt],
+                        defaultTargetAssetPath: config.defaultTargetAssetPath
+                    })
                 )
             )
         );
@@ -101,7 +119,7 @@ contract Deploy is Script {
             tokenDecimals: config.usdcTokenDecimals,
             stalePriceThresholdInSeconds: config.usdcTokenStalePriceThresholdInSeconds
         });
-        zkpay.setPaymentAsset(config.usdcTokenAddress, usdcPaymentAsset);
+        zkpay.setPaymentAsset(config.usdcTokenAddress, usdcPaymentAsset, config.usdcToUsdtPath);
 
         // Deploy PoSQLVerifier
         address posqlVerifierCustomLogic = address(new PoSQLVerifier(config.posqlMerchantAddress));

@@ -15,6 +15,7 @@ import {MockCustomLogic} from "../mocks/MockCustomLogic.sol";
 import {FailingClientContract} from "../mocks/FailingClientContract.sol";
 import {ICustomLogic} from "../../src/interfaces/ICustomLogic.sol";
 import {PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "../../src/libraries/Constants.sol";
+import {DummyData} from "../data/DummyData.sol";
 
 contract QueryFulfillmentTest is Test, IZKPayClient {
     ZKPay public zkpay;
@@ -47,7 +48,18 @@ contract QueryFulfillmentTest is Test, IZKPayClient {
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
             "ZKPay.sol",
             _owner,
-            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, sxt, _nativeTokenPriceFeed, nativeTokenDecimals, 1000))
+            abi.encodeCall(
+                ZKPay.initialize,
+                (
+                    _owner,
+                    _treasury,
+                    sxt,
+                    _nativeTokenPriceFeed,
+                    nativeTokenDecimals,
+                    1000,
+                    DummyData.getSwapLogicConfig()
+                )
+            )
         );
         zkpay = ZKPay(zkPayProxyAddress);
 
@@ -66,7 +78,7 @@ contract QueryFulfillmentTest is Test, IZKPayClient {
             tokenDecimals: usdcDecimals,
             stalePriceThresholdInSeconds: 1000
         });
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance);
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getSwapPath());
 
         vm.stopPrank();
 

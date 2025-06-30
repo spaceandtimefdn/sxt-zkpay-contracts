@@ -7,6 +7,7 @@ import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggreg
 
 import {ZKPay} from "../src/ZKPay.sol";
 import {MerchantLogic} from "../src/libraries/MerchantLogic.sol";
+import {DummyData} from "./data/DummyData.sol";
 
 contract ZKPayMerchantConfigTest is Test {
     ZKPay internal _zkpay;
@@ -23,7 +24,11 @@ contract ZKPayMerchantConfigTest is Test {
 
         vm.prank(_owner);
         address proxy = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _sxt, _priceFeed, 18, 1000))
+            "ZKPay.sol",
+            _owner,
+            abi.encodeCall(
+                ZKPay.initialize, (_owner, _treasury, _sxt, _priceFeed, 18, 1000, DummyData.getSwapLogicConfig())
+            )
         );
         _zkpay = ZKPay(proxy);
     }
@@ -39,7 +44,7 @@ contract ZKPayMerchantConfigTest is Test {
         emit MerchantLogic.MerchantConfigSet(
             address(this), merchantConfig.payoutToken, merchantConfig.payoutAddress, merchantConfig.fulfillerPercentage
         );
-        _zkpay.setMerchantConfig(merchantConfig);
+        _zkpay.setMerchantConfig(merchantConfig, DummyData.getSwapPath());
 
         MerchantLogic.MerchantConfig memory r = _zkpay.getMerchantConfig(address(this));
         assertEq(r.payoutToken, merchantConfig.payoutToken);
@@ -55,7 +60,7 @@ contract ZKPayMerchantConfigTest is Test {
         });
 
         vm.expectRevert(MerchantLogic.InvalidFulfillerPercentage.selector);
-        _zkpay.setMerchantConfig(merchantConfig);
+        _zkpay.setMerchantConfig(merchantConfig, DummyData.getSwapPath());
     }
 
     function testSetMerchantConfigZeroPayoutAddress() public {
@@ -63,6 +68,6 @@ contract ZKPayMerchantConfigTest is Test {
             MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: address(0), fulfillerPercentage: 1});
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
-        _zkpay.setMerchantConfig(merchantConfig);
+        _zkpay.setMerchantConfig(merchantConfig, DummyData.getSwapPath());
     }
 }

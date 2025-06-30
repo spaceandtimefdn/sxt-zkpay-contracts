@@ -13,6 +13,7 @@ import {MerchantLogic} from "./libraries/MerchantLogic.sol";
 import {IZKPayClient} from "./interfaces/IZKPayClient.sol";
 import {ICustomLogic} from "./interfaces/ICustomLogic.sol";
 import {NATIVE_ADDRESS, ZERO_ADDRESS} from "./libraries/Constants.sol";
+import {SwapLogic} from "./libraries/Swap.sol";
 
 // slither-disable-next-line locked-ether
 contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
@@ -41,12 +42,14 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         address sxt,
         address nativeTokenPriceFeed,
         uint8 nativeTokenDecimals,
-        uint64 nativeTokenStalePriceThresholdInSeconds
+        uint64 nativeTokenStalePriceThresholdInSeconds,
+        SwapLogic.SwapLogicConfig calldata swapLogicConfig
     ) external initializer {
         __Ownable_init(owner);
         __ReentrancyGuard_init();
         _setTreasury(treasury);
         _setSXT(sxt);
+        SwapLogic.setConfig(_swapLogicConfig, swapLogicConfig);
 
         AssetManagement.set(
             _assets,
@@ -96,11 +99,13 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     }
 
     /// @inheritdoc IZKPay
-    function setPaymentAsset(address assetAddress, AssetManagement.PaymentAsset calldata paymentAsset)
-        external
-        onlyOwner
-    {
+    function setPaymentAsset(
+        address assetAddress,
+        AssetManagement.PaymentAsset calldata paymentAsset,
+        bytes calldata path
+    ) external onlyOwner {
         AssetManagement.set(_assets, assetAddress, paymentAsset);
+        SwapLogic.setSourceAssetPath(_sourceAssetsPaths, _swapLogicConfig, assetAddress, path);
     }
 
     /// @inheritdoc IZKPay
@@ -250,8 +255,9 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     }
 
     /// @inheritdoc IZKPay
-    function setMerchantConfig(MerchantLogic.MerchantConfig calldata config) external {
+    function setMerchantConfig(MerchantLogic.MerchantConfig calldata config, bytes calldata path) external {
         _merchantConfigs.set(msg.sender, config);
+        SwapLogic.setMerchantTargetAssetPath(_merchantTargetAssetsPaths, _swapLogicConfig, msg.sender, path);
     }
 
     /// @inheritdoc IZKPay

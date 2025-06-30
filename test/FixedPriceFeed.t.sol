@@ -11,6 +11,7 @@ import {FixedPriceFeed} from "../src/libraries/FixedPriceFeed.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 import {QueryLogic} from "../src/libraries/QueryLogic.sol";
 import {MockCustomLogic} from "./mocks/MockCustomLogic.sol";
+import {DummyData} from "./data/DummyData.sol";
 
 contract FixedPriceFeedTest is Test {
     ZKPay public zkpay;
@@ -29,7 +30,11 @@ contract FixedPriceFeedTest is Test {
         address sxt = address(new MockERC20());
         vm.prank(_owner);
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, _treasury, sxt, _priceFeed, 18, 1000))
+            "ZKPay.sol",
+            _owner,
+            abi.encodeCall(
+                ZKPay.initialize, (_owner, _treasury, sxt, _priceFeed, 18, 1000, DummyData.getSwapLogicConfig())
+            )
         );
 
         zkpay = ZKPay(zkPayProxyAddress);
@@ -83,7 +88,8 @@ contract FixedPriceFeedTest is Test {
                 priceFeed: fixedPriceFeedAddress,
                 tokenDecimals: tokenDecimals,
                 stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
-            })
+            }),
+            DummyData.getSwapPath()
         );
 
         vm.stopPrank();
@@ -112,7 +118,8 @@ contract FixedPriceFeedTest is Test {
                 priceFeed: fixedPriceFeedAddress,
                 tokenDecimals: tokenDecimals,
                 stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
-            })
+            }),
+            DummyData.getSwapPath()
         );
 
         vm.stopPrank();
@@ -160,7 +167,8 @@ contract FixedPriceFeedTest is Test {
                 priceFeed: fixedPriceFeedAddress,
                 tokenDecimals: tokenDecimals,
                 stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
-            })
+            }),
+            DummyData.getSwapPath()
         );
 
         vm.stopPrank();
@@ -215,7 +223,8 @@ contract FixedPriceFeedTest is Test {
                 priceFeed: fixedPriceFeedAddress,
                 tokenDecimals: tokenDecimals,
                 stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
-            })
+            }),
+            DummyData.getSwapPath()
         );
 
         vm.stopPrank();

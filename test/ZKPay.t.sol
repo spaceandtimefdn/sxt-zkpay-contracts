@@ -24,6 +24,7 @@ import {MockCustomLogic} from "./mocks/MockCustomLogic.sol";
 import {RejectEther} from "./mocks/RejectEther.sol";
 import {DummyData} from "./data/DummyData.sol";
 import {SwapLogic} from "../src/libraries/SwapLogic.sol";
+import {PayWallLogic} from "../src/libraries/PayWallLogic.sol";
 
 contract ZKPayTest is Test, IZKPayClient {
     ZKPay public zkpay;
@@ -543,5 +544,18 @@ contract ZKPayTest is Test, IZKPayClient {
 
         vm.expectRevert(ZKPay.SXTAddressCannotBeZero.selector);
         new TransparentUpgradeableProxy(implementation, _owner, initData);
+    }
+
+    function testSetAndGetPaywallItemPrice() public {
+        bytes32 item = bytes32(uint256(0x1234));
+        uint248 price = 1 ether;
+        address merchant = address(0x1234);
+
+        vm.expectEmit(true, true, true, true);
+        emit PayWallLogic.ItemPriceSet(merchant, item, price);
+
+        vm.prank(merchant);
+        zkpay.setPaywallItemPrice(item, price);
+        assertEq(zkpay.getPaywallItemPrice(item, merchant), price);
     }
 }

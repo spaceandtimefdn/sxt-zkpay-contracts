@@ -150,4 +150,16 @@ interface IZKPay {
     /// @param merchant The merchant address
     /// @return config The merchant configuration
     function getMerchantConfig(address merchant) external view returns (MerchantLogic.MerchantConfig memory config);
+
+    /// @notice Sets the price for an item
+    /// @param item The item hash
+    /// @param price The price in USD 18 decimals precision
+    /// @dev msg.sender is the merchant address
+    function setPaywallItemPrice(bytes32 item, uint248 price) external;
+
+    /// @notice Gets the price for an item
+    /// @param item The item hash
+    /// @param merchant The merchant address
+    /// @return price The price in USD 18 decimals precision
+    function getPaywallItemPrice(bytes32 item, address merchant) external view returns (uint248 price);
 }

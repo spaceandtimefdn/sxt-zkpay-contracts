@@ -14,6 +14,7 @@ import {IZKPayClient} from "../../src/interfaces/IZKPayClient.sol";
 import {MockCustomLogic} from "../mocks/MockCustomLogic.sol";
 import {FailingClientContract} from "../mocks/FailingClientContract.sol";
 import {ICustomLogic} from "../../src/interfaces/ICustomLogic.sol";
+import {PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "../../src/libraries/Constants.sol";
 
 contract QueryFulfillmentTest is Test, IZKPayClient {
     ZKPay public zkpay;
@@ -22,6 +23,7 @@ contract QueryFulfillmentTest is Test, IZKPayClient {
     address public _nativeTokenPriceFeed;
     AssetManagement.PaymentAsset public paymentAssetInstance;
     MockERC20 public usdc;
+    uint248 public _usdcAmount;
 
     bytes32 public _queryHash;
     QueryLogic.QueryRequest public _queryRequest;
@@ -31,7 +33,7 @@ contract QueryFulfillmentTest is Test, IZKPayClient {
     function setUp() public {
         uint8 nativeTokenDecimals = 18;
         int256 nativeTokenPrice = 1000e8;
-        uint248 usdcAmount = 10e6;
+        _usdcAmount = 10e6;
 
         _owner = vm.addr(0x1);
         _treasury = vm.addr(0x2);
@@ -41,17 +43,18 @@ contract QueryFulfillmentTest is Test, IZKPayClient {
         // deploy zkpay
         _nativeTokenPriceFeed = address(new MockV3Aggregator(8, nativeTokenPrice));
 
+        address sxt = address(new MockERC20());
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
             "ZKPay.sol",
             _owner,
-            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _nativeTokenPriceFeed, nativeTokenDecimals, 1000))
+            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, sxt, _nativeTokenPriceFeed, nativeTokenDecimals, 1000))
         );
         zkpay = ZKPay(zkPayProxyAddress);
 
         // deploy usdc
         uint8 usdcDecimals = 6;
         usdc = new MockERC20();
-        usdc.mint(address(this), usdcAmount);
+        usdc.mint(address(this), _usdcAmount);
 
         // deploy mock price feed
         address mockUsdcPriceFeed = address(new MockV3Aggregator(8, 1e8)); // 1e8 = 1 USD
@@ -81,10 +84,10 @@ contract QueryFulfillmentTest is Test, IZKPayClient {
         });
 
         // allow the zkpay contract to transfer usdc
-        usdc.approve(address(zkpay), usdcAmount);
+        usdc.approve(address(zkpay), _usdcAmount);
 
         // query
-        _queryHash = zkpay.query(address(usdc), usdcAmount, _queryRequest);
+        _queryHash = zkpay.query(address(usdc), _usdcAmount, _queryRequest);
     }
 
     // allow the test contract to receive native tokens as it behave as a client contract
@@ -230,5 +233,16 @@ contract QueryFulfillmentTest is Test, IZKPayClient {
         vm.expectEmit(true, true, true, true);
         emit IZKPay.CallbackFailed(_queryHash, address(this));
         zkpay.fulfillQuery(_queryHash, queryRequest2, "results");
+    }
+
+    function testPaymentSettledEvent() public {
+        uint248 paidAmount = 1e6; // todo: need to be constant across all tests
+        uint248 refundAmount = _usdcAmount - paidAmount;
+        uint248 protocolFeeAmount = uint248(PROTOCOL_FEE * paidAmount / PROTOCOL_FEE_PRECISION);
+        uint248 merchantPayoutAmount = paidAmount - protocolFeeAmount;
+
+        vm.expectEmit(true, true, true, true);
+        emit IZKPay.PaymentSettled(_queryHash, paidAmount, refundAmount, merchantPayoutAmount, protocolFeeAmount);
+        zkpay.fulfillQuery(_queryHash, _queryRequest, "results");
     }
 }

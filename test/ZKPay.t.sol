@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {ZKPay} from "../src/ZKPay.sol";
 import {ZKPayV2} from "./mocks/ZKPayV2.sol";
@@ -11,7 +12,13 @@ import {AssetManagement} from "../src/libraries/AssetManagement.sol";
 import {QueryLogic} from "../src/libraries/QueryLogic.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {IZKPay} from "../src/interfaces/IZKPay.sol";
-import {NATIVE_ADDRESS, ZERO_ADDRESS, MAX_GAS_CLIENT_CALLBACK} from "../src/libraries/Constants.sol";
+import {
+    NATIVE_ADDRESS,
+    ZERO_ADDRESS,
+    MAX_GAS_CLIENT_CALLBACK,
+    PROTOCOL_FEE,
+    PROTOCOL_FEE_PRECISION
+} from "../src/libraries/Constants.sol";
 import {IZKPayClient} from "../src/interfaces/IZKPayClient.sol";
 import {MockCustomLogic} from "./mocks/MockCustomLogic.sol";
 import {RejectEther} from "./mocks/RejectEther.sol";
@@ -22,6 +29,7 @@ contract ZKPayTest is Test, IZKPayClient {
     address public _treasury;
     address public _priceFeed;
     AssetManagement.PaymentAsset public paymentAssetInstance;
+    address public _sxt;
 
     event CallbackCalled(bytes32 queryHash, bytes queryResult, bytes callbackData);
 
@@ -30,9 +38,10 @@ contract ZKPayTest is Test, IZKPayClient {
         _treasury = vm.addr(0x2);
 
         _priceFeed = address(new MockV3Aggregator(8, 1000));
+        _sxt = address(new MockERC20());
         vm.prank(_owner);
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _priceFeed, 18, 1000))
+            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _sxt, _priceFeed, 18, 1000))
         );
 
         zkpay = ZKPay(zkPayProxyAddress);
@@ -47,6 +56,10 @@ contract ZKPayTest is Test, IZKPayClient {
 
     function testInitiateTreasuryAddress() public view {
         assertEq(zkpay.getTreasury(), _treasury);
+    }
+
+    function testGetSXT() public view {
+        assertEq(zkpay.getSXT(), _sxt);
     }
 
     function testFuzzSetTreasury(address treasury) public {
@@ -91,8 +104,11 @@ contract ZKPayTest is Test, IZKPayClient {
     }
 
     function testTransparentUpgrade() public {
+        address sxt = address(new MockERC20());
         address proxy = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", msg.sender, abi.encodeCall(ZKPay.initialize, (msg.sender, _treasury, _priceFeed, 18, 1000))
+            "ZKPay.sol",
+            msg.sender,
+            abi.encodeCall(ZKPay.initialize, (msg.sender, _treasury, sxt, _priceFeed, 18, 1000))
         );
         address implAddressV1 = Upgrades.getImplementationAddress(proxy);
         address adminAddress = Upgrades.getAdminAddress(proxy);
@@ -380,8 +396,17 @@ contract ZKPayTest is Test, IZKPayClient {
         // fulfill query
         vm.expectEmit(true, true, true, true);
         emit IZKPay.CallbackSucceeded(queryHash, address(this));
+
+        uint248 paidAmount = 1e6; // todo: need to be constant across all tests
+        uint248 refundAmount = usdcAmount - paidAmount;
+        uint248 protocolFeeAmount = uint248(PROTOCOL_FEE * paidAmount / PROTOCOL_FEE_PRECISION);
+        uint248 merchantPayoutAmount = paidAmount - protocolFeeAmount;
+        vm.expectEmit(true, true, true, true);
+        emit IZKPay.PaymentSettled(queryHash, paidAmount, refundAmount, merchantPayoutAmount, protocolFeeAmount);
+
         vm.expectEmit(true, true, true, true);
         emit IZKPay.QueryFulfilled(queryHash);
+
         zkpay.fulfillQuery(queryHash, queryRequest, "results");
     }
 
@@ -469,5 +494,34 @@ contract ZKPayTest is Test, IZKPayClient {
         // Expect revert due to failed transfer
         vm.expectRevert(AssetManagement.NativePaymentFailed.selector);
         zkpay.sendNative{value: amount}(onBehalfOf, rejectingTarget, memo);
+    }
+
+    function testSendNativeFeeTransferFailed() public {
+        address onBehalfOfAddr = address(0x123);
+        bytes32 onBehalfOf = bytes32(uint256(uint160(onBehalfOfAddr)));
+        uint64 itemId = 789;
+        bytes memory memo = abi.encode(itemId);
+        uint248 amount = 1 ether;
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance);
+
+        RejectEther rejectingTreasury = new RejectEther();
+        vm.prank(_owner);
+        zkpay.setTreasury(address(rejectingTreasury));
+
+        vm.deal(address(this), amount);
+
+        vm.expectRevert(AssetManagement.NativePaymentFailed.selector);
+        zkpay.sendNative{value: amount}(onBehalfOf, address(0x456), memo);
+    }
+
+    function testInitializeWithZeroSXTAddressReverts() public {
+        address implementation = address(new ZKPay());
+
+        bytes memory initData = abi.encodeCall(ZKPay.initialize, (_owner, _treasury, address(0), _priceFeed, 18, 1000));
+
+        vm.expectRevert(ZKPay.SXTAddressCannotBeZero.selector);
+        new TransparentUpgradeableProxy(implementation, _owner, initData);
     }
 }

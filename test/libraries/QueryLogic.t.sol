@@ -43,9 +43,13 @@ contract QueryLogicWrapperWithoutReceive {
         address customLogicContractAddress,
         uint248 gasUsed,
         QueryLogic.QueryPayment calldata payment
-    ) external returns (uint248 paidAmount, uint248 refundAmount) {
-        (paidAmount, refundAmount) =
-            QueryLogic.settleQueryPayment(_assets, customLogicContractAddress, gasUsed, payment);
+    )
+        external
+        returns (uint248 paidAmount, uint248 refundAmount, uint248 merchantPayoutAmount, uint248 protocolFeeAmount)
+    {
+        (paidAmount, refundAmount, merchantPayoutAmount, protocolFeeAmount) = QueryLogic.settleQueryPayment(
+            _assets, customLogicContractAddress, gasUsed, payment, address(this), address(0xDEADBEEF)
+        );
     }
 
     function cancelQuery(bytes32 queryHash) external {

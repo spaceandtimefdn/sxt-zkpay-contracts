@@ -5,3 +5,6 @@ address constant NATIVE_ADDRESS = address(0);
 address constant ZERO_ADDRESS = address(0);
 
 uint256 constant MAX_GAS_CLIENT_CALLBACK = 3_000_000;
+
+uint256 constant PROTOCOL_FEE_PRECISION = 1e6;
+uint256 constant PROTOCOL_FEE = 9_000; // 0.9% fee with 6 decimals precision

@@ -38,10 +38,11 @@ contract QueryCancelationTest is Test {
         // deploy zkpay
         _nativeTokenPriceFeed = address(new MockV3Aggregator(8, nativeTokenPrice));
 
+        address sxt = address(new MockERC20());
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
             "ZKPay.sol",
             _owner,
-            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _nativeTokenPriceFeed, nativeTokenDecimals, 1000))
+            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, sxt, _nativeTokenPriceFeed, nativeTokenDecimals, 1000))
         );
         _zkpay = ZKPay(zkPayProxyAddress);
 

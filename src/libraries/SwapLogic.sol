@@ -56,7 +56,6 @@ library SwapLogic {
             revert InvalidPath();
         }
 
-        // extract the last 20 bytes (tokenOut) from the path and ensure it is USDT
         address tokenOut;
         assembly {
             tokenOut := shr(96, calldataload(add(path.offset, sub(path.length, 20))))
@@ -85,7 +84,6 @@ library SwapLogic {
             revert InvalidPath();
         }
 
-        // extract the first 20 bytes (tokenIn) from the path and ensure it is USDT
         address tokenIn;
         assembly {
             tokenIn := shr(96, calldataload(path.offset))
@@ -103,5 +101,37 @@ library SwapLogic {
         emit MerchantTargetAssetPathSet(merchant, path);
     }
 
-    // todo: getters
+    /// @notice get the path for the source asset which is used to swap the source asset to the USDT token
+    /// @param _sourceAssetsPaths the mapping of source assets to their paths
+    /// @param sourceAsset the address of the source asset
+    /// @return the path for the source asset
+    function getSourceAssetPath(
+        mapping(address asset => bytes sourceAssetPath) storage _sourceAssetsPaths,
+        address sourceAsset
+    ) internal view returns (bytes storage) {
+        return _sourceAssetsPaths[sourceAsset];
+    }
+
+    /// @notice get the path for the target asset which is used to swap the USDT token to the target asset
+    /// @param _merchantTargetAssetsPaths the mapping of merchants to their target asset paths
+    /// @param merchant the address of the merchant
+    /// @return the path for the target asset
+    function getMerchantTargetAssetPath(
+        mapping(address merchant => bytes targetAssetPath) storage _merchantTargetAssetsPaths,
+        address merchant
+    ) internal view returns (bytes storage) {
+        return _merchantTargetAssetsPaths[merchant];
+    }
+
+    /// @notice extract the target asset for the merchant from the path
+    /// @param path the swap path
+    /// @return targetAsset the target asset
+    function getMercahntTargteAsset(bytes memory path) internal pure returns (address targetAsset) {
+        address tokenOut;
+        assembly {
+            let len := mload(path)
+            tokenOut := shr(96, mload(add(add(path, 0x20), sub(len, 20))))
+        }
+        return tokenOut;
+    }
 }

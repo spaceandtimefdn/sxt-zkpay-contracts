@@ -13,7 +13,7 @@ import {MerchantLogic} from "./libraries/MerchantLogic.sol";
 import {IZKPayClient} from "./interfaces/IZKPayClient.sol";
 import {ICustomLogic} from "./interfaces/ICustomLogic.sol";
 import {NATIVE_ADDRESS, ZERO_ADDRESS} from "./libraries/Constants.sol";
-import {SwapLogic} from "./libraries/Swap.sol";
+import {SwapLogic} from "./libraries/SwapLogic.sol";
 
 // slither-disable-next-line locked-ether
 contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {

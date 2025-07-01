@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {SwapLogic} from "../../src/libraries/Swap.sol";
+import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
 
 library DummyData {
     function getRouterAddress() internal pure returns (address) {

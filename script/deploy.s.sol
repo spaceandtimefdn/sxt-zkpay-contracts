@@ -12,7 +12,7 @@ import {ZKPay} from "../src/ZKPay.sol";
 import {PoSQLVerifier} from "../src/PoSQLVerifier.sol";
 import {ClientContractExample} from "../test/mocks/ClientContractExample.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
-import {SwapLogic} from "../src/libraries/Swap.sol";
+import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 
 /// @title Deploy
 /// @notice Deploy the ZKPay contract and PoSQLVerifier custom logic

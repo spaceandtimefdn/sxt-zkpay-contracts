@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import {AssetManagement} from "./libraries/AssetManagement.sol";
 import {QueryLogic} from "./libraries/QueryLogic.sol";
 import {MerchantLogic} from "./libraries/MerchantLogic.sol";
-import {SwapLogic} from "./libraries/Swap.sol";
+import {SwapLogic} from "./libraries/SwapLogic.sol";
 
 contract ZKPayStorage {
     address internal _treasury;

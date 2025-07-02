@@ -27,6 +27,10 @@ library SwapLogic {
 
     /// @notice set the essential config for swaps
     function setConfig(SwapLogicConfig storage _swapLogicConfig, SwapLogicConfig calldata newConfig) internal {
+        if (newConfig.router == address(0) || newConfig.usdt == address(0)) {
+            revert ZeroAddress();
+        }
+
         _swapLogicConfig.router = newConfig.router;
         _swapLogicConfig.usdt = newConfig.usdt;
         _swapLogicConfig.defaultTargetAssetPath = newConfig.defaultTargetAssetPath;
@@ -63,10 +67,6 @@ library SwapLogic {
             revert PathMustEndWithUSDT();
         }
 
-        if (tokenOut == address(0)) {
-            revert ZeroAddress();
-        }
-
         _sourceAssetsPaths[sourceAsset] = path;
         emit SourceAssetPathSet(sourceAsset, path);
     }
@@ -89,10 +89,6 @@ library SwapLogic {
 
         if (tokenIn != _swapLogicConfig.usdt) {
             revert PathMustStartWithUSDT();
-        }
-
-        if (tokenIn == address(0)) {
-            revert ZeroAddress();
         }
 
         _merchantTargetAssetsPaths[merchant] = path;

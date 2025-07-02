@@ -19,13 +19,5 @@ contract ZKPayStorage {
 
     // **  Swap Logic Storage ** //
     SwapLogic.SwapLogicConfig internal _swapLogicConfig;
-
-    /// @notice mapping of source assets to swap path to USDT, set by protocol owner
-    /// Path: (sourceAsset => USDT)
-    mapping(address asset => bytes sourceAssetPath) internal _sourceAssetsPaths;
-
-    /// @notice mapping from merchant address to swap path, set by merchant
-    /// @dev targetAssetPath should end with the target asset; target asset is the asset that the merchant wants to receive
-    /// Path: (USDT => targetAsset)
-    mapping(address merchant => bytes targetAssetPath) internal _merchantTargetAssetsPaths;
+    SwapLogic.AssetSwapPaths internal _assetSwapPaths;
 }

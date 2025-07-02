@@ -4,11 +4,21 @@ pragma solidity 0.8.28;
 /// @title SwapLogic
 /// @dev Library for swapping assets
 library SwapLogic {
+    uint256 internal constant WORD_SIZE = 0x20;
+    uint256 internal constant ADDRESS_SIZE = 20;
+    uint256 internal constant ADDRESS_OFFSET_BITS = 96;
+    uint256 internal constant PATH_FEED_SIZE = 3;
+
     // solhint-disable-next-line gas-struct-packing
     struct SwapLogicConfig {
         address router;
         address usdt;
         bytes defaultTargetAssetPath;
+    }
+
+    struct AssetSwapPaths {
+        mapping(address asset => bytes sourceAssetPath) sourceAssetPaths;
+        mapping(address merchant => bytes targetAssetPath) merchantTargetAssetPaths;
     }
 
     /// @notice Error thrown when the provided swap path bytes are not a valid Uniswap V3 path encoding
@@ -42,9 +52,43 @@ library SwapLogic {
     }
 
     /// @notice validate the path
-    function isValidPath(bytes memory path) internal pure returns (bool) {
-        // (20 + (3 + 20) * n)
-        return path.length == 20 || (path.length - 20) % 23 == 0;
+    /// @dev valid path is either 20 bytes (single asset) or (20 + 3) * n bytes (multiple assets)
+    /// there should be N asset addresses + (N-1) path fees
+    /// @param path the swap path
+    /// @return valid true if the path is valid, false otherwise
+    function isValidPath(bytes memory path) internal pure returns (bool valid) {
+        uint256 len = path.length;
+        valid = len == 20 || (len >= 43 && (len - 43) % 23 == 0);
+    }
+
+    /// @notice extract the destination asset from the path
+    /// @param path the swap path
+    /// @return tokenOut the destination asset
+    function callbackExtractPathDestinationAsset(bytes calldata path) internal pure returns (address tokenOut) {
+        assembly {
+            tokenOut := shr(ADDRESS_OFFSET_BITS, calldataload(add(path.offset, sub(path.length, ADDRESS_SIZE))))
+        }
+    }
+
+    /// @notice extract the destination asset from the path
+    /// @param path the swap path
+    /// @return tokenOut the destination asset
+    /// @dev this function assumes the path is valid and does not check for it. use isValidPath to check for validity
+    function extractPathDestinationAsset(bytes memory path) internal pure returns (address tokenOut) {
+        assembly {
+            let len := mload(path)
+            tokenOut := shr(ADDRESS_OFFSET_BITS, mload(add(add(path, WORD_SIZE), sub(len, ADDRESS_SIZE))))
+        }
+    }
+
+    /// @notice extract the origin asset from the path
+    /// @param path the swap path
+    /// @return tokenIn the source asset
+    /// @dev this function assumes the path is valid and does not check for it. use isValidPath to check for validity
+    function extractPathOriginAsset(bytes calldata path) internal pure returns (address tokenIn) {
+        assembly {
+            tokenIn := shr(ADDRESS_OFFSET_BITS, calldataload(path.offset))
+        }
     }
 
     /// @notice set the path for the source asset
@@ -58,10 +102,7 @@ library SwapLogic {
             revert InvalidPath();
         }
 
-        address tokenOut;
-        assembly {
-            tokenOut := shr(96, calldataload(add(path.offset, sub(path.length, 20))))
-        }
+        address tokenOut = callbackExtractPathDestinationAsset(path);
 
         if (tokenOut != _swapLogicConfig.usdt) {
             revert PathMustEndWithUSDT();
@@ -82,10 +123,7 @@ library SwapLogic {
             revert InvalidPath();
         }
 
-        address tokenIn;
-        assembly {
-            tokenIn := shr(96, calldataload(path.offset))
-        }
+        address tokenIn = extractPathOriginAsset(path);
 
         if (tokenIn != _swapLogicConfig.usdt) {
             revert PathMustStartWithUSDT();
@@ -115,17 +153,5 @@ library SwapLogic {
         address merchant
     ) internal view returns (bytes storage) {
         return _merchantTargetAssetsPaths[merchant];
-    }
-
-    /// @notice extract the target asset for the merchant from the path
-    /// @param path the swap path
-    /// @return targetAsset the target asset
-    function getMercahntTargteAsset(bytes memory path) internal pure returns (address targetAsset) {
-        address tokenOut;
-        assembly {
-            let len := mload(path)
-            tokenOut := shr(96, mload(add(add(path, 0x20), sub(len, 20))))
-        }
-        return tokenOut;
     }
 }

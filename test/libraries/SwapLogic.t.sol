@@ -42,6 +42,50 @@ contract SwapLogicTest is Test {
         assertEq(keccak256(cfg.defaultTargetAssetPath), keccak256(abi.encodePacked(USDT)), "default path mismatch");
     }
 
+    function testSetConfigRouterZeroAddressReverts() public {
+        SwapLogic.SwapLogicConfig memory cfg;
+        cfg.router = address(0);
+        cfg.usdt = USDT;
+        cfg.defaultTargetAssetPath = abi.encodePacked(USDT);
+        vm.expectRevert(SwapLogic.ZeroAddress.selector);
+        this._setConfig(cfg);
+    }
+
+    function testSetConfigUsdtZeroAddressReverts() public {
+        SwapLogic.SwapLogicConfig memory cfg;
+        cfg.router = ROUTER;
+        cfg.usdt = address(0);
+        cfg.defaultTargetAssetPath = abi.encodePacked(USDT);
+        vm.expectRevert(SwapLogic.ZeroAddress.selector);
+        this._setConfig(cfg);
+    }
+
+    function testFuzzIsValidPath(bytes memory path) public pure {
+        uint256 addressSize = 20;
+        uint256 pathFeeSize = 3;
+        uint256 path1HopLength = addressSize + pathFeeSize + addressSize;
+
+        if (path.length < addressSize) {
+            // < 20 bytes
+            assertFalse(SwapLogic.isValidPath(path));
+        } else if (path.length == addressSize) {
+            // 20 bytes
+            assertTrue(SwapLogic.isValidPath(path));
+        } else if (path.length < path1HopLength) {
+            // < 43 bytes
+            assertFalse(SwapLogic.isValidPath(path));
+        } else {
+            // 43 and more bytes
+            uint256 lengthWithoutFirstAddress = path.length - addressSize;
+            // should be valid if lengthWithoutFirstAddress is divisible by (addressSize + pathFeeSize)
+            if (lengthWithoutFirstAddress % (addressSize + pathFeeSize) == 0) {
+                assertTrue(SwapLogic.isValidPath(path));
+            } else {
+                assertFalse(SwapLogic.isValidPath(path));
+            }
+        }
+    }
+
     function testIsValidPathLength20() public pure {
         bytes memory path = abi.encodePacked(USDT);
         assertTrue(SwapLogic.isValidPath(path));
@@ -84,12 +128,12 @@ contract SwapLogicTest is Test {
     function testSetSourceAssetPathZeroAddressReverts() public {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ROUTER;
-        cfg.usdt = address(0);
+        cfg.usdt = address(0x1234);
         cfg.defaultTargetAssetPath = bytes("");
         this._setConfig(cfg);
 
         bytes memory zeroPath = abi.encodePacked(address(0));
-        vm.expectRevert(SwapLogic.ZeroAddress.selector);
+        vm.expectRevert(SwapLogic.PathMustEndWithUSDT.selector);
         this._setSourceAssetPath(SOURCE_ASSET, zeroPath);
     }
 
@@ -118,18 +162,18 @@ contract SwapLogicTest is Test {
     function testSetMerchantTargetAssetPathZeroAddressReverts() public {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ROUTER;
-        cfg.usdt = address(0);
+        cfg.usdt = address(0x1234);
         cfg.defaultTargetAssetPath = bytes("");
         this._setConfig(cfg);
 
         bytes memory zeroPath = abi.encodePacked(address(0));
-        vm.expectRevert(SwapLogic.ZeroAddress.selector);
+        vm.expectRevert(SwapLogic.PathMustStartWithUSDT.selector);
         this._setMerchantTargetAssetPath(MERCHANT, zeroPath);
     }
 
     function testGetMercahntTargteAsset() public pure {
         bytes memory path = abi.encodePacked(USDT);
-        assertEq(SwapLogic.getMercahntTargteAsset(path), USDT);
+        assertEq(SwapLogic.extractPathDestinationAsset(path), USDT);
     }
 
     function testGetSourceAssetPath() public {

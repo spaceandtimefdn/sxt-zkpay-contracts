@@ -105,7 +105,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         bytes calldata path
     ) external onlyOwner {
         AssetManagement.set(_assets, assetAddress, paymentAsset);
-        SwapLogic.setSourceAssetPath(_sourceAssetsPaths, _swapLogicConfig, assetAddress, path);
+        SwapLogic.setSourceAssetPath(_assetSwapPaths.sourceAssetPaths, _swapLogicConfig, assetAddress, path);
     }
 
     /// @inheritdoc IZKPay
@@ -257,7 +257,9 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     /// @inheritdoc IZKPay
     function setMerchantConfig(MerchantLogic.MerchantConfig calldata config, bytes calldata path) external {
         _merchantConfigs.set(msg.sender, config);
-        SwapLogic.setMerchantTargetAssetPath(_merchantTargetAssetsPaths, _swapLogicConfig, msg.sender, path);
+        SwapLogic.setMerchantTargetAssetPath(
+            _assetSwapPaths.merchantTargetAssetPaths, _swapLogicConfig, msg.sender, path
+        );
     }
 
     /// @inheritdoc IZKPay

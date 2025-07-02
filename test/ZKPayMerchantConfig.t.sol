@@ -44,7 +44,7 @@ contract ZKPayMerchantConfigTest is Test {
         emit MerchantLogic.MerchantConfigSet(
             address(this), merchantConfig.payoutToken, merchantConfig.payoutAddress, merchantConfig.fulfillerPercentage
         );
-        _zkpay.setMerchantConfig(merchantConfig, DummyData.getSwapPath());
+        _zkpay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
 
         MerchantLogic.MerchantConfig memory r = _zkpay.getMerchantConfig(address(this));
         assertEq(r.payoutToken, merchantConfig.payoutToken);
@@ -60,7 +60,7 @@ contract ZKPayMerchantConfigTest is Test {
         });
 
         vm.expectRevert(MerchantLogic.InvalidFulfillerPercentage.selector);
-        _zkpay.setMerchantConfig(merchantConfig, DummyData.getSwapPath());
+        _zkpay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
     }
 
     function testSetMerchantConfigZeroPayoutAddress() public {
@@ -68,6 +68,6 @@ contract ZKPayMerchantConfigTest is Test {
             MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: address(0), fulfillerPercentage: 1});
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
-        _zkpay.setMerchantConfig(merchantConfig, DummyData.getSwapPath());
+        _zkpay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
     }
 }

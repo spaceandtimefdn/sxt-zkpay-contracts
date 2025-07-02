@@ -19,6 +19,7 @@ import {SwapLogic} from "./libraries/SwapLogic.sol";
 contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
+    using SwapLogic for SwapLogic.SwapLogicStorage;
 
     error TreasuryAddressCannotBeZero();
     error TreasuryAddressSameAsCurrent();
@@ -49,7 +50,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         __ReentrancyGuard_init();
         _setTreasury(treasury);
         _setSXT(sxt);
-        SwapLogic.setConfig(_swapLogicConfig, swapLogicConfig);
+        _swapLogicStorage.setConfig(swapLogicConfig);
 
         AssetManagement.set(
             _assets,
@@ -104,8 +105,13 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         AssetManagement.PaymentAsset calldata paymentAsset,
         bytes calldata path
     ) external onlyOwner {
+        address originAsset = SwapLogic.callbackExtractPathOriginAsset(path);
+        if (originAsset != assetAddress) {
+            revert SwapLogic.InvalidPath();
+        }
+
         AssetManagement.set(_assets, assetAddress, paymentAsset);
-        SwapLogic.setSourceAssetPath(_assetSwapPaths.sourceAssetPaths, _swapLogicConfig, assetAddress, path);
+        _swapLogicStorage.setSourceAssetPath(path);
     }
 
     /// @inheritdoc IZKPay
@@ -257,9 +263,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     /// @inheritdoc IZKPay
     function setMerchantConfig(MerchantLogic.MerchantConfig calldata config, bytes calldata path) external {
         _merchantConfigs.set(msg.sender, config);
-        SwapLogic.setMerchantTargetAssetPath(
-            _assetSwapPaths.merchantTargetAssetPaths, _swapLogicConfig, msg.sender, path
-        );
+        _swapLogicStorage.setMerchantTargetAssetPath(msg.sender, path);
     }
 
     /// @inheritdoc IZKPay

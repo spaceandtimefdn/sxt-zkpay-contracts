@@ -89,7 +89,7 @@ contract FixedPriceFeedTest is Test {
                 tokenDecimals: tokenDecimals,
                 stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
             }),
-            DummyData.getSwapPath()
+            DummyData.getOriginAssetPath(asset)
         );
 
         vm.stopPrank();
@@ -119,7 +119,7 @@ contract FixedPriceFeedTest is Test {
                 tokenDecimals: tokenDecimals,
                 stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
             }),
-            DummyData.getSwapPath()
+            DummyData.getOriginAssetPath(asset)
         );
 
         vm.stopPrank();
@@ -168,7 +168,7 @@ contract FixedPriceFeedTest is Test {
                 tokenDecimals: tokenDecimals,
                 stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
             }),
-            DummyData.getSwapPath()
+            DummyData.getOriginAssetPath(asset)
         );
 
         vm.stopPrank();
@@ -224,7 +224,7 @@ contract FixedPriceFeedTest is Test {
                 tokenDecimals: tokenDecimals,
                 stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
             }),
-            DummyData.getSwapPath()
+            DummyData.getOriginAssetPath(asset)
         );
 
         vm.stopPrank();

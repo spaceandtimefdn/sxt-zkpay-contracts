@@ -23,6 +23,7 @@ import {IZKPayClient} from "../src/interfaces/IZKPayClient.sol";
 import {MockCustomLogic} from "./mocks/MockCustomLogic.sol";
 import {RejectEther} from "./mocks/RejectEther.sol";
 import {DummyData} from "./data/DummyData.sol";
+import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 
 contract ZKPayTest is Test, IZKPayClient {
     ZKPay public zkpay;
@@ -168,11 +169,11 @@ contract ZKPayTest is Test, IZKPayClient {
                 tokenDecimals: tokenDecimals,
                 stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
             }),
-            DummyData.getSwapPath()
+            DummyData.getOriginAssetPath(asset)
         );
     }
 
-    function testSetPaymentAsset(address asset) public {
+    function testFuzzSetPaymentAsset(address asset) public {
         vm.assume(asset != NATIVE_ADDRESS);
         vm.prank(_owner);
 
@@ -181,7 +182,16 @@ contract ZKPayTest is Test, IZKPayClient {
             asset, AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG, _priceFeed, 18, 1000
         );
 
-        zkpay.setPaymentAsset(asset, paymentAssetInstance, DummyData.getSwapPath());
+        zkpay.setPaymentAsset(asset, paymentAssetInstance, DummyData.getOriginAssetPath(asset));
+    }
+
+    function testFuzzSetPaymentAssetInvalidPath(address asset) public {
+        vm.assume(asset != NATIVE_ADDRESS);
+        vm.prank(_owner);
+        vm.assume(asset != DummyData.getUsdtAddress());
+
+        vm.expectRevert(SwapLogic.InvalidPath.selector);
+        zkpay.setPaymentAsset(asset, paymentAssetInstance, DummyData.getDestinationAssetPath(asset));
     }
 
     function testFuzzOnlyOwnerCanSetPaymentAsset(address caller) public {
@@ -191,7 +201,7 @@ contract ZKPayTest is Test, IZKPayClient {
             vm.expectRevert();
         }
 
-        zkpay.setPaymentAsset(address(0x4), paymentAssetInstance, DummyData.getSwapPath());
+        zkpay.setPaymentAsset(address(0x4), paymentAssetInstance, DummyData.getOriginAssetPath(address(0x4)));
     }
 
     function testRemovePaymentAsset() public {
@@ -245,7 +255,7 @@ contract ZKPayTest is Test, IZKPayClient {
         });
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getSwapPath());
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
 
         QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
             query: "test",
@@ -323,7 +333,7 @@ contract ZKPayTest is Test, IZKPayClient {
         });
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getSwapPath());
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
 
         QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
             query: "test",
@@ -380,7 +390,7 @@ contract ZKPayTest is Test, IZKPayClient {
         });
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getSwapPath());
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
 
         // deploy custom logic contract
         MockCustomLogic mockedCustomLogic = new MockCustomLogic();
@@ -438,7 +448,7 @@ contract ZKPayTest is Test, IZKPayClient {
         });
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getSwapPath());
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
 
         // deploy custom logic contract
         MockCustomLogic mockedCustomLogic = new MockCustomLogic();
@@ -488,7 +498,7 @@ contract ZKPayTest is Test, IZKPayClient {
         uint248 amount = 1 ether;
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getSwapPath());
+        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getOriginAssetPath(NATIVE_ADDRESS));
 
         // Create a contract that will reject ETH transfers
         RejectEther rejector = new RejectEther();
@@ -512,7 +522,7 @@ contract ZKPayTest is Test, IZKPayClient {
         uint248 amount = 1 ether;
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getSwapPath());
+        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getOriginAssetPath(NATIVE_ADDRESS));
 
         RejectEther rejectingTreasury = new RejectEther();
         vm.prank(_owner);

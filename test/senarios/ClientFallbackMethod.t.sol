@@ -75,7 +75,7 @@ contract ClientFallbackMethodTest is Test {
             tokenDecimals: usdcDecimals,
             stalePriceThresholdInSeconds: 1000
         });
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getSwapPath());
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
 
         vm.stopPrank();
 

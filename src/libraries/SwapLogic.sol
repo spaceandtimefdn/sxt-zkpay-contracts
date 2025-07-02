@@ -21,6 +21,11 @@ library SwapLogic {
         mapping(address merchant => bytes targetAssetPath) merchantTargetAssetPaths;
     }
 
+    struct SwapLogicStorage {
+        SwapLogicConfig swapLogicConfig;
+        AssetSwapPaths assetSwapPaths;
+    }
+
     /// @notice Error thrown when the provided swap path bytes are not a valid Uniswap V3 path encoding
     error InvalidPath();
     /// @notice Error thrown when the swap path does not end with the USDT token defined in the contract config
@@ -36,19 +41,17 @@ library SwapLogic {
     event MerchantTargetAssetPathSet(address indexed merchant, bytes path);
 
     /// @notice set the essential config for swaps
-    function setConfig(SwapLogicConfig storage _swapLogicConfig, SwapLogicConfig calldata newConfig) internal {
+    function setConfig(SwapLogicStorage storage _swapLogicStorage, SwapLogicConfig calldata newConfig) internal {
         if (newConfig.router == address(0) || newConfig.usdt == address(0)) {
             revert ZeroAddress();
         }
 
-        _swapLogicConfig.router = newConfig.router;
-        _swapLogicConfig.usdt = newConfig.usdt;
-        _swapLogicConfig.defaultTargetAssetPath = newConfig.defaultTargetAssetPath;
+        _swapLogicStorage.swapLogicConfig = newConfig;
     }
 
     /// @notice get the config for the swap logic
-    function getConfig(SwapLogicConfig storage _swapLogicConfig) internal pure returns (SwapLogicConfig memory) {
-        return _swapLogicConfig;
+    function getConfig(SwapLogicStorage storage _swapLogicStorage) internal view returns (SwapLogicConfig memory) {
+        return _swapLogicStorage.swapLogicConfig;
     }
 
     /// @notice validate the path
@@ -57,8 +60,7 @@ library SwapLogic {
     /// @param path the swap path
     /// @return valid true if the path is valid, false otherwise
     function isValidPath(bytes memory path) internal pure returns (bool valid) {
-        uint256 len = path.length;
-        valid = len == 20 || (len >= 43 && (len - 43) % 23 == 0);
+        valid = path.length % 23 == 20;
     }
 
     /// @notice extract the destination asset from the path
@@ -85,37 +87,33 @@ library SwapLogic {
     /// @param path the swap path
     /// @return tokenIn the source asset
     /// @dev this function assumes the path is valid and does not check for it. use isValidPath to check for validity
-    function extractPathOriginAsset(bytes calldata path) internal pure returns (address tokenIn) {
+    function callbackExtractPathOriginAsset(bytes calldata path) internal pure returns (address tokenIn) {
         assembly {
             tokenIn := shr(ADDRESS_OFFSET_BITS, calldataload(path.offset))
         }
     }
 
     /// @notice set the path for the source asset
-    function setSourceAssetPath(
-        mapping(address asset => bytes sourceAssetPath) storage _sourceAssetsPaths,
-        SwapLogicConfig storage _swapLogicConfig,
-        address sourceAsset,
-        bytes calldata path
-    ) internal {
+    function setSourceAssetPath(SwapLogicStorage storage _swapLogicStorage, bytes calldata path) internal {
         if (!isValidPath(path)) {
             revert InvalidPath();
         }
 
         address tokenOut = callbackExtractPathDestinationAsset(path);
 
-        if (tokenOut != _swapLogicConfig.usdt) {
+        if (tokenOut != _swapLogicStorage.swapLogicConfig.usdt) {
             revert PathMustEndWithUSDT();
         }
 
-        _sourceAssetsPaths[sourceAsset] = path;
+        address sourceAsset = callbackExtractPathOriginAsset(path);
+
+        _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset] = path;
         emit SourceAssetPathSet(sourceAsset, path);
     }
 
     /// @notice set the path for the target asset
     function setMerchantTargetAssetPath(
-        mapping(address merchant => bytes targetAssetPath) storage _merchantTargetAssetsPaths,
-        SwapLogicConfig storage _swapLogicConfig,
+        SwapLogicStorage storage _swapLogicStorage,
         address merchant,
         bytes calldata path
     ) internal {
@@ -123,35 +121,37 @@ library SwapLogic {
             revert InvalidPath();
         }
 
-        address tokenIn = extractPathOriginAsset(path);
+        address tokenIn = callbackExtractPathOriginAsset(path);
 
-        if (tokenIn != _swapLogicConfig.usdt) {
+        if (tokenIn != _swapLogicStorage.swapLogicConfig.usdt) {
             revert PathMustStartWithUSDT();
         }
 
-        _merchantTargetAssetsPaths[merchant] = path;
+        _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant] = path;
         emit MerchantTargetAssetPathSet(merchant, path);
     }
 
     /// @notice get the path for the source asset which is used to swap the source asset to the USDT token
-    /// @param _sourceAssetsPaths the mapping of source assets to their paths
+    /// @param _swapLogicStorage the storage of the swap logic
     /// @param sourceAsset the address of the source asset
     /// @return the path for the source asset
-    function getSourceAssetPath(
-        mapping(address asset => bytes sourceAssetPath) storage _sourceAssetsPaths,
-        address sourceAsset
-    ) internal view returns (bytes storage) {
-        return _sourceAssetsPaths[sourceAsset];
+    function getSourceAssetPath(SwapLogicStorage storage _swapLogicStorage, address sourceAsset)
+        internal
+        view
+        returns (bytes storage)
+    {
+        return _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset];
     }
 
     /// @notice get the path for the target asset which is used to swap the USDT token to the target asset
-    /// @param _merchantTargetAssetsPaths the mapping of merchants to their target asset paths
+    /// @param _swapLogicStorage the storage of the swap logic
     /// @param merchant the address of the merchant
     /// @return the path for the target asset
-    function getMerchantTargetAssetPath(
-        mapping(address merchant => bytes targetAssetPath) storage _merchantTargetAssetsPaths,
-        address merchant
-    ) internal view returns (bytes storage) {
-        return _merchantTargetAssetsPaths[merchant];
+    function getMerchantTargetAssetPath(SwapLogicStorage storage _swapLogicStorage, address merchant)
+        internal
+        view
+        returns (bytes storage)
+    {
+        return _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant];
     }
 }

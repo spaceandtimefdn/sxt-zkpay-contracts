@@ -81,7 +81,7 @@ contract PaymentFunctionsTest is Test {
                 tokenDecimals: 6,
                 stalePriceThresholdInSeconds: 1000
             }),
-            DummyData.getSwapPath()
+            DummyData.getOriginAssetPath(address(usdc))
         );
 
         // Update native token to support Send payment type
@@ -93,7 +93,7 @@ contract PaymentFunctionsTest is Test {
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 1000
             }),
-            DummyData.getSwapPath()
+            DummyData.getOriginAssetPath(NATIVE_ADDRESS)
         );
 
         vm.stopPrank();
@@ -129,7 +129,7 @@ contract PaymentFunctionsTest is Test {
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 1000
             }),
-            DummyData.getSwapPath()
+            DummyData.getOriginAssetPath(sxtToken)
         );
         vm.stopPrank();
 
@@ -217,7 +217,7 @@ contract PaymentFunctionsTest is Test {
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 1000
             }),
-            DummyData.getSwapPath()
+            DummyData.getOriginAssetPath(newToken)
         );
         vm.stopPrank();
 
@@ -235,7 +235,7 @@ contract PaymentFunctionsTest is Test {
         });
 
         vm.prank(owner);
-        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getSwapPath());
+        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getOriginAssetPath(NATIVE_ADDRESS));
 
         // Convert onBehalfOf address to bytes32
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));

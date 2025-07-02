@@ -73,7 +73,7 @@ contract QueryCancelationTest is Test {
             tokenDecimals: usdcDecimals,
             stalePriceThresholdInSeconds: 1000
         });
-        _zkpay.setPaymentAsset(address(_usdc), _paymentAssetInstance, DummyData.getSwapPath());
+        _zkpay.setPaymentAsset(address(_usdc), _paymentAssetInstance, DummyData.getOriginAssetPath(address(_usdc)));
 
         vm.stopPrank();
 

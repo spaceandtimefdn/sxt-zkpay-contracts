@@ -5,9 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
 
 contract SwapLogicTest is Test {
-    SwapLogic.SwapLogicConfig internal _swapLogicConfig;
-    mapping(address => bytes) internal _sourceAssetPaths;
-    mapping(address => bytes) internal _merchantTargetAssetPaths;
+    SwapLogic.SwapLogicStorage internal _swapLogicStorage;
 
     address internal constant ROUTER = address(0x1111);
     address internal constant USDT = address(0x2222);
@@ -24,19 +22,19 @@ contract SwapLogicTest is Test {
     }
 
     function _setConfig(SwapLogic.SwapLogicConfig calldata cfg) external {
-        SwapLogic.setConfig(_swapLogicConfig, cfg);
+        SwapLogic.setConfig(_swapLogicStorage, cfg);
     }
 
-    function _setSourceAssetPath(address asset, bytes calldata path) external {
-        SwapLogic.setSourceAssetPath(_sourceAssetPaths, _swapLogicConfig, asset, path);
+    function _setSourceAssetPath(bytes calldata path) external {
+        SwapLogic.setSourceAssetPath(_swapLogicStorage, path);
     }
 
     function _setMerchantTargetAssetPath(address merchant, bytes calldata path) external {
-        SwapLogic.setMerchantTargetAssetPath(_merchantTargetAssetPaths, _swapLogicConfig, merchant, path);
+        SwapLogic.setMerchantTargetAssetPath(_swapLogicStorage, merchant, path);
     }
 
     function testSetAndGetConfig() public view {
-        SwapLogic.SwapLogicConfig memory cfg = SwapLogic.getConfig(_swapLogicConfig);
+        SwapLogic.SwapLogicConfig memory cfg = SwapLogic.getConfig(_swapLogicStorage);
         assertEq(cfg.router, ROUTER, "router addr mismatch");
         assertEq(cfg.usdt, USDT, "usdt addr mismatch");
         assertEq(keccak256(cfg.defaultTargetAssetPath), keccak256(abi.encodePacked(USDT)), "default path mismatch");
@@ -104,25 +102,25 @@ contract SwapLogicTest is Test {
     }
 
     function testSetSourceAssetPath() public {
-        bytes memory path = abi.encodePacked(USDT);
+        bytes memory path = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
 
         vm.expectEmit(true, false, false, true);
         emit SwapLogic.SourceAssetPathSet(SOURCE_ASSET, path);
-        this._setSourceAssetPath(SOURCE_ASSET, path);
+        this._setSourceAssetPath(path);
 
-        assertEq(keccak256(_sourceAssetPaths[SOURCE_ASSET]), keccak256(path));
+        assertEq(keccak256(SwapLogic.getSourceAssetPath(_swapLogicStorage, SOURCE_ASSET)), keccak256(path));
     }
 
     function testSetSourceAssetPathInvalidPathReverts() public {
         bytes memory badPath = new bytes(21);
         vm.expectRevert(SwapLogic.InvalidPath.selector);
-        this._setSourceAssetPath(SOURCE_ASSET, badPath);
+        this._setSourceAssetPath(badPath);
     }
 
     function testSetSourceAssetPathWrongTokenOutReverts() public {
         bytes memory wrongPath = abi.encodePacked(address(0xDEAD)); // ends with wrong token
         vm.expectRevert(SwapLogic.PathMustEndWithUSDT.selector);
-        this._setSourceAssetPath(SOURCE_ASSET, wrongPath);
+        this._setSourceAssetPath(wrongPath);
     }
 
     function testSetSourceAssetPathZeroAddressReverts() public {
@@ -134,7 +132,7 @@ contract SwapLogicTest is Test {
 
         bytes memory zeroPath = abi.encodePacked(address(0));
         vm.expectRevert(SwapLogic.PathMustEndWithUSDT.selector);
-        this._setSourceAssetPath(SOURCE_ASSET, zeroPath);
+        this._setSourceAssetPath(zeroPath);
     }
 
     function testSetMerchantTargetAssetPath() public {
@@ -144,7 +142,7 @@ contract SwapLogicTest is Test {
         emit SwapLogic.MerchantTargetAssetPathSet(MERCHANT, path);
         this._setMerchantTargetAssetPath(MERCHANT, path);
 
-        assertEq(keccak256(_merchantTargetAssetPaths[MERCHANT]), keccak256(path));
+        assertEq(keccak256(SwapLogic.getMerchantTargetAssetPath(_swapLogicStorage, MERCHANT)), keccak256(path));
     }
 
     function testSetMerchantTargetAssetPathInvalidPathReverts() public {
@@ -177,14 +175,14 @@ contract SwapLogicTest is Test {
     }
 
     function testGetSourceAssetPath() public {
-        bytes memory path = abi.encodePacked(USDT);
-        this._setSourceAssetPath(SOURCE_ASSET, path);
-        assertEq(keccak256(SwapLogic.getSourceAssetPath(_sourceAssetPaths, SOURCE_ASSET)), keccak256(path));
+        bytes memory path = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
+        this._setSourceAssetPath(path);
+        assertEq(keccak256(SwapLogic.getSourceAssetPath(_swapLogicStorage, SOURCE_ASSET)), keccak256(path));
     }
 
     function testGetMerchantTargetAssetPath() public {
         bytes memory path = abi.encodePacked(USDT);
         this._setMerchantTargetAssetPath(MERCHANT, path);
-        assertEq(keccak256(SwapLogic.getMerchantTargetAssetPath(_merchantTargetAssetPaths, MERCHANT)), keccak256(path));
+        assertEq(keccak256(SwapLogic.getMerchantTargetAssetPath(_swapLogicStorage, MERCHANT)), keccak256(path));
     }
 }

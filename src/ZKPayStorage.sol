@@ -18,6 +18,5 @@ contract ZKPayStorage {
     address internal _sxt;
 
     // **  Swap Logic Storage ** //
-    SwapLogic.SwapLogicConfig internal _swapLogicConfig;
-    SwapLogic.AssetSwapPaths internal _assetSwapPaths;
+    SwapLogic.SwapLogicStorage internal _swapLogicStorage;
 }

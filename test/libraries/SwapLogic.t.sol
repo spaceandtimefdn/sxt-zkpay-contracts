@@ -17,9 +17,8 @@ contract SwapLogicTest is Test {
 
     function setUp() public {
         SwapLogic.SwapLogicConfig memory cfg;
-        cfg.router[0] = ROUTER;
-        cfg.usdt[0] = USDT;
-        cfg.sxt[0] = SXT;
+        cfg.router = ROUTER;
+        cfg.usdt = USDT;
         cfg.defaultTargetAssetPath = abi.encodePacked(USDT);
         this._setConfig(cfg);
     }
@@ -38,9 +37,8 @@ contract SwapLogicTest is Test {
 
     function testSetAndGetConfig() public view {
         SwapLogic.SwapLogicConfig memory cfg = SwapLogic.getConfig(_swapLogicConfig);
-        assertEq(cfg.router[0], ROUTER, "router addr mismatch");
-        assertEq(cfg.usdt[0], USDT, "usdt addr mismatch");
-        assertEq(cfg.sxt[0], SXT, "sxt addr mismatch");
+        assertEq(cfg.router, ROUTER, "router addr mismatch");
+        assertEq(cfg.usdt, USDT, "usdt addr mismatch");
         assertEq(keccak256(cfg.defaultTargetAssetPath), keccak256(abi.encodePacked(USDT)), "default path mismatch");
     }
 
@@ -85,9 +83,8 @@ contract SwapLogicTest is Test {
 
     function testSetSourceAssetPathZeroAddressReverts() public {
         SwapLogic.SwapLogicConfig memory cfg;
-        cfg.router[0] = ROUTER;
-        cfg.usdt[0] = address(0);
-        cfg.sxt[0] = SXT;
+        cfg.router = ROUTER;
+        cfg.usdt = address(0);
         cfg.defaultTargetAssetPath = bytes("");
         this._setConfig(cfg);
 
@@ -120,9 +117,8 @@ contract SwapLogicTest is Test {
 
     function testSetMerchantTargetAssetPathZeroAddressReverts() public {
         SwapLogic.SwapLogicConfig memory cfg;
-        cfg.router[0] = ROUTER;
-        cfg.usdt[0] = address(0);
-        cfg.sxt[0] = SXT;
+        cfg.router = ROUTER;
+        cfg.usdt = address(0);
         cfg.defaultTargetAssetPath = bytes("");
         this._setConfig(cfg);
 

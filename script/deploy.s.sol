@@ -39,7 +39,6 @@ contract Deploy is Script {
         address clientContractOwner;
         address router;
         address usdt;
-        address sxt;
         bytes defaultTargetAssetPath;
         bytes usdcToUsdtPath;
     }
@@ -75,7 +74,6 @@ contract Deploy is Script {
         // swap logic section
         config.router = configJson.readAddress(".router");
         config.usdt = configJson.readAddress(".usdt");
-        config.sxt = configJson.readAddress(".sxt");
         config.defaultTargetAssetPath = configJson.readBytes(".defaultTargetAssetPath");
 
         vm.startBroadcast();
@@ -94,9 +92,8 @@ contract Deploy is Script {
                     config.nativeTokenDecimals,
                     config.nativeTokenStalePriceThresholdInSeconds,
                     SwapLogic.SwapLogicConfig({
-                        router: [config.router],
-                        usdt: [config.usdt],
-                        sxt: [config.sxt],
+                        router: config.router,
+                        usdt: config.usdt,
                         defaultTargetAssetPath: config.defaultTargetAssetPath
                     })
                 )

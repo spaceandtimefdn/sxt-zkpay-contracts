@@ -6,9 +6,8 @@ pragma solidity 0.8.28;
 library SwapLogic {
     // solhint-disable-next-line gas-struct-packing
     struct SwapLogicConfig {
-        address[1] router;
-        address[1] usdt;
-        address[1] sxt;
+        address router;
+        address usdt;
         bytes defaultTargetAssetPath;
     }
 
@@ -28,9 +27,8 @@ library SwapLogic {
 
     /// @notice set the essential config for swaps
     function setConfig(SwapLogicConfig storage _swapLogicConfig, SwapLogicConfig calldata newConfig) internal {
-        _swapLogicConfig.router[0] = newConfig.router[0];
-        _swapLogicConfig.usdt[0] = newConfig.usdt[0];
-        _swapLogicConfig.sxt[0] = newConfig.sxt[0];
+        _swapLogicConfig.router = newConfig.router;
+        _swapLogicConfig.usdt = newConfig.usdt;
         _swapLogicConfig.defaultTargetAssetPath = newConfig.defaultTargetAssetPath;
     }
 
@@ -61,7 +59,7 @@ library SwapLogic {
             tokenOut := shr(96, calldataload(add(path.offset, sub(path.length, 20))))
         }
 
-        if (tokenOut != _swapLogicConfig.usdt[0]) {
+        if (tokenOut != _swapLogicConfig.usdt) {
             revert PathMustEndWithUSDT();
         }
 
@@ -89,7 +87,7 @@ library SwapLogic {
             tokenIn := shr(96, calldataload(path.offset))
         }
 
-        if (tokenIn != _swapLogicConfig.usdt[0]) {
+        if (tokenIn != _swapLogicConfig.usdt) {
             revert PathMustStartWithUSDT();
         }
 

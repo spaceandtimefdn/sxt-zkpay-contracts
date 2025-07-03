@@ -9,6 +9,7 @@ import {ZKPay} from "../src/ZKPay.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
 import {QueryLogic} from "../src/libraries/QueryLogic.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
+import {DummyData} from "./data/DummyData.sol";
 
 contract QueryCancelationTest is Test {
     ZKPay public _zkpay;
@@ -42,7 +43,18 @@ contract QueryCancelationTest is Test {
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
             "ZKPay.sol",
             _owner,
-            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, sxt, _nativeTokenPriceFeed, nativeTokenDecimals, 1000))
+            abi.encodeCall(
+                ZKPay.initialize,
+                (
+                    _owner,
+                    _treasury,
+                    sxt,
+                    _nativeTokenPriceFeed,
+                    nativeTokenDecimals,
+                    1000,
+                    DummyData.getSwapLogicConfig()
+                )
+            )
         );
         _zkpay = ZKPay(zkPayProxyAddress);
 
@@ -61,7 +73,7 @@ contract QueryCancelationTest is Test {
             tokenDecimals: usdcDecimals,
             stalePriceThresholdInSeconds: 1000
         });
-        _zkpay.setPaymentAsset(address(_usdc), _paymentAssetInstance);
+        _zkpay.setPaymentAsset(address(_usdc), _paymentAssetInstance, DummyData.getOriginAssetPath(address(_usdc)));
 
         vm.stopPrank();
 

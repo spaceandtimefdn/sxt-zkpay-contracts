@@ -83,7 +83,12 @@ interface IZKPay {
     /// @notice Sets the payment asset
     /// @param assetAddress The asset to set
     /// @param paymentAsset AssetManagement.PaymentAsset struct
-    function setPaymentAsset(address assetAddress, AssetManagement.PaymentAsset calldata paymentAsset) external;
+    /// @param path The path for the source asset to swap to USDT (sourceAsset => USDT)
+    function setPaymentAsset(
+        address assetAddress,
+        AssetManagement.PaymentAsset calldata paymentAsset,
+        bytes calldata path
+    ) external;
 
     /// @notice Removes an asset from the payment assets
     /// @param asset The asset to remove
@@ -138,7 +143,8 @@ interface IZKPay {
 
     /// @notice Sets the merchant configuration for the caller
     /// @param config Merchant configuration struct
-    function setMerchantConfig(MerchantLogic.MerchantConfig calldata config) external;
+    /// @param path The path for the target asset to swap to USDT (USDT => targetAsset)
+    function setMerchantConfig(MerchantLogic.MerchantConfig calldata config, bytes calldata path) external;
 
     /// @notice Returns the merchant configuration for a given merchant
     /// @param merchant The merchant address

@@ -12,5 +12,10 @@
   "usdcTokenDecimals": 6,
   "usdcTokenStalePriceThresholdInSeconds": 86400,
   "Client contract section": "----------------------------------",
-  "clientContractOwner": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6"
+  "clientContractOwner": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6",
+  "swap logic section": "----------------------------------",
+  "router": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+  "usdt": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+  "defaultTargetAssetPath": "0xe6bfd33f52d82ccb5b37e16d3dd81f9ffdabb195",
+  "usdcToUsdtPath": "0xe6bfd33f52d82ccb5b37e16d3dd81f9ffdabb195"
 }

@@ -22,6 +22,8 @@ import {
 import {IZKPayClient} from "../src/interfaces/IZKPayClient.sol";
 import {MockCustomLogic} from "./mocks/MockCustomLogic.sol";
 import {RejectEther} from "./mocks/RejectEther.sol";
+import {DummyData} from "./data/DummyData.sol";
+import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 
 contract ZKPayTest is Test, IZKPayClient {
     ZKPay public zkpay;
@@ -41,7 +43,11 @@ contract ZKPayTest is Test, IZKPayClient {
         _sxt = address(new MockERC20());
         vm.prank(_owner);
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _sxt, _priceFeed, 18, 1000))
+            "ZKPay.sol",
+            _owner,
+            abi.encodeCall(
+                ZKPay.initialize, (_owner, _treasury, _sxt, _priceFeed, 18, 1000, DummyData.getSwapLogicConfig())
+            )
         );
 
         zkpay = ZKPay(zkPayProxyAddress);
@@ -108,7 +114,9 @@ contract ZKPayTest is Test, IZKPayClient {
         address proxy = Upgrades.deployTransparentProxy(
             "ZKPay.sol",
             msg.sender,
-            abi.encodeCall(ZKPay.initialize, (msg.sender, _treasury, sxt, _priceFeed, 18, 1000))
+            abi.encodeCall(
+                ZKPay.initialize, (msg.sender, _treasury, sxt, _priceFeed, 18, 1000, DummyData.getSwapLogicConfig())
+            )
         );
         address implAddressV1 = Upgrades.getImplementationAddress(proxy);
         address adminAddress = Upgrades.getAdminAddress(proxy);
@@ -160,11 +168,12 @@ contract ZKPayTest is Test, IZKPayClient {
                 priceFeed: _priceFeed,
                 tokenDecimals: tokenDecimals,
                 stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
-            })
+            }),
+            DummyData.getOriginAssetPath(asset)
         );
     }
 
-    function testSetPaymentAsset(address asset) public {
+    function testFuzzSetPaymentAsset(address asset) public {
         vm.assume(asset != NATIVE_ADDRESS);
         vm.prank(_owner);
 
@@ -173,7 +182,16 @@ contract ZKPayTest is Test, IZKPayClient {
             asset, AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG, _priceFeed, 18, 1000
         );
 
-        zkpay.setPaymentAsset(asset, paymentAssetInstance);
+        zkpay.setPaymentAsset(asset, paymentAssetInstance, DummyData.getOriginAssetPath(asset));
+    }
+
+    function testFuzzSetPaymentAssetInvalidPath(address asset) public {
+        vm.assume(asset != NATIVE_ADDRESS);
+        vm.prank(_owner);
+        vm.assume(asset != DummyData.getUsdtAddress());
+
+        vm.expectRevert(SwapLogic.InvalidPath.selector);
+        zkpay.setPaymentAsset(asset, paymentAssetInstance, DummyData.getDestinationAssetPath(asset));
     }
 
     function testFuzzOnlyOwnerCanSetPaymentAsset(address caller) public {
@@ -183,7 +201,7 @@ contract ZKPayTest is Test, IZKPayClient {
             vm.expectRevert();
         }
 
-        zkpay.setPaymentAsset(address(0x4), paymentAssetInstance);
+        zkpay.setPaymentAsset(address(0x4), paymentAssetInstance, DummyData.getOriginAssetPath(address(0x4)));
     }
 
     function testRemovePaymentAsset() public {
@@ -237,7 +255,7 @@ contract ZKPayTest is Test, IZKPayClient {
         });
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance);
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
 
         QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
             query: "test",
@@ -315,7 +333,7 @@ contract ZKPayTest is Test, IZKPayClient {
         });
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance);
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
 
         QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
             query: "test",
@@ -372,7 +390,7 @@ contract ZKPayTest is Test, IZKPayClient {
         });
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance);
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
 
         // deploy custom logic contract
         MockCustomLogic mockedCustomLogic = new MockCustomLogic();
@@ -430,7 +448,7 @@ contract ZKPayTest is Test, IZKPayClient {
         });
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance);
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
 
         // deploy custom logic contract
         MockCustomLogic mockedCustomLogic = new MockCustomLogic();
@@ -480,7 +498,7 @@ contract ZKPayTest is Test, IZKPayClient {
         uint248 amount = 1 ether;
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance);
+        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getOriginAssetPath(NATIVE_ADDRESS));
 
         // Create a contract that will reject ETH transfers
         RejectEther rejector = new RejectEther();
@@ -504,7 +522,7 @@ contract ZKPayTest is Test, IZKPayClient {
         uint248 amount = 1 ether;
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance);
+        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getOriginAssetPath(NATIVE_ADDRESS));
 
         RejectEther rejectingTreasury = new RejectEther();
         vm.prank(_owner);
@@ -519,7 +537,9 @@ contract ZKPayTest is Test, IZKPayClient {
     function testInitializeWithZeroSXTAddressReverts() public {
         address implementation = address(new ZKPay());
 
-        bytes memory initData = abi.encodeCall(ZKPay.initialize, (_owner, _treasury, address(0), _priceFeed, 18, 1000));
+        bytes memory initData = abi.encodeCall(
+            ZKPay.initialize, (_owner, _treasury, address(0), _priceFeed, 18, 1000, DummyData.getSwapLogicConfig())
+        );
 
         vm.expectRevert(ZKPay.SXTAddressCannotBeZero.selector);
         new TransparentUpgradeableProxy(implementation, _owner, initData);

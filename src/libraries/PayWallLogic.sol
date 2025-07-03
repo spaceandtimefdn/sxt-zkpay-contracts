@@ -5,7 +5,7 @@ pragma solidity 0.8.28;
 /// @notice Library for managing merchant paywall prices
 library PayWallLogic {
     struct PayWallLogicStorage {
-        mapping(address merchant => mapping(bytes32 item => uint248 price)) paywallPrices; // in USD 18 decimals precision
+        mapping(address merchant => mapping(bytes32 item => uint248 price)) paywallPrices;
     }
 
     /// @notice Emitted when the price for an item is set
@@ -15,7 +15,7 @@ library PayWallLogic {
     /// @param _paywallLogicStorage the storage of the paywall logic
     /// @param merchant the merchant address
     /// @param item the item hash
-    /// @param price the price in USD 18 decimals precision
+    /// @param price the price
     function setItemPrice(
         PayWallLogicStorage storage _paywallLogicStorage,
         address merchant,
@@ -30,7 +30,7 @@ library PayWallLogic {
     /// @param _paywallLogicStorage the storage of the paywall logic
     /// @param merchant the merchant address
     /// @param item the item hash
-    /// @return the price in USD 18 decimals precision
+    /// @return the price
     function getItemPrice(PayWallLogicStorage storage _paywallLogicStorage, address merchant, bytes32 item)
         internal
         view

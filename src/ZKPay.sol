@@ -105,7 +105,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         AssetManagement.PaymentAsset calldata paymentAsset,
         bytes calldata path
     ) external onlyOwner {
-        address originAsset = SwapLogic.callbackExtractPathOriginAsset(path);
+        address originAsset = SwapLogic.calldataExtractPathOriginAsset(path);
         if (originAsset != assetAddress) {
             revert SwapLogic.InvalidPath();
         }

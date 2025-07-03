@@ -4,6 +4,16 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
 
+contract SwapLogicWrapper {
+    function calldataExtractPathDestinationAsset(bytes calldata path) external pure returns (address) {
+        return SwapLogic.calldataExtractPathDestinationAsset(path);
+    }
+
+    function calldataExtractPathOriginAsset(bytes calldata path) external pure returns (address) {
+        return SwapLogic.calldataExtractPathOriginAsset(path);
+    }
+}
+
 contract SwapLogicTest is Test {
     SwapLogic.SwapLogicStorage internal _swapLogicStorage;
 
@@ -13,12 +23,15 @@ contract SwapLogicTest is Test {
     address internal constant SOURCE_ASSET = address(0xAAAA);
     address internal constant MERCHANT = address(0xBBBB);
 
+    SwapLogicWrapper internal wrapper;
+
     function setUp() public {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ROUTER;
         cfg.usdt = USDT;
         cfg.defaultTargetAssetPath = abi.encodePacked(USDT);
         this._setConfig(cfg);
+        wrapper = new SwapLogicWrapper();
     }
 
     function _setConfig(SwapLogic.SwapLogicConfig calldata cfg) external {
@@ -184,5 +197,25 @@ contract SwapLogicTest is Test {
         bytes memory path = abi.encodePacked(USDT);
         this._setMerchantTargetAssetPath(MERCHANT, path);
         assertEq(keccak256(SwapLogic.getMerchantTargetAssetPath(_swapLogicStorage, MERCHANT)), keccak256(path));
+    }
+
+    function testCalldataExtractPathDestinationAssetAddress() public view {
+        bytes memory path = abi.encodePacked(SOURCE_ASSET);
+        assertEq(wrapper.calldataExtractPathDestinationAsset(path), SOURCE_ASSET);
+    }
+
+    function testCalldataExtractPathDestinationAsset1Hop() public view {
+        bytes memory path = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
+        assertEq(wrapper.calldataExtractPathDestinationAsset(path), USDT);
+    }
+
+    function testCalldataExtractPathDestinationAsset2Hop() public view {
+        bytes memory path = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), address(0x4444), bytes3(0x102030), USDT);
+        assertEq(wrapper.calldataExtractPathDestinationAsset(path), USDT);
+    }
+
+    function testCalldataExtractPathOriginAsset() public view {
+        bytes memory path = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
+        assertEq(wrapper.calldataExtractPathOriginAsset(path), SOURCE_ASSET);
     }
 }

@@ -66,7 +66,7 @@ library SwapLogic {
     /// @notice extract the destination asset from the path
     /// @param path the swap path
     /// @return tokenOut the destination asset
-    function callbackExtractPathDestinationAsset(bytes calldata path) internal pure returns (address tokenOut) {
+    function calldataExtractPathDestinationAsset(bytes calldata path) internal pure returns (address tokenOut) {
         assembly {
             tokenOut := shr(ADDRESS_OFFSET_BITS, calldataload(add(path.offset, sub(path.length, ADDRESS_SIZE))))
         }
@@ -87,7 +87,7 @@ library SwapLogic {
     /// @param path the swap path
     /// @return tokenIn the source asset
     /// @dev this function assumes the path is valid and does not check for it. use isValidPath to check for validity
-    function callbackExtractPathOriginAsset(bytes calldata path) internal pure returns (address tokenIn) {
+    function calldataExtractPathOriginAsset(bytes calldata path) internal pure returns (address tokenIn) {
         assembly {
             tokenIn := shr(ADDRESS_OFFSET_BITS, calldataload(path.offset))
         }
@@ -99,13 +99,13 @@ library SwapLogic {
             revert InvalidPath();
         }
 
-        address tokenOut = callbackExtractPathDestinationAsset(path);
+        address tokenOut = calldataExtractPathDestinationAsset(path);
 
         if (tokenOut != _swapLogicStorage.swapLogicConfig.usdt) {
             revert PathMustEndWithUSDT();
         }
 
-        address sourceAsset = callbackExtractPathOriginAsset(path);
+        address sourceAsset = calldataExtractPathOriginAsset(path);
 
         _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset] = path;
         emit SourceAssetPathSet(sourceAsset, path);
@@ -121,7 +121,7 @@ library SwapLogic {
             revert InvalidPath();
         }
 
-        address tokenIn = callbackExtractPathOriginAsset(path);
+        address tokenIn = calldataExtractPathOriginAsset(path);
 
         if (tokenIn != _swapLogicStorage.swapLogicConfig.usdt) {
             revert PathMustStartWithUSDT();

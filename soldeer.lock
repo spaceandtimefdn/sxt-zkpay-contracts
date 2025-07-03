@@ -20,6 +20,13 @@ checksum = "25d9cf22b6f4d8da7975f24234eefbf6c71348464ea74c8fdd481be3811767f5"
 integrity = "498747bedc3f757976da0b6125d26a63e79bb2b4dbabd8ecd2547e809a2fa27e"
 
 [[dependencies]]
+name = "@uniswap-v3-periphery"
+version = "1.4.4"
+url = "https://soldeer-revisions.s3.amazonaws.com/@uniswap-v3-periphery/1_4_4_22-01-2024_13:20:51_v3-periphery.zip"
+checksum = "f1ce151585a084bb3ec6fb9cbce4520924d41398c3ce8979169de6f7f70d6a81"
+integrity = "e101a06117b3274cd21a3032fa9a55446e842dc0e0e1b0b25008e094a446c453"
+
+[[dependencies]]
 name = "forge-std"
 version = "1.9.6"
 url = "https://soldeer-revisions.s3.amazonaws.com/forge-std/1_9_6_01-02-2025_20:49:10_forge-std-1.9.zip"

@@ -5,6 +5,7 @@ import {AssetManagement} from "./libraries/AssetManagement.sol";
 import {QueryLogic} from "./libraries/QueryLogic.sol";
 import {MerchantLogic} from "./libraries/MerchantLogic.sol";
 import {SwapLogic} from "./libraries/SwapLogic.sol";
+import {PayWallLogic} from "./libraries/PayWallLogic.sol";
 
 contract ZKPayStorage {
     address internal _treasury;
@@ -19,4 +20,6 @@ contract ZKPayStorage {
 
     // **  Swap Logic Storage ** //
     SwapLogic.SwapLogicStorage internal _swapLogicStorage;
+    // **  Paywall Logic Storage ** //
+    PayWallLogic.PayWallLogicStorage internal _paywallLogicStorage;
 }

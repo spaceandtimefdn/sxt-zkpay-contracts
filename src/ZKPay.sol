@@ -14,12 +14,14 @@ import {IZKPayClient} from "./interfaces/IZKPayClient.sol";
 import {ICustomLogic} from "./interfaces/ICustomLogic.sol";
 import {NATIVE_ADDRESS, ZERO_ADDRESS} from "./libraries/Constants.sol";
 import {SwapLogic} from "./libraries/SwapLogic.sol";
+import {PayWallLogic} from "./libraries/PayWallLogic.sol";
 
 // slither-disable-next-line locked-ether
 contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
     using SwapLogic for SwapLogic.SwapLogicStorage;
+    using PayWallLogic for PayWallLogic.PayWallLogicStorage;
 
     error TreasuryAddressCannotBeZero();
     error TreasuryAddressSameAsCurrent();
@@ -269,5 +271,15 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     /// @inheritdoc IZKPay
     function getMerchantConfig(address merchant) external view returns (MerchantLogic.MerchantConfig memory config) {
         return _merchantConfigs.get(merchant);
+    }
+
+    /// @inheritdoc IZKPay
+    function setPaywallItemPrice(bytes32 item, uint248 price) external {
+        _paywallLogicStorage.setItemPrice(msg.sender, item, price);
+    }
+
+    /// @inheritdoc IZKPay
+    function getPaywallItemPrice(bytes32 item, address merchant) external view returns (uint248 price) {
+        return _paywallLogicStorage.getItemPrice(merchant, item);
     }
 }

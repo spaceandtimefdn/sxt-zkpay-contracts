@@ -53,19 +53,21 @@ interface IZKPay {
     /// @param amount The amount of tokens used for payment
     /// @param protocolFeeAmount The amount of protocol fee in source token.
     /// @param onBehalfOf The identifier on whose behalf the payment was made
-    /// @param target The target address
+    /// @param merchant The merchant address
     /// @param memo Additional data or information about the payment
     /// @param amountInUSD The amount in USD
     /// @param sender The address that initiated the payment
+    /// @param itemId Item identifier for the payment
     event SendPayment(
         address indexed asset,
         uint248 amount,
         uint248 protocolFeeAmount,
         bytes32 onBehalfOf,
-        address indexed target,
+        address indexed merchant,
         bytes memo,
         uint248 amountInUSD,
-        address indexed sender
+        address indexed sender,
+        bytes32 itemId
     );
 
     /// @notice Sets the treasury address
@@ -133,13 +135,15 @@ interface IZKPay {
     /// @param onBehalfOf The identifier on whose behalf the payment is made
     /// @param target The target address to receive the payment
     /// @param memo Additional data or information about the payment
-    function send(address asset, uint248 amount, bytes32 onBehalfOf, address target, bytes calldata memo) external;
-
-    /// @notice Allows for sending native tokens to a target address
-    /// @param onBehalfOf The identifier on whose behalf the payment is made
-    /// @param target The target address to receive the payment
-    /// @param memo Additional data or information about the payment
-    function sendNative(bytes32 onBehalfOf, address target, bytes calldata memo) external payable;
+    /// @param itemId Item identifier for the payment
+    function send(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address target,
+        bytes calldata memo,
+        bytes32 itemId
+    ) external;
 
     /// @notice Sets the merchant configuration for the caller
     /// @param config Merchant configuration struct

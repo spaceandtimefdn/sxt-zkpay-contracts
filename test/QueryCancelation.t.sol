@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
+import {MockCustomLogic} from "./mocks/MockCustomLogic.sol";
 
 import {ZKPay} from "../src/ZKPay.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
@@ -77,7 +78,7 @@ contract QueryCancelationTest is Test {
 
         vm.stopPrank();
 
-        address customLogicContractAddress = address(0x101);
+        MockCustomLogic mockedCustomLogic = new MockCustomLogic();
 
         // deploy custom logic contract
         _queryRequest = QueryLogic.QueryRequest({
@@ -87,7 +88,7 @@ contract QueryCancelationTest is Test {
             callbackClientContractAddress: address(this),
             callbackGasLimit: 1_000_000,
             callbackData: "test",
-            customLogicContractAddress: customLogicContractAddress
+            customLogicContractAddress: address(mockedCustomLogic)
         });
 
         // allow the zkpay contract to transfer usdc

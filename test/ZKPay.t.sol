@@ -21,10 +21,10 @@ import {
 } from "../src/libraries/Constants.sol";
 import {IZKPayClient} from "../src/interfaces/IZKPayClient.sol";
 import {MockCustomLogic} from "./mocks/MockCustomLogic.sol";
-import {RejectEther} from "./mocks/RejectEther.sol";
 import {DummyData} from "./data/DummyData.sol";
 import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 import {PayWallLogic} from "../src/libraries/PayWallLogic.sol";
+import {MockCustomLogic} from "./mocks/MockCustomLogic.sol";
 
 contract ZKPayTest is Test, IZKPayClient {
     ZKPay public zkpay;
@@ -258,6 +258,8 @@ contract ZKPayTest is Test, IZKPayClient {
         vm.prank(_owner);
         zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
 
+        MockCustomLogic mockedCustomLogic = new MockCustomLogic();
+
         QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
             query: "test",
             queryParameters: "test",
@@ -265,7 +267,7 @@ contract ZKPayTest is Test, IZKPayClient {
             callbackClientContractAddress: address(this),
             callbackGasLimit: 1000000,
             callbackData: "test",
-            customLogicContractAddress: address(this)
+            customLogicContractAddress: address(mockedCustomLogic)
         });
 
         // allow the zkpay contract to transfer usdc
@@ -311,6 +313,95 @@ contract ZKPayTest is Test, IZKPayClient {
         zkpay.query(address(usdc), usdcAmount, queryRequest);
     }
 
+    function testQueryInvalidCallbackData() public {
+        uint248 usdcAmount = 10e6;
+
+        // deploy usdc
+        uint8 usdcDecimals = 6;
+        MockERC20 usdc = new MockERC20();
+        usdc.mint(address(this), 100e6); // 100 usdc
+
+        // deploy mock price feed
+        address mockUsdcPriceFeed = address(new MockV3Aggregator(8, 1e8));
+
+        paymentAssetInstance = AssetManagement.PaymentAsset({
+            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+            priceFeed: mockUsdcPriceFeed,
+            tokenDecimals: usdcDecimals,
+            stalePriceThresholdInSeconds: 1000
+        });
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
+
+        MockCustomLogic mockedCustomLogic = new MockCustomLogic();
+
+        QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
+            query: "test",
+            queryParameters: "test",
+            timeout: uint64(block.timestamp + 100),
+            callbackClientContractAddress: address(this),
+            callbackGasLimit: 1000000,
+            callbackData: "",
+            customLogicContractAddress: address(mockedCustomLogic)
+        });
+
+        // allow the zkpay contract to transfer usdc
+        usdc.approve(address(zkpay), usdcAmount);
+
+        // query
+        vm.expectRevert(ZKPay.InvalidCallbackData.selector);
+        zkpay.query(address(usdc), usdcAmount, queryRequest);
+    }
+
+    function testQueryInsufficientPayment() public {
+        uint248 usdcAmount = 10e6; // 10 usdc
+
+        // deploy usdc
+        uint8 usdcDecimals = 6;
+        MockERC20 usdc = new MockERC20();
+        usdc.mint(address(this), 100e6); // 100 usdc
+
+        // deploy mock price feed
+        address mockUsdcPriceFeed = address(new MockV3Aggregator(8, 1e8));
+
+        paymentAssetInstance = AssetManagement.PaymentAsset({
+            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+            priceFeed: mockUsdcPriceFeed,
+            tokenDecimals: usdcDecimals,
+            stalePriceThresholdInSeconds: 1000
+        });
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
+
+        MockCustomLogic mockedCustomLogic = new MockCustomLogic();
+
+        QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
+            query: "test",
+            queryParameters: "test",
+            timeout: uint64(block.timestamp + 100),
+            callbackClientContractAddress: address(this),
+            callbackGasLimit: 1000000,
+            callbackData: hex"aabbccdd",
+            customLogicContractAddress: address(mockedCustomLogic)
+        });
+
+        // allow the zkpay contract to transfer usdc
+        usdc.approve(address(zkpay), usdcAmount);
+
+        bytes4 selector = bytes4(queryRequest.callbackData);
+        bytes32 itemId = keccak256(abi.encode(queryRequest.callbackClientContractAddress, selector));
+
+        (address merchant,) = mockedCustomLogic.getMerchantAddressAndFee();
+        vm.prank(merchant);
+        zkpay.setPaywallItemPrice(itemId, usdcAmount * 1e12 + 1);
+
+        // query
+        vm.expectRevert(ZKPay.InsufficientPayment.selector);
+        zkpay.query(address(usdc), usdcAmount, queryRequest);
+    }
+
     function zkPayCallback(bytes32 queryHash, bytes calldata queryResult, bytes calldata callbackData) external {
         emit CallbackCalled(queryHash, queryResult, callbackData);
     }
@@ -336,6 +427,9 @@ contract ZKPayTest is Test, IZKPayClient {
         vm.prank(_owner);
         zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
 
+        // deploy custom logic contract
+        MockCustomLogic mockedCustomLogic = new MockCustomLogic();
+
         QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
             query: "test",
             queryParameters: "test",
@@ -343,7 +437,7 @@ contract ZKPayTest is Test, IZKPayClient {
             callbackClientContractAddress: address(this),
             callbackGasLimit: 1000000,
             callbackData: "test",
-            customLogicContractAddress: address(this)
+            customLogicContractAddress: address(mockedCustomLogic)
         });
 
         vm.expectRevert(ZKPay.InvalidQueryHash.selector);
@@ -361,7 +455,7 @@ contract ZKPayTest is Test, IZKPayClient {
             callbackClientContractAddress: address(this),
             callbackGasLimit: 1000000,
             callbackData: "test",
-            customLogicContractAddress: address(this)
+            customLogicContractAddress: address(mockedCustomLogic)
         });
 
         vm.expectRevert(ZKPay.InvalidQueryHash.selector);
@@ -470,69 +564,6 @@ contract ZKPayTest is Test, IZKPayClient {
         // query
         vm.expectRevert(QueryLogic.CallbackGasLimitTooHigh.selector);
         zkpay.query(address(usdc), usdcAmount, queryRequest);
-    }
-
-    function testPayNativeExceedsUint248Limit() public {
-        // Set up initial state
-        address onBehalfOfAddr = address(0x123);
-        bytes32 onBehalfOf = bytes32(uint256(uint160(onBehalfOfAddr)));
-        address target = address(0x456);
-        uint64 itemId = 789;
-        bytes memory memo = abi.encode(itemId);
-        uint256 excessiveAmount = uint256(type(uint248).max) + 1;
-
-        // Fund the test contract
-        vm.deal(address(this), excessiveAmount);
-
-        // Expect revert due to excessive amount
-        vm.expectRevert(ZKPay.ValueExceedsUint248Limit.selector);
-        zkpay.sendNative{value: excessiveAmount}(onBehalfOf, target, memo);
-    }
-
-    // Use the RejectEther contract defined outside this contract
-    function testPayNativeFailedTransfer() public {
-        // Set up initial state
-        address onBehalfOfAddr = address(0x123);
-        bytes32 onBehalfOf = bytes32(uint256(uint160(onBehalfOfAddr)));
-        uint64 itemId = 789;
-        bytes memory memo = abi.encode(itemId);
-        uint248 amount = 1 ether;
-
-        vm.prank(_owner);
-        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getOriginAssetPath(NATIVE_ADDRESS));
-
-        // Create a contract that will reject ETH transfers
-        RejectEther rejector = new RejectEther();
-
-        // Use the rejector as the target address
-        address rejectingTarget = address(rejector);
-
-        // Fund the test contract
-        vm.deal(address(this), amount);
-
-        // Expect revert due to failed transfer
-        vm.expectRevert(AssetManagement.NativePaymentFailed.selector);
-        zkpay.sendNative{value: amount}(onBehalfOf, rejectingTarget, memo);
-    }
-
-    function testSendNativeFeeTransferFailed() public {
-        address onBehalfOfAddr = address(0x123);
-        bytes32 onBehalfOf = bytes32(uint256(uint160(onBehalfOfAddr)));
-        uint64 itemId = 789;
-        bytes memory memo = abi.encode(itemId);
-        uint248 amount = 1 ether;
-
-        vm.prank(_owner);
-        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getOriginAssetPath(NATIVE_ADDRESS));
-
-        RejectEther rejectingTreasury = new RejectEther();
-        vm.prank(_owner);
-        zkpay.setTreasury(address(rejectingTreasury));
-
-        vm.deal(address(this), amount);
-
-        vm.expectRevert(AssetManagement.NativePaymentFailed.selector);
-        zkpay.sendNative{value: amount}(onBehalfOf, address(0x456), memo);
     }
 
     function testInitializeWithZeroSXTAddressReverts() public {

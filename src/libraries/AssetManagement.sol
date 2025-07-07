@@ -25,10 +25,8 @@ library AssetManagement {
     error StalePriceFeedData();
     /// @notice Error thrown when the asset is not supported for this method
     error AssetIsNotSupportedForThisMethod();
-    /// @notice Error thrown when the target address is zero
-    error TargetAddressCannotBeZero();
-    /// @notice Error thrown when the native payment fails
-    error NativePaymentFailed();
+    /// @notice Error thrown when the merchant address is zero
+    error MerchantAddressCannotBeZero();
 
     /// @notice Emitted when a new asset is added
     /// @param asset The asset address
@@ -155,7 +153,7 @@ library AssetManagement {
         address assetAddress,
         PaymentType paymentType
     ) internal view returns (bool) {
-        if (assetAddress == NATIVE_ADDRESS && paymentType == PaymentType.Query) {
+        if (assetAddress == NATIVE_ADDRESS) {
             return false;
         }
         return (_assets[assetAddress].allowedPaymentTypes >> uint8(paymentType)) & bytes1(0x01) == bytes1(0x01);
@@ -282,19 +280,19 @@ library AssetManagement {
     /// @param _assets The mapping of assets to their payment information.
     /// @param asset The address of the asset to send the payment for.
     /// @param amount The amount of the asset to send.
-    /// @param target The address of the target to send the payment to.
+    /// @param merchant The address of the merchant to send the payment to.
     /// @param treasury The address of the treasury to send the protocol fee to.
     /// @param sxt The address of the SXT token.
     function send(
         mapping(address asset => PaymentAsset) storage _assets,
         address asset,
         uint248 amount,
-        address target,
+        address merchant,
         address treasury,
         address sxt
     ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) {
-        if (target == ZERO_ADDRESS) {
-            revert TargetAddressCannotBeZero();
+        if (merchant == ZERO_ADDRESS) {
+            revert MerchantAddressCannotBeZero();
         }
 
         if (!isSupported(_assets, asset, PaymentType.Send)) {
@@ -304,30 +302,14 @@ library AssetManagement {
         protocolFeeAmount = asset == sxt ? 0 : uint248((uint256(amount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
         uint248 transferAmount = amount - protocolFeeAmount;
 
-        if (asset == NATIVE_ADDRESS) {
-            // slither-disable-next-line low-level-calls
-            (bool success,) = payable(target).call{value: transferAmount}("");
-            if (!success) {
-                revert NativePaymentFailed();
-            }
-            if (protocolFeeAmount > 0) {
-                // slither-disable-next-line low-level-calls
-                (bool feeSuccess,) = payable(treasury).call{value: protocolFeeAmount}("");
-                if (!feeSuccess) {
-                    revert NativePaymentFailed();
-                }
-            }
-            actualAmountReceived = transferAmount;
-        } else {
-            uint256 balanceBefore = IERC20(asset).balanceOf(target);
-            if (protocolFeeAmount > 0) {
-                SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, treasury, protocolFeeAmount);
-            }
-            SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, target, transferAmount);
-            uint256 balanceAfter = IERC20(asset).balanceOf(target);
-
-            actualAmountReceived = uint248(balanceAfter - balanceBefore);
+        uint256 balanceBefore = IERC20(asset).balanceOf(merchant);
+        if (protocolFeeAmount > 0) {
+            SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, treasury, protocolFeeAmount);
         }
+        SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, merchant, transferAmount);
+        uint256 balanceAfter = IERC20(asset).balanceOf(merchant);
+
+        actualAmountReceived = uint248(balanceAfter - balanceBefore);
 
         amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
     }

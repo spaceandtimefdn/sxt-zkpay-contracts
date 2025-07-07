@@ -14,6 +14,8 @@
         "one-contract-per-file": "off",
         "no-complex-fallback": "off",
         "import-path-check": "off",
+        "use-natspec": "off",
+        "function-max-lines": "off",
         "func-visibility": [
             "warn",
             {

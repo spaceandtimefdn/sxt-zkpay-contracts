@@ -232,10 +232,14 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     }
 
     /// @inheritdoc IZKPay
-    function send(address asset, uint248 amount, bytes32 onBehalfOf, address target, bytes calldata memo)
-        external
-        nonReentrant
-    {
+    function send(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address target,
+        bytes calldata memo,
+        bytes32 itemId
+    ) external nonReentrant {
         if (asset == NATIVE_ADDRESS) {
             revert NotErc20Token();
         }
@@ -243,7 +247,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
             _assets.send(asset, amount, target, _treasury, _sxt);
         emit SendPayment(
-            asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, target, memo, amountInUSD, msg.sender
+            asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, target, memo, amountInUSD, msg.sender, itemId
         );
     }
 
@@ -258,7 +262,15 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
             _assets.send(NATIVE_ADDRESS, amount, target, _treasury, _sxt);
         emit SendPayment(
-            NATIVE_ADDRESS, actualAmountReceived, protocolFeeAmount, onBehalfOf, target, memo, amountInUSD, msg.sender
+            NATIVE_ADDRESS,
+            actualAmountReceived,
+            protocolFeeAmount,
+            onBehalfOf,
+            target,
+            memo,
+            amountInUSD,
+            msg.sender,
+            bytes32(0)
         );
     }
 

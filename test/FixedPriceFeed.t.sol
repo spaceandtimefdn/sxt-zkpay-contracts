@@ -141,7 +141,7 @@ contract FixedPriceFeedTest is Test {
 
         // send
         vm.prank(payer);
-        zkpay.send(asset, amount, onBehalfOf, target, memo);
+        zkpay.send(asset, amount, onBehalfOf, target, memo, bytes32(0));
     }
 
     function testQueryWithFixedPriceFeed() public {

@@ -57,6 +57,7 @@ interface IZKPay {
     /// @param memo Additional data or information about the payment
     /// @param amountInUSD The amount in USD
     /// @param sender The address that initiated the payment
+    /// @param itemId Item identifier for the payment
     event SendPayment(
         address indexed asset,
         uint248 amount,
@@ -65,7 +66,8 @@ interface IZKPay {
         address indexed target,
         bytes memo,
         uint248 amountInUSD,
-        address indexed sender
+        address indexed sender,
+        bytes32 itemId
     );
 
     /// @notice Sets the treasury address
@@ -133,7 +135,15 @@ interface IZKPay {
     /// @param onBehalfOf The identifier on whose behalf the payment is made
     /// @param target The target address to receive the payment
     /// @param memo Additional data or information about the payment
-    function send(address asset, uint248 amount, bytes32 onBehalfOf, address target, bytes calldata memo) external;
+    /// @param itemId Item identifier for the payment
+    function send(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address target,
+        bytes calldata memo,
+        bytes32 itemId
+    ) external;
 
     /// @notice Allows for sending native tokens to a target address
     /// @param onBehalfOf The identifier on whose behalf the payment is made

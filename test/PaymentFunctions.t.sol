@@ -101,6 +101,18 @@ contract PaymentFunctionsTest is Test {
         assertEq(usdc.balanceOf(treasury), protocolFeeAmount);
     }
 
+    function testSendInsufficientPayment() public {
+        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+
+        usdc.approve(address(zkpay), usdcAmount);
+
+        vm.prank(targetMerchant);
+        zkpay.setPaywallItemPrice(bytes32(uint256(itemId)), usdcAmount * 1e12 + 1);
+
+        vm.expectRevert(ZKPay.InsufficientPayment.selector);
+        zkpay.send(address(usdc), usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(uint256(itemId)));
+    }
+
     function testSendWithoutProtocolFee() public {
         address sxtToken = zkpay.getSXT();
         MockERC20 sxt = MockERC20(sxtToken);

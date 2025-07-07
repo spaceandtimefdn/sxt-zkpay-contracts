@@ -33,6 +33,8 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     error NotEnoughGasToExecuteCallback();
     error NotErc20Token();
     error SXTAddressCannotBeZero();
+    error InsufficientPayment();
+    error InvalidCallbackData();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -131,6 +133,21 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         returns (bytes32 queryHash)
     {
         (uint248 actualAmountReceived, uint248 amountInUSD) = AssetManagement.handleQueryPayment(_assets, asset, amount);
+
+        if (queryRequest.callbackData.length < 4) {
+            revert InvalidCallbackData();
+        }
+
+        bytes4 selector = bytes4(queryRequest.callbackData[:4]);
+        bytes32 itemId = keccak256(abi.encode(queryRequest.callbackClientContractAddress, selector));
+
+        // slither-disable-next-line unused-return
+        (address merchant,) = ICustomLogic(queryRequest.customLogicContractAddress).getMerchantAddressAndFee();
+
+        uint248 itemPrice = _paywallLogicStorage.getItemPrice(merchant, itemId);
+        if (amountInUSD < itemPrice) {
+            revert InsufficientPayment();
+        }
 
         QueryLogic.QueryPayment memory queryPayment =
             QueryLogic.QueryPayment({asset: asset, amount: actualAmountReceived, source: msg.sender});
@@ -246,6 +263,12 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
 
         (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
             _assets.send(asset, amount, merchant, _treasury, _sxt);
+
+        uint248 itemPrice = _paywallLogicStorage.getItemPrice(merchant, itemId);
+
+        if (amountInUSD < itemPrice) {
+            revert InsufficientPayment();
+        }
 
         emit SendPayment(
             asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, merchant, memo, amountInUSD, msg.sender, itemId

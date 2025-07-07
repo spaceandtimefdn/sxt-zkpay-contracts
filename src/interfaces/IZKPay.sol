@@ -145,12 +145,6 @@ interface IZKPay {
         bytes32 itemId
     ) external;
 
-    /// @notice Allows for sending native tokens to a target address
-    /// @param onBehalfOf The identifier on whose behalf the payment is made
-    /// @param target The target address to receive the payment
-    /// @param memo Additional data or information about the payment
-    function sendNative(bytes32 onBehalfOf, address target, bytes calldata memo) external payable;
-
     /// @notice Sets the merchant configuration for the caller
     /// @param config Merchant configuration struct
     /// @param path The path for the target asset to swap to USDT (USDT => targetAsset)

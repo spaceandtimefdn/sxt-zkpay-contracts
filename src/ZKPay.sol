@@ -252,29 +252,6 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     }
 
     /// @inheritdoc IZKPay
-    function sendNative(bytes32 onBehalfOf, address target, bytes calldata memo) external payable nonReentrant {
-        if (msg.value > type(uint248).max) {
-            revert ValueExceedsUint248Limit();
-        }
-
-        uint248 amount = uint248(msg.value);
-
-        (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
-            _assets.send(NATIVE_ADDRESS, amount, target, _treasury, _sxt);
-        emit SendPayment(
-            NATIVE_ADDRESS,
-            actualAmountReceived,
-            protocolFeeAmount,
-            onBehalfOf,
-            target,
-            memo,
-            amountInUSD,
-            msg.sender,
-            bytes32(0)
-        );
-    }
-
-    /// @inheritdoc IZKPay
     function setMerchantConfig(MerchantLogic.MerchantConfig calldata config, bytes calldata path) external {
         _merchantConfigs.set(msg.sender, config);
         _swapLogicStorage.setMerchantTargetAssetPath(msg.sender, path);

@@ -149,44 +149,6 @@ contract PaymentFunctionsTest is Test {
         zkpay.send(address(usdc), usdcAmount, onBehalfOfBytes32, address(0), memoBytes, bytes32(0));
     }
 
-    function testSendNative() public {
-        vm.deal(address(this), nativeAmount);
-
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
-
-        // Expect the Payment event to be emitted with correct parameters
-        vm.expectEmit(true, true, true, false); // Don't check the amountInUSD
-        emit IZKPay.SendPayment(
-            NATIVE_ADDRESS,
-            nativeAmount,
-            uint248((uint256(nativeAmount) * 9000) / 1_000_000),
-            onBehalfOfBytes32,
-            targetProtocol,
-            memoBytes,
-            0,
-            address(this),
-            bytes32(0)
-        );
-
-        zkpay.sendNative{value: nativeAmount}(onBehalfOfBytes32, targetProtocol, memoBytes);
-
-        uint248 protocolFeeAmount = uint248((uint256(nativeAmount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
-        assertEq(targetProtocol.balance, nativeAmount - protocolFeeAmount);
-        assertEq(treasury.balance, protocolFeeAmount);
-    }
-
-    function testSendNativeToZeroAddres() public {
-        // Fund the test contract with ETH
-        vm.deal(address(this), nativeAmount);
-
-        // Convert onBehalfOf address to bytes32
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
-
-        vm.expectRevert(AssetManagement.TargetAddressCannotBeZero.selector);
-        // Call the sendNative function
-        zkpay.sendNative{value: nativeAmount}(onBehalfOfBytes32, address(0), memoBytes);
-    }
-
     function testSendWithUnsupportedAsset() public {
         address invalidAsset = vm.addr(0x5);
 
@@ -214,29 +176,6 @@ contract PaymentFunctionsTest is Test {
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
         zkpay.send(newToken, usdcAmount, bytes32(uint256(uint160(onBehalfOf))), targetProtocol, memoBytes, bytes32(0));
-    }
-
-    function testSendNativeWithUnsupportedPaymentType() public {
-        // Set up payment asset with unsupported payment type
-        AssetManagement.PaymentAsset memory paymentAssetInstance = AssetManagement.PaymentAsset({
-            allowedPaymentTypes: AssetManagement.QUERY_PAYMENT_FLAG, // Only query payments allowed
-            priceFeed: nativeTokenPriceFeed,
-            tokenDecimals: 18,
-            stalePriceThresholdInSeconds: 1000
-        });
-
-        vm.prank(owner);
-        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getOriginAssetPath(NATIVE_ADDRESS));
-
-        // Convert onBehalfOf address to bytes32
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
-
-        // Fund the test contract with ETH
-        vm.deal(address(this), nativeAmount);
-
-        // Expect revert because the asset doesn't support SEND payment type
-        vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
-        zkpay.sendNative{value: nativeAmount}(onBehalfOfBytes32, targetProtocol, memoBytes);
     }
 
     receive() external payable {}

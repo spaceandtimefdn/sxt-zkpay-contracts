@@ -3,16 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
-
-contract SwapLogicWrapper {
-    function calldataExtractPathDestinationAsset(bytes calldata path) external pure returns (address) {
-        return SwapLogic.calldataExtractPathDestinationAsset(path);
-    }
-
-    function calldataExtractPathOriginAsset(bytes calldata path) external pure returns (address) {
-        return SwapLogic.calldataExtractPathOriginAsset(path);
-    }
-}
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SwapLogicTest is Test {
     SwapLogic.SwapLogicStorage internal _swapLogicStorage;
@@ -187,6 +178,11 @@ contract SwapLogicTest is Test {
         assertEq(SwapLogic.extractPathDestinationAsset(path), USDT);
     }
 
+    function testExtractPathOriginAsset() public pure {
+        bytes memory path = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
+        assertEq(SwapLogic.extractPathOriginAsset(path), SOURCE_ASSET);
+    }
+
     function testGetSourceAssetPath() public {
         bytes memory path = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
         this._setSourceAssetPath(path);
@@ -217,5 +213,122 @@ contract SwapLogicTest is Test {
     function testCalldataExtractPathOriginAsset() public view {
         bytes memory path = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
         assertEq(wrapper.calldataExtractPathOriginAsset(path), SOURCE_ASSET);
+    }
+
+    function testConnect2Paths() public pure {
+        address destinationAsset = address(0x4444);
+
+        bytes memory sourcePath = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT); // source -> USDT; 43 bytes
+        bytes memory destinationPath = abi.encodePacked(USDT, bytes3(0x102030), destinationAsset); // USDT -> destination; 43 bytes
+        bytes memory result = SwapLogic.connect2Paths(sourcePath, destinationPath); // source -> USDT -> destination; 66 bytes
+
+        assertEq(result.length, 66);
+        assertEq(SwapLogic.extractPathOriginAsset(result), SOURCE_ASSET);
+        assertEq(SwapLogic.extractPathDestinationAsset(result), destinationAsset);
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testConnect2PathsPathsDoNotConnect() public {
+        bytes memory path1 = abi.encodePacked(SOURCE_ASSET);
+        bytes memory path2 = abi.encodePacked(address(0xDEAD));
+        vm.expectRevert(SwapLogic.PathsDoNotConnect.selector);
+        SwapLogic.connect2Paths(path1, path2);
+    }
+
+    function testConnect2PathsBothSingleAsset() public pure {
+        bytes memory path1 = abi.encodePacked(SOURCE_ASSET);
+        bytes memory path2 = abi.encodePacked(SOURCE_ASSET);
+        bytes memory result = SwapLogic.connect2Paths(path1, path2);
+        assertEq(result, path1);
+    }
+
+    function testConnect2PathsFirstSingleAsset() public pure {
+        address destinationAsset = address(0x4444);
+        bytes memory path1 = abi.encodePacked(USDT);
+        bytes memory path2 = abi.encodePacked(USDT, bytes3(0x102030), destinationAsset);
+        bytes memory result = SwapLogic.connect2Paths(path1, path2);
+        assertEq(result, path2);
+    }
+
+    function testConnect2PathsSecondSingleAsset() public pure {
+        bytes memory path1 = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
+        bytes memory path2 = abi.encodePacked(USDT);
+        bytes memory result = SwapLogic.connect2Paths(path1, path2);
+        assertEq(result, path1);
+    }
+}
+
+contract SwapLogicWrapper {
+    SwapLogic.SwapLogicStorage internal _swapLogicStorage;
+
+    address public constant ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    address public constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    address public constant SXT = 0xE6Bfd33F52d82Ccb5b37E16D3dD81f9FFDAbB195;
+    address public constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+
+    constructor() {
+        // source paths
+        _swapLogicStorage.assetSwapPaths.sourceAssetPaths[SXT] = abi.encodePacked(SXT, bytes3(uint24(3000)), USDT);
+
+        // destination paths
+        _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[USDT] =
+            abi.encodePacked(USDT, bytes3(uint24(3000)), USDC);
+
+        bytes memory defaultTargetAssetPath = _swapLogicStorage.assetSwapPaths.sourceAssetPaths[SXT];
+
+        _swapLogicStorage.swapLogicConfig =
+            SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT, defaultTargetAssetPath: defaultTargetAssetPath});
+    }
+
+    function swap(bytes memory path, uint256 amountIn, address recipient) public returns (uint256 amountOut) {
+        return SwapLogic.swap(_swapLogicStorage, path, amountIn, recipient);
+    }
+
+    function calldataExtractPathDestinationAsset(bytes calldata path) external pure returns (address) {
+        return SwapLogic.calldataExtractPathDestinationAsset(path);
+    }
+
+    function calldataExtractPathOriginAsset(bytes calldata path) external pure returns (address) {
+        return SwapLogic.calldataExtractPathOriginAsset(path);
+    }
+}
+
+contract SwapLogicSwapTest is Test {
+    SwapLogicWrapper internal wrapper;
+
+    function setUp() public {
+        // solhint-disable-next-line gas-small-strings
+        vm.createSelectFork("https://ethereum-rpc.publicnode.com", 22790000); // mainnet fork
+        wrapper = new SwapLogicWrapper();
+    }
+
+    function testSwapSXTtoUSDT() public {
+        bytes memory path = abi.encodePacked(wrapper.SXT(), bytes3(uint24(3000)), wrapper.USDT());
+
+        uint256 amountIn = 100e18; // 100 SXT
+        address recipient = address(0x1234);
+
+        // deal wrapper amountIn of sxt
+        deal(wrapper.SXT(), address(wrapper), amountIn);
+
+        uint256 amountOut = wrapper.swap(path, amountIn, recipient);
+        assertGt(IERC20(wrapper.USDT()).balanceOf(recipient), 0);
+        assertEq(IERC20(wrapper.USDT()).balanceOf(recipient), amountOut);
+    }
+
+    // SXT -> USDT -> USDC
+    function testSwapSXTtoUSDTtoUSDC() public {
+        bytes memory path =
+            abi.encodePacked(wrapper.SXT(), bytes3(uint24(3000)), wrapper.USDT(), bytes3(uint24(3000)), wrapper.USDC());
+
+        uint256 amountIn = 100e18; // 100 SXT
+        address recipient = address(0x1234);
+
+        // deal wrapper amountIn of sxt
+        deal(wrapper.SXT(), address(wrapper), amountIn);
+
+        uint256 amountOut = wrapper.swap(path, amountIn, recipient);
+        assertGt(IERC20(wrapper.USDC()).balanceOf(recipient), 0);
+        assertEq(IERC20(wrapper.USDC()).balanceOf(recipient), amountOut);
     }
 }

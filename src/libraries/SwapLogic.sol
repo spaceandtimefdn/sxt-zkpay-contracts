@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ISwapRouter} from "../interfaces/ISwapRouter.sol";
+
 /// @title SwapLogic
 /// @dev Library for swapping assets
 library SwapLogic {
+    using SafeERC20 for IERC20;
+
     uint256 internal constant WORD_SIZE = 0x20;
+    uint256 internal constant FREE_PTR = 0x40;
     uint256 internal constant ADDRESS_SIZE = 20;
     uint256 internal constant ADDRESS_OFFSET_BITS = 96;
     uint256 internal constant PATH_FEED_SIZE = 3;
+    uint256 internal constant MIN_AMOUNT_OUT = 0;
 
     // solhint-disable-next-line gas-struct-packing
     struct SwapLogicConfig {
@@ -34,6 +42,8 @@ library SwapLogic {
     error PathMustStartWithUSDT();
     /// @notice Error thrown when the provided address is the zero address
     error ZeroAddress();
+    /// @notice Error thrown when the paths do not connect
+    error PathsDoNotConnect();
 
     /// @notice Emitted when a source asset path is set by owner
     event SourceAssetPathSet(address indexed asset, bytes path);
@@ -80,6 +90,16 @@ library SwapLogic {
         assembly {
             let len := mload(path)
             tokenOut := shr(ADDRESS_OFFSET_BITS, mload(add(add(path, WORD_SIZE), sub(len, ADDRESS_SIZE))))
+        }
+    }
+
+    /// @notice extract the origin asset from the path
+    /// @param path the swap path
+    /// @return tokenIn the source asset
+    /// @dev this function assumes the path is valid and does not check for it. use isValidPath to check for validity
+    function extractPathOriginAsset(bytes memory path) internal pure returns (address tokenIn) {
+        assembly {
+            tokenIn := shr(ADDRESS_OFFSET_BITS, mload(add(path, 0x20)))
         }
     }
 
@@ -153,5 +173,53 @@ library SwapLogic {
         returns (bytes storage)
     {
         return _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant];
+    }
+
+    /// @notice connect two paths (path1 -> path2)
+    /// @param path1 the first path
+    /// @param path2 the second path
+    /// @return result the connected path
+    /// @dev this function assumes the paths are valid and does not check for it for better gas performance. use isValidPath to check for validity
+    function connect2Paths(bytes memory path1, bytes memory path2) internal pure returns (bytes memory result) {
+        address firstPathTokenOut = extractPathDestinationAsset(path1);
+        address secondPathTokenIn = extractPathOriginAsset(path2);
+
+        if (firstPathTokenOut != secondPathTokenIn) {
+            revert PathsDoNotConnect();
+        }
+
+        uint256 path1Len = path1.length - ADDRESS_SIZE;
+        uint256 path2Len = path2.length;
+        result = new bytes(path1Len + path2Len);
+
+        assembly {
+            let resultPtr := add(result, WORD_SIZE)
+            let path1Ptr := add(path1, WORD_SIZE)
+            let path2Ptr := add(path2, WORD_SIZE)
+            mcopy(resultPtr, path1Ptr, path1Len)
+            mcopy(add(resultPtr, path1Len), path2Ptr, path2Len)
+        }
+    }
+
+    /// @notice does swap with uniswap v3 router
+    /// @param _swapLogicStorage the storage of the swap logic
+    /// @param path the path to swap
+    /// @param amountIn the amount of the source asset to swap
+    /// @param recipient the recipient of the destination asset
+    /// @return amountOut the amount of the destination asset received
+    /// @dev this function assumes the path is >= 1 hop valid path, make sure validate the path before calling this function
+    /// @dev the contract that implements this library should hold `amountIn` of the source asset
+    function swap(SwapLogicStorage storage _swapLogicStorage, bytes memory path, uint256 amountIn, address recipient)
+        internal
+        returns (uint256 amountOut)
+    {
+        address router = _swapLogicStorage.swapLogicConfig.router;
+        address tokenIn = extractPathOriginAsset(path);
+
+        IERC20(tokenIn).safeIncreaseAllowance(router, amountIn);
+
+        ISwapRouter.ExactInputParams memory params =
+            ISwapRouter.ExactInputParams(path, recipient, block.timestamp, amountIn, MIN_AMOUNT_OUT);
+        amountOut = ISwapRouter(router).exactInput(params);
     }
 }

@@ -3,6 +3,8 @@ set -euo pipefail
 
 solhint "**/*.sol" -w 0
 slither ./
+slither . --config-file slither_openzeppelin.config.json
+
 forge clean && forge test
 
 if ! bash jobs/check_coverage.sh; then

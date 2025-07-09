@@ -15,6 +15,7 @@ import {ICustomLogic} from "./interfaces/ICustomLogic.sol";
 import {NATIVE_ADDRESS, ZERO_ADDRESS} from "./libraries/Constants.sol";
 import {SwapLogic} from "./libraries/SwapLogic.sol";
 import {PayWallLogic} from "./libraries/PayWallLogic.sol";
+import {ISafeExecutor} from "./interfaces/ISafeExecutor.sol";
 
 // slither-disable-next-line locked-ether
 contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
@@ -35,6 +36,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     error SXTAddressCannotBeZero();
     error InsufficientPayment();
     error InvalidCallbackData();
+    error ExecutorAddressCannotBeZero();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -48,12 +50,15 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         address nativeTokenPriceFeed,
         uint8 nativeTokenDecimals,
         uint64 nativeTokenStalePriceThresholdInSeconds,
-        SwapLogic.SwapLogicConfig calldata swapLogicConfig
+        SwapLogic.SwapLogicConfig calldata swapLogicConfig,
+        address executorAddress
     ) external initializer {
         __Ownable_init(owner);
         __ReentrancyGuard_init();
         _setTreasury(treasury);
         _setSXT(sxt);
+        _setExecutorAddress(executorAddress);
+
         _swapLogicStorage.setConfig(swapLogicConfig);
 
         AssetManagement.set(
@@ -66,6 +71,13 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
                 stalePriceThresholdInSeconds: nativeTokenStalePriceThresholdInSeconds
             })
         );
+    }
+
+    function _setExecutorAddress(address executorAddress) internal {
+        if (executorAddress == ZERO_ADDRESS) {
+            revert ExecutorAddressCannotBeZero();
+        }
+        _executorAddress = executorAddress;
     }
 
     function _setSXT(address sxt) internal {
@@ -263,6 +275,39 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         if (amountInUSD < itemPrice) {
             revert InsufficientPayment();
         }
+
+        emit SendPayment(
+            asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, merchant, memo, amountInUSD, msg.sender, itemId
+        );
+    }
+
+    /// @inheritdoc IZKPay
+    function sendWithCallback(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        address callbackContractAddress,
+        bytes calldata callbackData
+    ) external nonReentrant {
+        if (asset == NATIVE_ADDRESS) {
+            revert NotErc20Token();
+        }
+
+        bytes4 selector = bytes4(callbackData[:4]);
+        bytes32 itemId = keccak256(abi.encode(callbackContractAddress, selector));
+
+        (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
+            _assets.send(asset, amount, merchant, _treasury, _sxt);
+
+        uint248 itemPrice = _paywallLogicStorage.getItemPrice(merchant, itemId);
+
+        if (amountInUSD < itemPrice) {
+            revert InsufficientPayment();
+        }
+
+        ISafeExecutor(_executorAddress).execute(callbackContractAddress, callbackData);
 
         emit SendPayment(
             asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, merchant, memo, amountInUSD, msg.sender, itemId

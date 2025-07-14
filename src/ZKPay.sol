@@ -232,7 +232,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     }
 
     /// @inheritdoc IZKPay
-    function send(address asset, uint248 amount, bytes32 onBehalfOf, address target, bytes calldata memo)
+    function send(address asset, uint248 amount, bytes32 onBehalfOf, address merchant, bytes calldata memo)
         external
         nonReentrant
     {
@@ -241,9 +241,9 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         }
 
         (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
-            _assets.send(asset, amount, target, _treasury, _sxt);
+            _assets.send(asset, amount, merchant, _treasury, _sxt);
         emit SendPayment(
-            asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, target, memo, amountInUSD, msg.sender
+            asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, merchant, memo, amountInUSD, msg.sender
         );
     }
 

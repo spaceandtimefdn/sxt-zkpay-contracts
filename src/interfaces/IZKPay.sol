@@ -53,7 +53,7 @@ interface IZKPay {
     /// @param amount The amount of tokens used for payment
     /// @param protocolFeeAmount The amount of protocol fee in source token.
     /// @param onBehalfOf The identifier on whose behalf the payment was made
-    /// @param target The target address
+    /// @param merchant The merchant address
     /// @param memo Additional data or information about the payment
     /// @param amountInUSD The amount in USD
     /// @param sender The address that initiated the payment
@@ -62,7 +62,7 @@ interface IZKPay {
         uint248 amount,
         uint248 protocolFeeAmount,
         bytes32 onBehalfOf,
-        address indexed target,
+        address indexed merchant,
         bytes memo,
         uint248 amountInUSD,
         address indexed sender

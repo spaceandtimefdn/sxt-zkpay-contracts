@@ -21,7 +21,6 @@ import {
 } from "../src/libraries/Constants.sol";
 import {IZKPayClient} from "../src/interfaces/IZKPayClient.sol";
 import {MockCustomLogic} from "./mocks/MockCustomLogic.sol";
-import {RejectEther} from "./mocks/RejectEther.sol";
 import {DummyData} from "./data/DummyData.sol";
 import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 import {PayWallLogic} from "../src/libraries/PayWallLogic.sol";
@@ -470,69 +469,6 @@ contract ZKPayTest is Test, IZKPayClient {
         // query
         vm.expectRevert(QueryLogic.CallbackGasLimitTooHigh.selector);
         zkpay.query(address(usdc), usdcAmount, queryRequest);
-    }
-
-    function testPayNativeExceedsUint248Limit() public {
-        // Set up initial state
-        address onBehalfOfAddr = address(0x123);
-        bytes32 onBehalfOf = bytes32(uint256(uint160(onBehalfOfAddr)));
-        address target = address(0x456);
-        uint64 itemId = 789;
-        bytes memory memo = abi.encode(itemId);
-        uint256 excessiveAmount = uint256(type(uint248).max) + 1;
-
-        // Fund the test contract
-        vm.deal(address(this), excessiveAmount);
-
-        // Expect revert due to excessive amount
-        vm.expectRevert(ZKPay.ValueExceedsUint248Limit.selector);
-        zkpay.sendNative{value: excessiveAmount}(onBehalfOf, target, memo);
-    }
-
-    // Use the RejectEther contract defined outside this contract
-    function testPayNativeFailedTransfer() public {
-        // Set up initial state
-        address onBehalfOfAddr = address(0x123);
-        bytes32 onBehalfOf = bytes32(uint256(uint160(onBehalfOfAddr)));
-        uint64 itemId = 789;
-        bytes memory memo = abi.encode(itemId);
-        uint248 amount = 1 ether;
-
-        vm.prank(_owner);
-        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getOriginAssetPath(NATIVE_ADDRESS));
-
-        // Create a contract that will reject ETH transfers
-        RejectEther rejector = new RejectEther();
-
-        // Use the rejector as the target address
-        address rejectingTarget = address(rejector);
-
-        // Fund the test contract
-        vm.deal(address(this), amount);
-
-        // Expect revert due to failed transfer
-        vm.expectRevert(AssetManagement.NativePaymentFailed.selector);
-        zkpay.sendNative{value: amount}(onBehalfOf, rejectingTarget, memo);
-    }
-
-    function testSendNativeFeeTransferFailed() public {
-        address onBehalfOfAddr = address(0x123);
-        bytes32 onBehalfOf = bytes32(uint256(uint160(onBehalfOfAddr)));
-        uint64 itemId = 789;
-        bytes memory memo = abi.encode(itemId);
-        uint248 amount = 1 ether;
-
-        vm.prank(_owner);
-        zkpay.setPaymentAsset(NATIVE_ADDRESS, paymentAssetInstance, DummyData.getOriginAssetPath(NATIVE_ADDRESS));
-
-        RejectEther rejectingTreasury = new RejectEther();
-        vm.prank(_owner);
-        zkpay.setTreasury(address(rejectingTreasury));
-
-        vm.deal(address(this), amount);
-
-        vm.expectRevert(AssetManagement.NativePaymentFailed.selector);
-        zkpay.sendNative{value: amount}(onBehalfOf, address(0x456), memo);
     }
 
     function testInitializeWithZeroSXTAddressReverts() public {

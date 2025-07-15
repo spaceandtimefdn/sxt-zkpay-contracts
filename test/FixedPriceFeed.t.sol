@@ -141,7 +141,7 @@ contract FixedPriceFeedTest is Test {
 
         // send
         vm.prank(payer);
-        zkpay.send(asset, amount, onBehalfOf, target, memo);
+        zkpay.send(asset, amount, onBehalfOf, target, memo, bytes32(0));
     }
 
     function testQueryWithFixedPriceFeed() public {
@@ -185,6 +185,7 @@ contract FixedPriceFeedTest is Test {
         MockERC20(asset).approve(address(zkpay), amount);
 
         // query
+        MockCustomLogic mockedCustomLogic = new MockCustomLogic();
         QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
             query: "test",
             queryParameters: "test",
@@ -192,7 +193,7 @@ contract FixedPriceFeedTest is Test {
             callbackClientContractAddress: clientContractAddress,
             callbackGasLimit: 1000000,
             callbackData: "test",
-            customLogicContractAddress: address(this)
+            customLogicContractAddress: address(mockedCustomLogic)
         });
 
         // query

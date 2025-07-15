@@ -10,6 +10,7 @@ import {AssetManagement} from "../src/libraries/AssetManagement.sol";
 import {QueryLogic} from "../src/libraries/QueryLogic.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {DummyData} from "./data/DummyData.sol";
+import {MockCustomLogic} from "./mocks/MockCustomLogic.sol";
 
 contract QueryCancelationTest is Test {
     ZKPay public _zkpay;
@@ -77,7 +78,7 @@ contract QueryCancelationTest is Test {
 
         vm.stopPrank();
 
-        address customLogicContractAddress = address(0x101);
+        MockCustomLogic mockedCustomLogic = new MockCustomLogic();
 
         // deploy custom logic contract
         _queryRequest = QueryLogic.QueryRequest({
@@ -87,7 +88,7 @@ contract QueryCancelationTest is Test {
             callbackClientContractAddress: address(this),
             callbackGasLimit: 1_000_000,
             callbackData: "test",
-            customLogicContractAddress: customLogicContractAddress
+            customLogicContractAddress: address(mockedCustomLogic)
         });
 
         // allow the zkpay contract to transfer usdc

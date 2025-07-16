@@ -16,6 +16,7 @@ import {NATIVE_ADDRESS, ZERO_ADDRESS} from "./libraries/Constants.sol";
 import {SwapLogic} from "./libraries/SwapLogic.sol";
 import {PayWallLogic} from "./libraries/PayWallLogic.sol";
 import {ISafeExecutor} from "./interfaces/ISafeExecutor.sol";
+import {IMerchantCallback} from "./interfaces/IMerchantCallback.sol";
 
 // slither-disable-next-line locked-ether
 contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
@@ -37,6 +38,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     error InsufficientPayment();
     error InvalidCallbackData();
     error ExecutorAddressCannotBeZero();
+    error InvalidMerchant();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -305,6 +307,12 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
 
         if (amountInUSD < itemPrice) {
             revert InsufficientPayment();
+        }
+
+        address callbackContractMerchant = IMerchantCallback(callbackContractAddress).getMerchant();
+
+        if (callbackContractMerchant != merchant) {
+            revert InvalidMerchant();
         }
 
         ISafeExecutor(_executorAddress).execute(callbackContractAddress, callbackData);

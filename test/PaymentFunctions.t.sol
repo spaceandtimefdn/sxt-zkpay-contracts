@@ -88,11 +88,23 @@ contract PaymentFunctionsTest is Test {
         vm.stopPrank();
     }
 
+    function testSendInsufficientPayment() public {
+        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+
+        usdc.approve(address(zkpay), usdcAmount);
+
+        vm.prank(targetMerchant);
+        zkpay.setPaywallItemPrice(bytes32(uint256(itemId)), usdcAmount * 1e12 + 1);
+
+        vm.expectRevert(ZKPay.InsufficientPayment.selector);
+        zkpay.send(address(usdc), usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(uint256(itemId)));
+    }
+
     function testSendWithProtocolFee() public {
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
         usdc.approve(address(zkpay), usdcAmount);
-        zkpay.send(address(usdc), usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes);
+        zkpay.send(address(usdc), usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0));
 
         uint248 protocolFeeAmount = uint248((uint256(usdcAmount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
 
@@ -123,7 +135,7 @@ contract PaymentFunctionsTest is Test {
         vm.stopPrank();
 
         sxt.approve(address(zkpay), sxtAmount);
-        zkpay.send(sxtToken, sxtAmount, onBehalfOfBytes32, targetMerchant, memoBytes);
+        zkpay.send(sxtToken, sxtAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0));
 
         assertEq(sxt.balanceOf(targetMerchant), sxtAmount);
         assertEq(sxt.balanceOf(treasury), 0);
@@ -133,7 +145,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
         vm.expectRevert(ZKPay.NotErc20Token.selector);
-        zkpay.send(NATIVE_ADDRESS, nativeAmount, onBehalfOfBytes32, targetMerchant, memoBytes);
+        zkpay.send(NATIVE_ADDRESS, nativeAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0));
     }
 
     function testSendToZeroAddress() public {
@@ -145,14 +157,14 @@ contract PaymentFunctionsTest is Test {
 
         vm.expectRevert(AssetManagement.MerchantAddressCannotBeZero.selector);
         // Call the send function
-        zkpay.send(address(usdc), usdcAmount, onBehalfOfBytes32, address(0), memoBytes);
+        zkpay.send(address(usdc), usdcAmount, onBehalfOfBytes32, address(0), memoBytes, bytes32(0));
     }
 
     function testSendWithUnsupportedAsset() public {
         address invalidAsset = vm.addr(0x5);
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
-        zkpay.send(invalidAsset, 100, bytes32(uint256(uint160(onBehalfOf))), targetMerchant, memoBytes);
+        zkpay.send(invalidAsset, 100, bytes32(uint256(uint160(onBehalfOf))), targetMerchant, memoBytes, bytes32(0));
     }
 
     function testSendWithUnsupportedPaymentType() public {
@@ -174,6 +186,6 @@ contract PaymentFunctionsTest is Test {
         vm.stopPrank();
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
-        zkpay.send(newToken, usdcAmount, bytes32(uint256(uint160(onBehalfOf))), targetMerchant, memoBytes);
+        zkpay.send(newToken, usdcAmount, bytes32(uint256(uint160(onBehalfOf))), targetMerchant, memoBytes, bytes32(0));
     }
 }

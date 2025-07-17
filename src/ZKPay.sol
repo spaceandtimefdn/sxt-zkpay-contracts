@@ -33,6 +33,8 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     error NotEnoughGasToExecuteCallback();
     error NotErc20Token();
     error SXTAddressCannotBeZero();
+    error InsufficientPayment();
+    error InvalidCallbackData();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -131,6 +133,16 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         returns (bytes32 queryHash)
     {
         (uint248 actualAmountReceived, uint248 amountInUSD) = AssetManagement.handleQueryPayment(_assets, asset, amount);
+
+        bytes32 itemId = bytes32(uint256(uint160(queryRequest.customLogicContractAddress)));
+
+        // slither-disable-next-line unused-return
+        (address merchant,) = ICustomLogic(queryRequest.customLogicContractAddress).getMerchantAddressAndFee();
+
+        uint248 itemPrice = _paywallLogicStorage.getItemPrice(merchant, itemId);
+        if (amountInUSD < itemPrice) {
+            revert InsufficientPayment();
+        }
 
         QueryLogic.QueryPayment memory queryPayment =
             QueryLogic.QueryPayment({asset: asset, amount: actualAmountReceived, source: msg.sender});
@@ -232,18 +244,28 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     }
 
     /// @inheritdoc IZKPay
-    function send(address asset, uint248 amount, bytes32 onBehalfOf, address merchant, bytes calldata memo)
-        external
-        nonReentrant
-    {
+    function send(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        bytes32 itemId
+    ) external nonReentrant {
         if (asset == NATIVE_ADDRESS) {
             revert NotErc20Token();
         }
 
         (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
             _assets.send(asset, amount, merchant, _treasury, _sxt);
+
+        uint248 itemPrice = _paywallLogicStorage.getItemPrice(merchant, itemId);
+        if (amountInUSD < itemPrice) {
+            revert InsufficientPayment();
+        }
+
         emit SendPayment(
-            asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, merchant, memo, amountInUSD, msg.sender
+            asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, merchant, memo, amountInUSD, msg.sender, itemId
         );
     }
 

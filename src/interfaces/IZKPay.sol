@@ -184,4 +184,8 @@ interface IZKPay {
     /// @param merchant The merchant address
     /// @return price The price in USD 18 decimals precision
     function getPaywallItemPrice(bytes32 item, address merchant) external view returns (uint248 price);
+
+    /// @notice Gets the executor address
+    /// @return executor The executor address
+    function getExecutorAddress() external view returns (address executor);
 }

@@ -23,5 +23,5 @@ contract ZKPayStorage {
     // **  Paywall Logic Storage ** //
     PayWallLogic.PayWallLogicStorage internal _paywallLogicStorage;
 
-    address internal _executorAddress;
+    address public _executorAddress;
 }

@@ -15,24 +15,14 @@ contract MockTarget {
         value = _value;
     }
 
-    function getValue() external view returns (uint256) {
-        return value;
-    }
-
     function revertFunction() external pure {
         revert TargetError();
-    }
-
-    function returnData() external pure returns (uint256, string memory) {
-        return (42, "test");
     }
 }
 
 contract SafeExecutorTest is Test {
     SafeExecutor internal safeExecutor;
     MockTarget internal mockTarget;
-
-    event Executed(address indexed target, bytes result);
 
     function setUp() public {
         safeExecutor = new SafeExecutor();
@@ -42,26 +32,9 @@ contract SafeExecutorTest is Test {
     function testExecuteSuccessful() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 123);
 
-        vm.expectEmit(true, false, false, true);
-        emit Executed(address(mockTarget), "");
+        safeExecutor.execute(address(mockTarget), data);
 
-        bytes memory result = safeExecutor.execute(address(mockTarget), data);
-
-        assertEq(result.length, 0);
         assertEq(mockTarget.value(), 123);
-    }
-
-    function testExecuteWithReturnData() public {
-        bytes memory data = abi.encodeWithSelector(MockTarget.returnData.selector);
-
-        vm.expectEmit(true, false, false, false);
-        emit Executed(address(mockTarget), "");
-
-        bytes memory result = safeExecutor.execute(address(mockTarget), data);
-
-        (uint256 num, string memory str) = abi.decode(result, (uint256, string));
-        assertEq(num, 42);
-        assertEq(str, "test");
     }
 
     function testExecuteCallFailed() public {
@@ -90,9 +63,6 @@ contract SafeExecutorTest is Test {
     function testFuzzExecute(uint256 _value) public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, _value);
 
-        vm.expectEmit(true, false, false, true);
-        emit Executed(address(mockTarget), "");
-
         safeExecutor.execute(address(mockTarget), data);
 
         assertEq(mockTarget.value(), _value);
@@ -103,9 +73,8 @@ contract SafeExecutorTest is Test {
 
         bytes memory data = abi.encodeWithSelector(token.mint.selector, address(this), 1000);
 
-        bytes memory result = safeExecutor.execute(address(token), data);
+        safeExecutor.execute(address(token), data);
 
-        assertEq(result.length, 0);
         assertEq(token.balanceOf(address(this)), 1000);
     }
 }

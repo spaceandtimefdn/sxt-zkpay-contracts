@@ -133,14 +133,14 @@ interface IZKPay {
     /// @param asset The address of the ERC20 token to send
     /// @param amount The amount of tokens to send
     /// @param onBehalfOf The identifier on whose behalf the payment is made
-    /// @param target The target address to receive the payment
+    /// @param merchant The merchant address
     /// @param memo Additional data or information about the payment
     /// @param itemId The item ID
     function send(
         address asset,
         uint248 amount,
         bytes32 onBehalfOf,
-        address target,
+        address merchant,
         bytes calldata memo,
         bytes32 itemId
     ) external;

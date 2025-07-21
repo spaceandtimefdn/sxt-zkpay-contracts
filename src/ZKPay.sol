@@ -15,6 +15,7 @@ import {ICustomLogic} from "./interfaces/ICustomLogic.sol";
 import {NATIVE_ADDRESS, ZERO_ADDRESS} from "./libraries/Constants.sol";
 import {SwapLogic} from "./libraries/SwapLogic.sol";
 import {PayWallLogic} from "./libraries/PayWallLogic.sol";
+import {EscrowPayment} from "./libraries/EscrowPayment.sol";
 
 // slither-disable-next-line locked-ether
 contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
@@ -22,6 +23,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
+    using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
 
     error TreasuryAddressCannotBeZero();
     error TreasuryAddressSameAsCurrent();
@@ -267,6 +269,26 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         emit SendPayment(
             asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, merchant, memo, amountInUSD, msg.sender, itemId
         );
+    }
+
+    /// @inheritdoc IZKPay
+    function authorize(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        bytes32 itemId
+    ) external nonReentrant {
+        EscrowPayment.Transaction memory transaction = EscrowPayment.Transaction({
+            asset: asset,
+            amount: amount,
+            from: address(uint160(uint256(onBehalfOf))),
+            to: merchant,
+            memo: memo,
+            itemId: itemId
+        });
+        EscrowPayment.authorize(_escrowPaymentStorage, transaction);
     }
 
     /// @inheritdoc IZKPay

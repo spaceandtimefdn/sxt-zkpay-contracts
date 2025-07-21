@@ -145,6 +145,23 @@ interface IZKPay {
         bytes32 itemId
     ) external;
 
+    /// @notice Authorizes a payment to a target address
+    /// the payment will be pulled from `msg.sender` and held in ZKpay contract as escrow
+    /// the payment is accounted for `onBehalfOf` which means that any refunded amount will be send to `onBehalfOf`
+    /// @param asset The address of the ERC20 token to send
+    /// @param amount The amount of tokens to send
+    /// @param merchant The merchant address
+    /// @param memo Additional data or information about the payment
+    /// @param itemId The item ID
+    function authorize(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        bytes32 itemId
+    ) external;
+
     /// @notice Sets the merchant configuration for the caller
     /// @param config Merchant configuration struct
     /// @param path The path for the target asset to swap to USDT (USDT => targetAsset)

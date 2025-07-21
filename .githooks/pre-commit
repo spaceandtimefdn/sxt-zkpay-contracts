@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+forge fmt --check 
 solhint "**/*.sol" -w 0
 slither ./
 slither . --config-file slither_openzeppelin.config.json

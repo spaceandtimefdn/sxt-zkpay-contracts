@@ -3,8 +3,6 @@ pragma solidity 0.8.28;
 
 /// @title EscrowPayment
 library EscrowPayment {
-    event Authorized(Transaction transaction, uint248 nonce, bytes32 transactionHash);
-
     /// @notice Transaction struct
     /// @dev The transaction struct is not meant to be stored
     // solhint-disable-next-line gas-struct-packing
@@ -17,10 +15,6 @@ library EscrowPayment {
         address from;
         /// @notice The address of the receiver
         address to;
-        /// @notice The memo of the transaction
-        bytes memo;
-        /// @notice The item ID
-        bytes32 itemId;
     }
 
     struct EscrowPaymentStorage {
@@ -37,6 +31,14 @@ library EscrowPayment {
         _;
     }
 
+    /// @notice Generates the transaction hash
+    /// @param nonce Nonce of the transaction
+    /// @param transaction The transaction to generate the hash for
+    /// @return transactionHash The hash of the transaction
+    function generateTransactionHash(Transaction memory transaction, uint248 nonce) internal view returns (bytes32) {
+        return keccak256(abi.encode(transaction, nonce, block.chainid));
+    }
+
     /// @notice Authorizes a transaction
     /// @param escrowPaymentStorage The storage of the escrow payment
     /// @param transaction The transaction to authorize
@@ -46,9 +48,7 @@ library EscrowPayment {
         incrementNonce(escrowPaymentStorage)
         returns (bytes32 transactionHash)
     {
-        transactionHash = keccak256(abi.encode(transaction, escrowPaymentStorage.nonce, block.chainid));
+        transactionHash = generateTransactionHash(transaction, escrowPaymentStorage.nonce);
         escrowPaymentStorage.transactionNonces[transactionHash] = escrowPaymentStorage.nonce;
-
-        emit Authorized(transaction, escrowPaymentStorage.nonce, transactionHash);
     }
 }

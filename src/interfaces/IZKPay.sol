@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {AssetManagement} from "../libraries/AssetManagement.sol";
 import {QueryLogic} from "../libraries/QueryLogic.sol";
 import {MerchantLogic} from "../libraries/MerchantLogic.sol";
+import {EscrowPayment} from "../libraries/EscrowPayment.sol";
 
 interface IZKPay {
     /// @notice Emitted when the treasury address is set
@@ -68,6 +69,16 @@ interface IZKPay {
         uint248 amountInUSD,
         address indexed sender,
         bytes32 itemId
+    );
+
+    /// @notice Emitted when a payment is authorized
+    /// @param transaction The transaction that was authorized
+    /// @param transactionHash The hash of the transaction
+    /// @param onBehalfOf The identifier on whose behalf the payment is made
+    /// @param memo Additional data or information about the payment
+    /// @param itemId The item ID
+    event Authorized(
+        EscrowPayment.Transaction transaction, bytes32 transactionHash, bytes32 onBehalfOf, bytes memo, bytes32 itemId
     );
 
     /// @notice Sets the treasury address
@@ -150,6 +161,7 @@ interface IZKPay {
     /// the payment is accounted for `onBehalfOf` which means that any refunded amount will be send to `onBehalfOf`
     /// @param asset The address of the ERC20 token to send
     /// @param amount The amount of tokens to send
+    /// @param onBehalfOf The identifier on whose behalf the payment is made
     /// @param merchant The merchant address
     /// @param memo Additional data or information about the payment
     /// @param itemId The item ID

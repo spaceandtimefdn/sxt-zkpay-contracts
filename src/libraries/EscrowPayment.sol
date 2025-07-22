@@ -24,20 +24,29 @@ library EscrowPayment {
     }
 
     struct EscrowPaymentStorage {
+        /// @notice Global nonce for the escrow payment
         uint248 nonce;
+        /// @notice Mapping of transaction hashes to their nonces, if nonce is 0, the transaction is not authorized
         mapping(bytes32 transactionHash => uint248 transactionNonce) transactionNonces;
     }
 
+    /// @notice Increments the global nonce for the escrow payment
+    /// @param escrowPaymentStorage The storage of the escrow payment
     modifier incrementNonce(EscrowPaymentStorage storage escrowPaymentStorage) {
         ++escrowPaymentStorage.nonce;
         _;
     }
 
+    /// @notice Authorizes a transaction
+    /// @param escrowPaymentStorage The storage of the escrow payment
+    /// @param transaction The transaction to authorize
+    /// @return transactionHash The hash of the transaction
     function authorize(EscrowPaymentStorage storage escrowPaymentStorage, Transaction memory transaction)
         internal
         incrementNonce(escrowPaymentStorage)
+        returns (bytes32 transactionHash)
     {
-        bytes32 transactionHash = keccak256(abi.encode(transaction, escrowPaymentStorage.nonce, block.chainid));
+        transactionHash = keccak256(abi.encode(transaction, escrowPaymentStorage.nonce, block.chainid));
         escrowPaymentStorage.transactionNonces[transactionHash] = escrowPaymentStorage.nonce;
 
         emit Authorized(transaction, escrowPaymentStorage.nonce, transactionHash);

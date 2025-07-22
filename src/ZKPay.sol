@@ -279,7 +279,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         address merchant,
         bytes calldata memo,
         bytes32 itemId
-    ) external nonReentrant {
+    ) external nonReentrant returns (bytes32 transactionHash) {
         EscrowPayment.Transaction memory transaction = EscrowPayment.Transaction({
             asset: asset,
             amount: amount,
@@ -288,7 +288,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
             memo: memo,
             itemId: itemId
         });
-        EscrowPayment.authorize(_escrowPaymentStorage, transaction);
+        transactionHash = EscrowPayment.authorize(_escrowPaymentStorage, transaction);
     }
 
     /// @inheritdoc IZKPay

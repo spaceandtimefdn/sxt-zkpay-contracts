@@ -153,6 +153,7 @@ interface IZKPay {
     /// @param merchant The merchant address
     /// @param memo Additional data or information about the payment
     /// @param itemId The item ID
+    /// @return transactionHash The hash of the transaction
     function authorize(
         address asset,
         uint248 amount,
@@ -160,7 +161,7 @@ interface IZKPay {
         address merchant,
         bytes calldata memo,
         bytes32 itemId
-    ) external;
+    ) external returns (bytes32 transactionHash);
 
     /// @notice Sets the merchant configuration for the caller
     /// @param config Merchant configuration struct

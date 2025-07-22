@@ -559,17 +559,16 @@ contract ZKPayTest is Test, IZKPayClient {
             asset: asset,
             amount: amount,
             from: address(uint160(uint256(onBehalfOf))),
-            to: merchant,
-            memo: memo,
-            itemId: itemId
+            merchant: merchant,
+            memo: memo
         });
 
         vm.expectEmit(true, true, true, true);
         emit EscrowPayment.Authorized(
-            expectedTransaction, 1, keccak256(abi.encode(expectedTransaction, 1, block.chainid))
+            expectedTransaction, 1, keccak256(abi.encode(expectedTransaction, itemId, 1, block.chainid))
         );
 
-        zkpay.authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        zkpay.authorize(expectedTransaction, itemId);
     }
 
     function testAuthorizeIncrementsNonce() public {
@@ -580,25 +579,22 @@ contract ZKPayTest is Test, IZKPayClient {
         bytes memory memo = "test payment";
         bytes32 itemId = bytes32("item123");
 
-        zkpay.authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
-        zkpay.authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
-        zkpay.authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
-
-        EscrowPayment.Transaction memory expectedTransaction = EscrowPayment.Transaction({
+        EscrowPayment.Transaction memory transaction = EscrowPayment.Transaction({
             asset: asset,
             amount: amount,
             from: address(uint160(uint256(onBehalfOf))),
-            to: merchant,
-            memo: memo,
-            itemId: itemId
+            merchant: merchant,
+            memo: memo
         });
 
-        vm.expectEmit(true, true, true, true);
-        emit EscrowPayment.Authorized(
-            expectedTransaction, 4, keccak256(abi.encode(expectedTransaction, 4, block.chainid))
-        );
+        zkpay.authorize(transaction, itemId);
+        zkpay.authorize(transaction, itemId);
+        zkpay.authorize(transaction, itemId);
 
-        zkpay.authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        vm.expectEmit(true, true, true, true);
+        emit EscrowPayment.Authorized(transaction, 4, keccak256(abi.encode(transaction, itemId, 4, block.chainid)));
+
+        zkpay.authorize(transaction, itemId);
     }
 
     function testAuthorizeWithZeroValues() public {
@@ -613,17 +609,16 @@ contract ZKPayTest is Test, IZKPayClient {
             asset: asset,
             amount: amount,
             from: address(uint160(uint256(onBehalfOf))),
-            to: merchant,
-            memo: memo,
-            itemId: itemId
+            merchant: merchant,
+            memo: memo
         });
 
         vm.expectEmit(true, true, true, true);
         emit EscrowPayment.Authorized(
-            expectedTransaction, 1, keccak256(abi.encode(expectedTransaction, 1, block.chainid))
+            expectedTransaction, 1, keccak256(abi.encode(expectedTransaction, itemId, 1, block.chainid))
         );
 
-        zkpay.authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        zkpay.authorize(expectedTransaction, itemId);
     }
 
     function testAuthorizeWithMaxValues() public {
@@ -639,17 +634,16 @@ contract ZKPayTest is Test, IZKPayClient {
             asset: asset,
             amount: amount,
             from: address(uint160(uint256(onBehalfOf))),
-            to: merchant,
-            memo: memo,
-            itemId: itemId
+            merchant: merchant,
+            memo: memo
         });
 
         vm.expectEmit(true, true, true, true);
         emit EscrowPayment.Authorized(
-            expectedTransaction, 1, keccak256(abi.encode(expectedTransaction, 1, block.chainid))
+            expectedTransaction, 1, keccak256(abi.encode(expectedTransaction, itemId, 1, block.chainid))
         );
 
-        zkpay.authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        zkpay.authorize(expectedTransaction, itemId);
     }
 
     function testAuthorizeWithLongMemo() public {
@@ -665,17 +659,16 @@ contract ZKPayTest is Test, IZKPayClient {
             asset: asset,
             amount: amount,
             from: address(uint160(uint256(onBehalfOf))),
-            to: merchant,
-            memo: memo,
-            itemId: itemId
+            merchant: merchant,
+            memo: memo
         });
 
         vm.expectEmit(true, true, true, true);
         emit EscrowPayment.Authorized(
-            expectedTransaction, 1, keccak256(abi.encode(expectedTransaction, 1, block.chainid))
+            expectedTransaction, 1, keccak256(abi.encode(expectedTransaction, itemId, 1, block.chainid))
         );
 
-        zkpay.authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        zkpay.authorize(expectedTransaction, itemId);
     }
 
     function testAuthorizeMultipleDifferentTransactions() public {
@@ -683,41 +676,28 @@ contract ZKPayTest is Test, IZKPayClient {
             asset: address(0x1111),
             amount: 100,
             from: address(0x2222),
-            to: address(0x3333),
-            memo: "tx1",
-            itemId: bytes32("item1")
+            merchant: address(0x3333),
+            memo: "tx1"
         });
 
         EscrowPayment.Transaction memory transaction2 = EscrowPayment.Transaction({
             asset: address(0x4444),
             amount: 200,
             from: address(0x5555),
-            to: address(0x6666),
-            memo: "tx2",
-            itemId: bytes32("item2")
+            merchant: address(0x6666),
+            memo: "tx2"
         });
 
-        vm.expectEmit(true, true, true, true);
-        emit EscrowPayment.Authorized(transaction1, 1, keccak256(abi.encode(transaction1, 1, block.chainid)));
-        zkpay.authorize(
-            transaction1.asset,
-            transaction1.amount,
-            bytes32(uint256(uint160(transaction1.from))),
-            transaction1.to,
-            transaction1.memo,
-            transaction1.itemId
-        );
+        bytes32 itemId1 = bytes32("item1");
+        bytes32 itemId2 = bytes32("item2");
 
         vm.expectEmit(true, true, true, true);
-        emit EscrowPayment.Authorized(transaction2, 2, keccak256(abi.encode(transaction2, 2, block.chainid)));
-        zkpay.authorize(
-            transaction2.asset,
-            transaction2.amount,
-            bytes32(uint256(uint160(transaction2.from))),
-            transaction2.to,
-            transaction2.memo,
-            transaction2.itemId
-        );
+        emit EscrowPayment.Authorized(transaction1, 1, keccak256(abi.encode(transaction1, itemId1, 1, block.chainid)));
+        zkpay.authorize(transaction1, itemId1);
+
+        vm.expectEmit(true, true, true, true);
+        emit EscrowPayment.Authorized(transaction2, 2, keccak256(abi.encode(transaction2, itemId2, 2, block.chainid)));
+        zkpay.authorize(transaction2, itemId2);
     }
 
     function testAuthorizeWithDifferentChainId() public {
@@ -732,22 +712,21 @@ contract ZKPayTest is Test, IZKPayClient {
             asset: asset,
             amount: amount,
             from: address(uint160(uint256(onBehalfOf))),
-            to: merchant,
-            memo: memo,
-            itemId: itemId
+            merchant: merchant,
+            memo: memo
         });
 
-        bytes32 hash1 = keccak256(abi.encode(expectedTransaction, 1, block.chainid));
+        bytes32 hash1 = keccak256(abi.encode(expectedTransaction, itemId, 1, block.chainid));
         vm.expectEmit(true, true, true, true);
         emit EscrowPayment.Authorized(expectedTransaction, 1, hash1);
-        zkpay.authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        zkpay.authorize(expectedTransaction, itemId);
 
         vm.chainId(999);
 
-        bytes32 hash2 = keccak256(abi.encode(expectedTransaction, 2, 999));
+        bytes32 hash2 = keccak256(abi.encode(expectedTransaction, itemId, 2, 999));
         vm.expectEmit(true, true, true, true);
         emit EscrowPayment.Authorized(expectedTransaction, 2, hash2);
-        zkpay.authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        zkpay.authorize(expectedTransaction, itemId);
 
         assertNotEq(hash1, hash2);
 
@@ -762,7 +741,15 @@ contract ZKPayTest is Test, IZKPayClient {
         bytes memory memo = "test payment";
         bytes32 itemId = bytes32("item123");
 
-        zkpay.authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        EscrowPayment.Transaction memory transaction = EscrowPayment.Transaction({
+            asset: asset,
+            amount: amount,
+            from: address(uint160(uint256(onBehalfOf))),
+            merchant: merchant,
+            memo: memo
+        });
+
+        zkpay.authorize(transaction, itemId);
     }
 
     function testFuzzAuthorize(
@@ -777,16 +764,15 @@ contract ZKPayTest is Test, IZKPayClient {
             asset: asset,
             amount: amount,
             from: address(uint160(uint256(onBehalfOf))),
-            to: merchant,
-            memo: memo,
-            itemId: itemId
+            merchant: merchant,
+            memo: memo
         });
 
         vm.expectEmit(true, true, true, true);
         emit EscrowPayment.Authorized(
-            expectedTransaction, 1, keccak256(abi.encode(expectedTransaction, 1, block.chainid))
+            expectedTransaction, 1, keccak256(abi.encode(expectedTransaction, itemId, 1, block.chainid))
         );
 
-        zkpay.authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        zkpay.authorize(expectedTransaction, itemId);
     }
 }

@@ -272,23 +272,12 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     }
 
     /// @inheritdoc IZKPay
-    function authorize(
-        address asset,
-        uint248 amount,
-        bytes32 onBehalfOf,
-        address merchant,
-        bytes calldata memo,
-        bytes32 itemId
-    ) external nonReentrant returns (bytes32 transactionHash) {
-        EscrowPayment.Transaction memory transaction = EscrowPayment.Transaction({
-            asset: asset,
-            amount: amount,
-            from: address(uint160(uint256(onBehalfOf))),
-            to: merchant,
-            memo: memo,
-            itemId: itemId
-        });
-        transactionHash = EscrowPayment.authorize(_escrowPaymentStorage, transaction);
+    function authorize(EscrowPayment.Transaction calldata transaction, bytes32 itemId)
+        external
+        nonReentrant
+        returns (bytes32 transactionHash)
+    {
+        transactionHash = EscrowPayment.authorize(_escrowPaymentStorage, transaction, itemId);
     }
 
     /// @inheritdoc IZKPay

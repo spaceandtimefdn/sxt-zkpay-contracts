@@ -277,7 +277,9 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         nonReentrant
         returns (bytes32 transactionHash)
     {
-        transactionHash = EscrowPayment.authorize(_escrowPaymentStorage, transaction, itemId);
+        uint248 actualAmountReceived = _assets.escrowPayment(transaction.asset, transaction.amount);
+
+        transactionHash = _escrowPaymentStorage.authorize(transaction, itemId, actualAmountReceived);
     }
 
     /// @inheritdoc IZKPay

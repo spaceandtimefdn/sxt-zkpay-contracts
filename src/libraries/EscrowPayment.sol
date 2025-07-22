@@ -5,7 +5,7 @@ pragma solidity 0.8.28;
 library EscrowPayment {
     error TransactionNotAuthorized();
 
-    event Authorized(Transaction transaction, uint248 nonce, bytes32 transactionHash);
+    event Authorized(Transaction transaction, uint248 nonce, bytes32 transactionHash, uint248 actualAmountReceived);
 
     /// @notice Transaction struct
     /// @dev The transaction struct is not meant to be stored
@@ -45,9 +45,11 @@ library EscrowPayment {
     function generateTransactionHash(
         EscrowPaymentStorage storage escrowPaymentStorage,
         Transaction calldata transaction,
-        bytes32 itemId
+        bytes32 itemId,
+        uint248 actualAmountReceived
     ) internal view returns (bytes32) {
-        return keccak256(abi.encode(transaction, itemId, escrowPaymentStorage.nonce, block.chainid));
+        return
+            keccak256(abi.encode(transaction, itemId, actualAmountReceived, escrowPaymentStorage.nonce, block.chainid));
     }
 
     /// @notice Authorizes a transaction
@@ -58,11 +60,12 @@ library EscrowPayment {
     function authorize(
         EscrowPaymentStorage storage escrowPaymentStorage,
         Transaction calldata transaction,
-        bytes32 itemId
+        bytes32 itemId,
+        uint248 actualAmountReceived
     ) internal incrementNonce(escrowPaymentStorage) returns (bytes32 transactionHash) {
-        transactionHash = generateTransactionHash(escrowPaymentStorage, transaction, itemId);
+        transactionHash = generateTransactionHash(escrowPaymentStorage, transaction, itemId, actualAmountReceived);
         escrowPaymentStorage.transactionNonces[transactionHash] = escrowPaymentStorage.nonce;
 
-        emit Authorized(transaction, escrowPaymentStorage.nonce, transactionHash);
+        emit Authorized(transaction, escrowPaymentStorage.nonce, transactionHash, actualAmountReceived);
     }
 }

@@ -313,4 +313,24 @@ library AssetManagement {
 
         amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
     }
+
+    /// @notice Escrows a payment by transferring it from the sender to the contract
+    /// @param _assets The mapping of assets to their payment information.
+    /// @param asset The address of the asset to escrow the payment for.
+    /// @param amount The amount of the asset to escrow.
+    /// @return actualAmountReceived The actual amount received by the contract.
+    function escrowPayment(mapping(address asset => PaymentAsset) storage _assets, address asset, uint248 amount)
+        internal
+        returns (uint248 actualAmountReceived)
+    {
+        if (!isSupported(_assets, asset, PaymentType.Send)) {
+            revert AssetIsNotSupportedForThisMethod();
+        }
+
+        uint256 balanceBefore = IERC20(asset).balanceOf(address(this));
+        SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, address(this), amount);
+        uint256 balanceAfter = IERC20(asset).balanceOf(address(this));
+
+        actualAmountReceived = uint248(balanceAfter - balanceBefore);
+    }
 }

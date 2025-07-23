@@ -90,7 +90,7 @@ contract AssetManagementTestWrapper {
         return AssetManagement.convertNativeToToken(_assets, nativeTokenAddress, nativeAmount);
     }
 
-    function escrowPayment(address asset, uint248 amount) external returns (uint248) {
+    function escrowPayment(address asset, uint248 amount) external returns (uint248, uint248) {
         return AssetManagement.escrowPayment(_assets, asset, amount);
     }
 }
@@ -419,7 +419,7 @@ contract AssetManagementTest is Test {
         uint256 initialContractBalance = mockToken.balanceOf(address(_wrapper));
         uint256 initialUserBalance = mockToken.balanceOf(address(this));
 
-        uint248 actualAmountReceived = _wrapper.escrowPayment(tokenAddress, escrowAmount);
+        (uint248 actualAmountReceived,) = _wrapper.escrowPayment(tokenAddress, escrowAmount);
 
         uint256 finalContractBalance = mockToken.balanceOf(address(_wrapper));
         uint256 finalUserBalance = mockToken.balanceOf(address(this));
@@ -459,7 +459,7 @@ contract AssetManagementTest is Test {
 
             uint256 initialContractBalance = mockToken.balanceOf(address(_wrapper));
 
-            uint248 actualAmountReceived = _wrapper.escrowPayment(tokenAddress, escrowAmount);
+            (uint248 actualAmountReceived,) = _wrapper.escrowPayment(tokenAddress, escrowAmount);
 
             uint256 finalContractBalance = mockToken.balanceOf(address(_wrapper));
 
@@ -515,7 +515,7 @@ contract AssetManagementTest is Test {
         mockToken.mint(address(this), 1000e18);
         mockToken.approve(address(_wrapper), 1000e18);
 
-        uint248 actualAmountReceived = _wrapper.escrowPayment(tokenAddress, 0);
+        (uint248 actualAmountReceived,) = _wrapper.escrowPayment(tokenAddress, 0);
 
         assertEq(actualAmountReceived, 0);
     }

@@ -281,10 +281,15 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         bytes calldata memo,
         bytes32 itemId
     ) external nonReentrant returns (bytes32 transactionHash) {
-        uint248 actualAmountReceived = _assets.escrowPayment(asset, amount);
+        (uint248 actualAmountReceived, uint248 amountInUSD) = _assets.escrowPayment(asset, amount);
 
         if (actualAmountReceived == 0) {
             revert ZeroAmountReceived();
+        }
+
+        uint248 itemPrice = _paywallLogicStorage.getItemPrice(merchant, itemId);
+        if (amountInUSD < itemPrice) {
+            revert InsufficientPayment();
         }
 
         EscrowPayment.Transaction memory transaction =

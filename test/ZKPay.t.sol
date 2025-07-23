@@ -33,14 +33,16 @@ contract ZKPayTest is Test, IZKPayClient {
     address public _priceFeed;
     AssetManagement.PaymentAsset public paymentAssetInstance;
     address public _sxt;
+    int256 public _tokenPrice;
 
     event CallbackCalled(bytes32 queryHash, bytes queryResult, bytes callbackData);
 
     function setUp() public {
         _owner = vm.addr(0x1);
         _treasury = vm.addr(0x2);
+        _tokenPrice = 1000;
 
-        _priceFeed = address(new MockV3Aggregator(8, 1000));
+        _priceFeed = address(new MockV3Aggregator(8, _tokenPrice));
         _sxt = address(new MockERC20());
         vm.prank(_owner);
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
@@ -789,7 +791,8 @@ contract ZKPayTest is Test, IZKPayClient {
         bytes calldata memo,
         bytes32 itemId
     ) public {
-        vm.assume(amount > 0 && amount < type(uint248).max);
+        vm.assume(amount > 0 && amount < uint248(type(uint256).max / uint256(_tokenPrice)));
+        vm.assume(merchant != address(0));
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
 
@@ -826,6 +829,23 @@ contract ZKPayTest is Test, IZKPayClient {
         zkpay.setPaymentAsset(address(mockToken), queryOnlyAsset, DummyData.getOriginAssetPath(address(mockToken)));
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
+        zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
+    }
+
+    function testAuthorizeInsufficientPayment() public {
+        uint248 amount = 1000;
+        bytes32 onBehalfOf = bytes32(uint256(0x5678));
+        address merchant = address(0x9abc);
+        bytes memory memo = "test payment";
+        bytes32 itemId = bytes32("item123");
+
+        MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
+
+        uint248 itemPrice = 2000 * 1e18;
+        vm.prank(merchant);
+        zkpay.setPaywallItemPrice(itemId, itemPrice);
+
+        vm.expectRevert(ZKPay.InsufficientPayment.selector);
         zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 }

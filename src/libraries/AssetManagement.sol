@@ -321,7 +321,7 @@ library AssetManagement {
     /// @return actualAmountReceived The actual amount received by the contract.
     function escrowPayment(mapping(address asset => PaymentAsset) storage _assets, address asset, uint248 amount)
         internal
-        returns (uint248 actualAmountReceived)
+        returns (uint248 actualAmountReceived, uint248 amountInUSD)
     {
         if (!isSupported(_assets, asset, PaymentType.Send)) {
             revert AssetIsNotSupportedForThisMethod();
@@ -332,5 +332,6 @@ library AssetManagement {
         uint256 balanceAfter = IERC20(asset).balanceOf(address(this));
 
         actualAmountReceived = uint248(balanceAfter - balanceBefore);
+        amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
     }
 }

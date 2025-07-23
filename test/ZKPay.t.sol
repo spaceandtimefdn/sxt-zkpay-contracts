@@ -42,12 +42,8 @@ contract ZKPayTest is Test {
 
         zkpay = ZKPay(zkPayProxyAddress);
 
-        paymentAssetInstance = AssetManagement.PaymentAsset({
-            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
-            priceFeed: _priceFeed,
-            tokenDecimals: 18,
-            stalePriceThresholdInSeconds: 1000
-        });
+        paymentAssetInstance =
+            AssetManagement.PaymentAsset({priceFeed: _priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 1000});
     }
 
     function testInitiateTreasuryAddress() public view {
@@ -136,23 +132,15 @@ contract ZKPayTest is Test {
         zkpay.setTreasury(caller);
     }
 
-    function testFuzzSetPaymentAsset(
-        address asset,
-        bytes1 allowedPaymentTypes,
-        uint8 tokenDecimals,
-        uint64 stalePriceThresholdInSeconds
-    ) public {
+    function testFuzzSetPaymentAsset(address asset, uint8 tokenDecimals, uint64 stalePriceThresholdInSeconds) public {
         vm.prank(_owner);
 
         vm.expectEmit(true, true, true, true);
-        emit AssetManagement.AssetAdded(
-            asset, allowedPaymentTypes, _priceFeed, tokenDecimals, stalePriceThresholdInSeconds
-        );
+        emit AssetManagement.AssetAdded(asset, _priceFeed, tokenDecimals, stalePriceThresholdInSeconds);
 
         zkpay.setPaymentAsset(
             asset,
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: allowedPaymentTypes,
                 priceFeed: _priceFeed,
                 tokenDecimals: tokenDecimals,
                 stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
@@ -165,7 +153,7 @@ contract ZKPayTest is Test {
         vm.prank(_owner);
 
         vm.expectEmit(true, true, true, true);
-        emit AssetManagement.AssetAdded(asset, AssetManagement.SEND_PAYMENT_FLAG, _priceFeed, 18, 1000);
+        emit AssetManagement.AssetAdded(asset, _priceFeed, 18, 1000);
 
         zkpay.setPaymentAsset(asset, paymentAssetInstance, DummyData.getOriginAssetPath(asset));
     }

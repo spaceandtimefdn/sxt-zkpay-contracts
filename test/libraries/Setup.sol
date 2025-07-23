@@ -16,7 +16,6 @@ library Setup {
         address usdcPriceFeed = address(new MockV3Aggregator(chainlinkPricefeedDecimals, usdcTokenPrice));
 
         _assets[usdcAddress] = AssetManagement.PaymentAsset({
-            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
             priceFeed: usdcPriceFeed,
             tokenDecimals: usdcDecimals,
             stalePriceThresholdInSeconds: usdcStalePriceThresholdInSeconds

@@ -73,7 +73,6 @@ contract Deploy is Script {
         // Set USDC payment asset
         ZKPay zkpay = ZKPay(zkPayProxy);
         AssetManagement.PaymentAsset memory usdcPaymentAsset = AssetManagement.PaymentAsset({
-            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
             priceFeed: config.usdcTokenPriceFeed,
             tokenDecimals: config.usdcTokenDecimals,
             stalePriceThresholdInSeconds: config.usdcTokenStalePriceThresholdInSeconds

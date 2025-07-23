@@ -99,7 +99,6 @@ contract PaymentFunctionsTest is Test {
         zkpay.setPaymentAsset(
             address(usdc),
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: bytes1(0x01), // Allow Send payment type (0x01)
                 priceFeed: usdcPriceFeed,
                 tokenDecimals: 6,
                 stalePriceThresholdInSeconds: 1000
@@ -147,7 +146,6 @@ contract PaymentFunctionsTest is Test {
         zkpay.setPaymentAsset(
             sxtToken,
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: bytes1(0x01),
                 priceFeed: sxtPriceFeed,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 1000
@@ -180,28 +178,6 @@ contract PaymentFunctionsTest is Test {
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
         zkpay.send(invalidAsset, 100, bytes32(uint256(uint160(onBehalfOf))), targetMerchant, memoBytes, bytes32(0));
-    }
-
-    function testSendWithUnsupportedPaymentType() public {
-        // Create a new asset that doesn't support Send payment type
-        address newToken = address(new MockERC20());
-        address newTokenPriceFeed = address(new MockV3Aggregator(8, 1e8));
-
-        vm.startPrank(owner);
-        zkpay.setPaymentAsset(
-            newToken,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.NONE_PAYMENT_FLAG, // No payment types allowed for this test
-                priceFeed: newTokenPriceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 1000
-            }),
-            DummyData.getOriginAssetPath(newToken)
-        );
-        vm.stopPrank();
-
-        vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
-        zkpay.send(newToken, usdcAmount, bytes32(uint256(uint160(onBehalfOf))), targetMerchant, memoBytes, bytes32(0));
     }
 
     function testSendWithCallbackHappyPath() public {

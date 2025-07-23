@@ -28,16 +28,11 @@ library AssetManagement {
 
     /// @notice Emitted when a new asset is added
     /// @param asset The asset address
-    /// @param allowedPaymentTypes The allowed payment types presented as a bytes1 bitmask
     /// @param priceFeed The price feed address
     /// @param tokenDecimals The token decimals
     /// @param stalePriceThresholdInSeconds The stale price threshold in seconds
     event AssetAdded(
-        address indexed asset,
-        bytes1 allowedPaymentTypes,
-        address priceFeed,
-        uint8 tokenDecimals,
-        uint64 stalePriceThresholdInSeconds
+        address indexed asset, address priceFeed, uint8 tokenDecimals, uint64 stalePriceThresholdInSeconds
     );
 
     /// @notice Emitted when an asset is removed
@@ -45,30 +40,15 @@ library AssetManagement {
     event AssetRemoved(address asset);
 
     /**
-     * @notice Defines methods for accepted asset types within the ZKpay protocol.
-     * @dev Indicates whether an asset can be used for direct payment to target protocol.
+     * @notice Defines payment asset configuration within the ZKpay protocol.
      */
     struct PaymentAsset {
-        /// @notice 1 byte representing allowed payment types, 0x01 = Send
-        bytes1 allowedPaymentTypes;
         /// @notice  Price oracle
         address priceFeed;
         /// @notice  token decimals, added here in case erc20 token isn't fully compliant and doesn't expose that method.
         uint8 tokenDecimals;
         /// @notice threshold for price feed data in seconds
         uint64 stalePriceThresholdInSeconds;
-    }
-
-    bytes1 public constant NONE_PAYMENT_FLAG = bytes1(uint8(0x00));
-    bytes1 public constant SEND_PAYMENT_FLAG = bytes1(uint8(0x01) << uint8(PaymentType.Send));
-
-    /**
-     * @notice Specifies the type of payment being made.
-     * @dev Used to distinguish between different payment types.
-     */
-    enum PaymentType {
-        /// @notice for sending payments, ie. calling `send` function
-        Send
     }
 
     /// @notice Validates the price feed
@@ -106,11 +86,7 @@ library AssetManagement {
 
         _assets[asset] = paymentAsset;
         emit AssetAdded(
-            asset,
-            paymentAsset.allowedPaymentTypes,
-            paymentAsset.priceFeed,
-            paymentAsset.tokenDecimals,
-            paymentAsset.stalePriceThresholdInSeconds
+            asset, paymentAsset.priceFeed, paymentAsset.tokenDecimals, paymentAsset.stalePriceThresholdInSeconds
         );
     }
 
@@ -135,17 +111,16 @@ library AssetManagement {
         if (asset.priceFeed == ZERO_ADDRESS) revert AssetNotFound();
     }
 
-    /// @notice Checks if an asset is supported for a given payment type
+    /// @notice Checks if an asset is supported (exists in the mapping)
     /// @param _assets assets mapping
     /// @param assetAddress token address
-    /// @param paymentType payment type
-    /// @return true if the asset is supported for the payment type, false otherwise
-    function isSupported(
-        mapping(address asset => PaymentAsset) storage _assets,
-        address assetAddress,
-        PaymentType paymentType
-    ) internal view returns (bool) {
-        return (_assets[assetAddress].allowedPaymentTypes >> uint8(paymentType)) & bytes1(0x01) == bytes1(0x01);
+    /// @return true if the asset exists, false otherwise
+    function isSupported(mapping(address asset => PaymentAsset) storage _assets, address assetAddress)
+        internal
+        view
+        returns (bool)
+    {
+        return _assets[assetAddress].priceFeed != address(0);
     }
 
     /// @notice Gets the price of an asset
@@ -258,7 +233,13 @@ library AssetManagement {
         address treasury,
         address sxt
     ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) {
-        if (merchant == ZERO_ADDRESS) revert MerchantAddressCannotBeZero();
+        if (merchant == ZERO_ADDRESS) {
+            revert MerchantAddressCannotBeZero();
+        }
+
+        if (!isSupported(_assets, asset)) {
+            revert AssetIsNotSupportedForThisMethod();
+        }
 
         protocolFeeAmount = asset == sxt ? 0 : uint248((uint256(amount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
 

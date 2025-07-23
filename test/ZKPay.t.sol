@@ -545,4 +545,8 @@ contract ZKPayTest is Test, IZKPayClient {
         vm.expectRevert(ZKPay.InsufficientPayment.selector);
         zkpay.query(address(usdc), usdcAmount, queryRequest);
     }
+
+    function testGetExecutorAddress() public view {
+        assertEq(zkpay.getExecutorAddress(), zkpay._executorAddress());
+    }
 }

@@ -17,6 +17,7 @@ import {SwapLogic} from "./libraries/SwapLogic.sol";
 import {PayWallLogic} from "./libraries/PayWallLogic.sol";
 import {SafeExecutor} from "./SafeExecutor.sol";
 import {IMerchantCallback} from "./interfaces/IMerchantCallback.sol";
+import {EscrowPayment} from "./libraries/EscrowPayment.sol";
 
 // slither-disable-next-line locked-ether
 contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
@@ -24,6 +25,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
+    using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
 
     error TreasuryAddressCannotBeZero();
     error TreasuryAddressSameAsCurrent();
@@ -39,6 +41,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     error InvalidCallbackData();
     error ExecutorAddressCannotBeZero();
     error InvalidMerchant();
+    error ZeroAmountReceived();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -322,6 +325,34 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         _validateMerchant(merchant, callbackContractAddress);
 
         SafeExecutor(_executorAddress).execute(callbackContractAddress, callbackData);
+    }
+
+    /// @inheritdoc IZKPay
+    function authorize(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        bytes32 itemId
+    ) external nonReentrant returns (bytes32 transactionHash) {
+        (uint248 actualAmountReceived, uint248 amountInUSD) = _assets.escrowPayment(asset, amount);
+
+        if (actualAmountReceived == 0) {
+            revert ZeroAmountReceived();
+        }
+
+        uint248 itemPrice = _paywallLogicStorage.getItemPrice(merchant, itemId);
+        if (amountInUSD < itemPrice) {
+            revert InsufficientPayment();
+        }
+
+        EscrowPayment.Transaction memory transaction =
+            EscrowPayment.Transaction({asset: asset, amount: actualAmountReceived, from: msg.sender, to: merchant});
+
+        transactionHash = EscrowPayment.authorize(_escrowPaymentStorage, transaction);
+
+        emit Authorized(transaction, transactionHash, onBehalfOf, memo, itemId);
     }
 
     /// @inheritdoc IZKPay

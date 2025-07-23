@@ -145,7 +145,7 @@ contract AssetManagementTest is Test {
 
         _wrapper.removeAsset(address(0x4));
 
-        assertEq(_wrapper.getPaymentAsset(address(0x4)).priceFeed, address(0));
+        assertEq(_wrapper.getPaymentAsset(address(0x4)).priceFeed, ZERO_ADDRESS);
     }
 
     function testIsSupported() public {
@@ -312,12 +312,7 @@ contract AssetManagementTest is Test {
 
         _wrapper.setPaymentAsset(
             tokenAddress,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
 
         uint248 escrowAmount = 1000 ether;
@@ -345,12 +340,7 @@ contract AssetManagementTest is Test {
 
         _wrapper.setPaymentAsset(
             tokenAddress,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
 
         uint248[] memory testAmounts = new uint248[](3);
@@ -392,12 +382,7 @@ contract AssetManagementTest is Test {
 
         _wrapper.setPaymentAsset(
             tokenAddress,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
 
         mockToken.mint(address(this), 1000e18);

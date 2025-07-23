@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {EscrowPayment} from "../../src/libraries/EscrowPayment.sol";
+import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
 
 contract EscrowPaymentWrapper {
     EscrowPayment.EscrowPaymentStorage internal _escrowPaymentStorage;
@@ -110,7 +111,7 @@ contract EscrowPaymentTest is Test {
 
     function testAuthorizeWithZeroValues() public {
         EscrowPayment.Transaction memory zeroTransaction =
-            EscrowPayment.Transaction({asset: address(0), amount: 0, from: address(0), to: address(0)});
+            EscrowPayment.Transaction({asset: ZERO_ADDRESS, amount: 0, from: ZERO_ADDRESS, to: ZERO_ADDRESS});
 
         bytes32 expectedHash = _wrapper.generateTransactionHash(zeroTransaction, 1);
 

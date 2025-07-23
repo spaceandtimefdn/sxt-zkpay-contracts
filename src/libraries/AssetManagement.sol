@@ -120,7 +120,7 @@ library AssetManagement {
         view
         returns (bool)
     {
-        return _assets[assetAddress].priceFeed != address(0);
+        return _assets[assetAddress].priceFeed != ZERO_ADDRESS;
     }
 
     /// @notice Gets the price of an asset
@@ -202,10 +202,9 @@ library AssetManagement {
         mapping(address asset => PaymentAsset) storage _assets,
         address asset,
         address to,
-        uint248 amount,
-        PaymentType paymentType
+        uint248 amount
     ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD) {
-        if (!isSupported(_assets, asset, paymentType)) {
+        if (!isSupported(_assets, asset)) {
             revert AssetIsNotSupportedForThisMethod();
         }
 
@@ -245,7 +244,7 @@ library AssetManagement {
 
         uint248 transferAmount = amount - protocolFeeAmount;
 
-        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, merchant, transferAmount, PaymentType.Send);
+        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, merchant, transferAmount);
 
         if (protocolFeeAmount > 0) {
             SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, treasury, protocolFeeAmount);
@@ -261,6 +260,6 @@ library AssetManagement {
         internal
         returns (uint248 actualAmountReceived, uint248 amountInUSD)
     {
-        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, address(this), amount, PaymentType.Send);
+        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, address(this), amount);
     }
 }

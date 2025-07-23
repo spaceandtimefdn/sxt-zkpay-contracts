@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ISwapRouter} from "../interfaces/ISwapRouter.sol";
+import {ZERO_ADDRESS} from "./Constants.sol";
 
 /// @title SwapLogic
 /// @dev Library for swapping assets
@@ -52,7 +53,7 @@ library SwapLogic {
 
     /// @notice set the essential config for swaps
     function setConfig(SwapLogicStorage storage _swapLogicStorage, SwapLogicConfig calldata newConfig) internal {
-        if (newConfig.router == address(0) || newConfig.usdt == address(0)) {
+        if (newConfig.router == ZERO_ADDRESS || newConfig.usdt == ZERO_ADDRESS) {
             revert ZeroAddress();
         }
 

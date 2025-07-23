@@ -276,6 +276,30 @@ library AssetManagement {
         tokenAmount = convertUsdToToken(_assets, asset, usdValue);
     }
 
+    /// @dev Pulls `amount` of `asset` from msg.sender to `to`,
+    /// measures the real amount received (fee-on-transfer tokens),
+    /// and converts it to USD.
+    /// Reverts if the asset isn’t supported for the given payment type.
+    function _pullAndQuote(
+        mapping(address asset => PaymentAsset) storage _assets,
+        address asset,
+        address to,
+        uint248 amount,
+        PaymentType paymentType
+    ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD) {
+        if (!isSupported(_assets, asset, paymentType)) {
+            revert AssetIsNotSupportedForThisMethod();
+        }
+
+        IERC20 token = IERC20(asset);
+        uint256 beforeBalance = token.balanceOf(to);
+        SafeERC20.safeTransferFrom(token, msg.sender, to, amount);
+        uint256 afterBalance = token.balanceOf(to);
+
+        actualAmountReceived = uint248(afterBalance - beforeBalance);
+        amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
+    }
+
     /// @notice Sends a payment to a target address.
     /// @param _assets The mapping of assets to their payment information.
     /// @param asset The address of the asset to send the payment for.
@@ -291,27 +315,17 @@ library AssetManagement {
         address treasury,
         address sxt
     ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) {
-        if (merchant == ZERO_ADDRESS) {
-            revert MerchantAddressCannotBeZero();
-        }
-
-        if (!isSupported(_assets, asset, PaymentType.Send)) {
-            revert AssetIsNotSupportedForThisMethod();
-        }
+        if (merchant == ZERO_ADDRESS) revert MerchantAddressCannotBeZero();
 
         protocolFeeAmount = asset == sxt ? 0 : uint248((uint256(amount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
+
         uint248 transferAmount = amount - protocolFeeAmount;
 
-        uint256 balanceBefore = IERC20(asset).balanceOf(merchant);
+        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, merchant, transferAmount, PaymentType.Send);
+
         if (protocolFeeAmount > 0) {
             SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, treasury, protocolFeeAmount);
         }
-        SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, merchant, transferAmount);
-        uint256 balanceAfter = IERC20(asset).balanceOf(merchant);
-
-        actualAmountReceived = uint248(balanceAfter - balanceBefore);
-
-        amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
     }
 
     /// @notice Escrows a payment by transferring it from the sender to the contract
@@ -323,15 +337,6 @@ library AssetManagement {
         internal
         returns (uint248 actualAmountReceived, uint248 amountInUSD)
     {
-        if (!isSupported(_assets, asset, PaymentType.Send)) {
-            revert AssetIsNotSupportedForThisMethod();
-        }
-
-        uint256 balanceBefore = IERC20(asset).balanceOf(address(this));
-        SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, address(this), amount);
-        uint256 balanceAfter = IERC20(asset).balanceOf(address(this));
-
-        actualAmountReceived = uint248(balanceAfter - balanceBefore);
-        amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
+        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, address(this), amount, PaymentType.Send);
     }
 }

@@ -37,6 +37,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     error SXTAddressCannotBeZero();
     error InsufficientPayment();
     error InvalidCallbackData();
+    error ZeroAmountReceived();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -281,6 +282,10 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         bytes32 itemId
     ) external nonReentrant returns (bytes32 transactionHash) {
         uint248 actualAmountReceived = _assets.escrowPayment(asset, amount);
+
+        if (actualAmountReceived == 0) {
+            revert ZeroAmountReceived();
+        }
 
         EscrowPayment.Transaction memory transaction =
             EscrowPayment.Transaction({asset: asset, amount: actualAmountReceived, from: msg.sender, to: merchant});

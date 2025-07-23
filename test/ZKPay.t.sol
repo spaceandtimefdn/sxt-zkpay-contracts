@@ -319,8 +319,8 @@ contract ZKPayTest is Test, IZKPayClient {
 
     function _setupMockTokenForAuthorize(uint248 amount) internal returns (MockERC20) {
         MockERC20 mockToken = new MockERC20();
-        mockToken.mint(address(this), amount * 10);
-        mockToken.approve(address(zkpay), amount * 10);
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(zkpay), amount);
 
         vm.prank(_owner);
         zkpay.setPaymentAsset(
@@ -594,7 +594,7 @@ contract ZKPayTest is Test, IZKPayClient {
         bytes memory memo = "test payment";
         bytes32 itemId = bytes32("item123");
 
-        MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
+        MockERC20 mockToken = _setupMockTokenForAuthorize(amount * 4);
 
         zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
         zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
@@ -619,6 +619,12 @@ contract ZKPayTest is Test, IZKPayClient {
         bytes32 itemId = bytes32(0);
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
+
+        vm.expectRevert(ZKPay.ZeroAmountReceived.selector);
+        zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
+
+        amount = 1;
+        mockToken = _setupMockTokenForAuthorize(amount);
 
         EscrowPayment.Transaction memory expectedTransaction =
             EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
@@ -728,7 +734,7 @@ contract ZKPayTest is Test, IZKPayClient {
         bytes memory memo = "test payment";
         bytes32 itemId = bytes32("item123");
 
-        MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
+        MockERC20 mockToken = _setupMockTokenForAuthorize(amount * 2);
 
         EscrowPayment.Transaction memory expectedTransaction =
             EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
@@ -783,7 +789,7 @@ contract ZKPayTest is Test, IZKPayClient {
         bytes calldata memo,
         bytes32 itemId
     ) public {
-        vm.assume(amount > 0 && amount < type(uint248).max / 10);
+        vm.assume(amount > 0 && amount < type(uint248).max);
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
 

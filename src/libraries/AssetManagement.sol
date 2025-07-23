@@ -5,16 +5,14 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
 import {Utils} from "./Utils.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {NATIVE_ADDRESS, ZERO_ADDRESS, PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "./Constants.sol";
+import {ZERO_ADDRESS, PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "./Constants.sol";
 /// @title AssetManagement
 /// @notice Library for managing payment assets,
-/// @dev It allows for setting, removing and getting payment assets. use address(0) as an asset address to refer to native token.
+/// @dev It allows for setting, removing and getting payment assets.
 
 library AssetManagement {
     using SafeERC20 for IERC20;
 
-    /// @notice Error thrown when trying to remove the native token
-    error NativeTokenCannotBeRemoved();
     /// @notice Error thrown when the price feed is invalid
     error InvalidPriceFeed();
     /// @notice Error thrown when the asset is not found
@@ -119,10 +117,7 @@ library AssetManagement {
     /// @notice Removes an asset from the assets mapping
     /// @param _assets assets mapping
     /// @param asset token address
-    /// @dev native token cannot be removed as it's used for gas cost when fulfilling queries
     function remove(mapping(address asset => PaymentAsset) storage _assets, address asset) internal {
-        if (asset == NATIVE_ADDRESS) revert NativeTokenCannotBeRemoved();
-
         delete _assets[asset];
         emit AssetRemoved(asset);
     }
@@ -150,9 +145,6 @@ library AssetManagement {
         address assetAddress,
         PaymentType paymentType
     ) internal view returns (bool) {
-        if (assetAddress == NATIVE_ADDRESS) {
-            return false;
-        }
         return (_assets[assetAddress].allowedPaymentTypes >> uint8(paymentType)) & bytes1(0x01) == bytes1(0x01);
     }
 
@@ -225,25 +217,6 @@ library AssetManagement {
 
         uint248 adjustedPrice = uint248(safePrice) * uint248(10 ** (18 - priceFeedDecimals)); // price in 18 decimals
         tokenAmount = (usdValue * uint248(10 ** _assets[asset].tokenDecimals)) / adjustedPrice;
-    }
-
-    /**
-     * @dev Internal helper function to convert a native amount to its equivalent token amount.
-     * @param _assets assets mapping
-     * @param asset The address of the asset to convert.
-     * @param nativeAmount The amount of the native token.
-     * @return tokenAmount The equivalent token amount.
-     */
-    function convertNativeToToken(
-        mapping(address asset => PaymentAsset) storage _assets,
-        address asset,
-        uint248 nativeAmount
-    ) internal view returns (uint248 tokenAmount) {
-        if (asset == NATIVE_ADDRESS) {
-            return nativeAmount;
-        }
-        uint248 usdValue = convertToUsd(_assets, NATIVE_ADDRESS, nativeAmount);
-        tokenAmount = convertUsdToToken(_assets, asset, usdValue);
     }
 
     /// @dev Pulls `amount` of `asset` from msg.sender to `to`,

@@ -22,15 +22,12 @@ contract Deploy is Script {
     /* solhint-disable gas-struct-packing */
     struct Config {
         // First slot: small integers packed together
-        uint8 nativeTokenDecimals;
         uint8 usdcTokenDecimals;
-        uint64 nativeTokenStalePriceThresholdInSeconds;
         uint64 usdcTokenStalePriceThresholdInSeconds;
         // Remaining slots: addresses (each takes a full slot)
         address zkpayOwner;
         address zkpayTreasury;
         address sxtTokenAddress;
-        address nativeTokenPriceFeed;
         address usdcTokenAddress;
         address usdcTokenPriceFeed;
         address router;
@@ -57,9 +54,6 @@ contract Deploy is Script {
                     config.zkpayTreasury,
                     config.zkpayTreasury,
                     config.sxtTokenAddress,
-                    config.nativeTokenPriceFeed,
-                    config.nativeTokenDecimals,
-                    config.nativeTokenStalePriceThresholdInSeconds,
                     SwapLogic.SwapLogicConfig({
                         router: config.router,
                         usdt: config.usdt,
@@ -110,11 +104,6 @@ contract Deploy is Script {
         config.zkpayOwner = configJson.readAddress(".zkpayOwner");
         config.zkpayTreasury = configJson.readAddress(".zkpayTreasury");
 
-        // native section
-        config.nativeTokenPriceFeed = configJson.readAddress(".nativeTokenPriceFeed");
-        config.nativeTokenDecimals = uint8(configJson.readUint(".nativeTokenDecimals"));
-        config.nativeTokenStalePriceThresholdInSeconds =
-            uint64(configJson.readUint(".nativeTokenStalePriceThresholdInSeconds"));
         config.sxtTokenAddress = configJson.readAddress(".SXT");
 
         // usdc payment asset section
@@ -168,9 +157,6 @@ contract Deploy is Script {
             "\",\n",
             "    \"sxtTokenAddress\": \"",
             _addressToString(config.sxtTokenAddress),
-            "\",\n",
-            "    \"nativeTokenPriceFeed\": \"",
-            _addressToString(config.nativeTokenPriceFeed),
             "\",\n",
             "    \"usdcTokenAddress\": \"",
             _addressToString(config.usdcTokenAddress),

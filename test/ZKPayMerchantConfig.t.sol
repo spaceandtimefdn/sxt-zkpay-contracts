@@ -26,9 +26,7 @@ contract ZKPayMerchantConfigTest is Test {
         address proxy = Upgrades.deployTransparentProxy(
             "ZKPay.sol",
             _owner,
-            abi.encodeCall(
-                ZKPay.initialize, (_owner, _treasury, _sxt, _priceFeed, 18, 1000, DummyData.getSwapLogicConfig())
-            )
+            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _sxt, DummyData.getSwapLogicConfig()))
         );
         _zkpay = ZKPay(proxy);
     }

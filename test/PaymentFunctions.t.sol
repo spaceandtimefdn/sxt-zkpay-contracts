@@ -8,7 +8,7 @@ import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggreg
 import {ZKPay} from "../src/ZKPay.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
-import {NATIVE_ADDRESS, PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "../src/libraries/Constants.sol";
+import {PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "../src/libraries/Constants.sol";
 import {DummyData} from "./data/DummyData.sol";
 import {IMerchantCallback} from "../src/interfaces/IMerchantCallback.sol";
 
@@ -61,20 +61,15 @@ contract PaymentFunctionsTest is Test {
     ZKPay public zkpay;
     address public owner;
     address public treasury;
-    address public nativeTokenPriceFeed;
     MockERC20 public usdc;
     uint248 public usdcAmount;
-    uint248 public nativeAmount;
     address public targetMerchant;
     uint64 public itemId;
     address public onBehalfOf;
     bytes public memoBytes;
 
     function setUp() public {
-        uint8 nativeTokenDecimals = 18;
-        int256 nativeTokenPrice = 1000e8; // 1 ETH = $1000
         usdcAmount = 10e6; // 10 USDC
-        nativeAmount = 0.01 ether; // 1000 * 0.01 = $10
 
         owner = vm.addr(0x1);
         treasury = vm.addr(0x2);
@@ -88,16 +83,9 @@ contract PaymentFunctionsTest is Test {
         vm.startPrank(owner);
 
         // Deploy zkpay
-        nativeTokenPriceFeed = address(new MockV3Aggregator(8, nativeTokenPrice));
-
         address sxt = address(new MockERC20());
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
-            "ZKPay.sol",
-            owner,
-            abi.encodeCall(
-                ZKPay.initialize,
-                (owner, treasury, sxt, nativeTokenPriceFeed, nativeTokenDecimals, 1000, DummyData.getSwapLogicConfig())
-            )
+            "ZKPay.sol", owner, abi.encodeCall(ZKPay.initialize, (owner, treasury, sxt, DummyData.getSwapLogicConfig()))
         );
         zkpay = ZKPay(zkPayProxyAddress);
 
@@ -117,18 +105,6 @@ contract PaymentFunctionsTest is Test {
                 stalePriceThresholdInSeconds: 1000
             }),
             DummyData.getOriginAssetPath(address(usdc))
-        );
-
-        // Update native token to support Send payment type
-        zkpay.setPaymentAsset(
-            NATIVE_ADDRESS,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: bytes1(0x01), // Allow Send payment type (0x01)
-                priceFeed: nativeTokenPriceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 1000
-            }),
-            DummyData.getOriginAssetPath(NATIVE_ADDRESS)
         );
 
         vm.stopPrank();
@@ -185,13 +161,6 @@ contract PaymentFunctionsTest is Test {
 
         assertEq(sxt.balanceOf(targetMerchant), sxtAmount);
         assertEq(sxt.balanceOf(treasury), 0);
-    }
-
-    function testSendNotErc20Token() public {
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
-
-        vm.expectRevert(ZKPay.NotErc20Token.selector);
-        zkpay.send(NATIVE_ADDRESS, nativeAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0));
     }
 
     function testSendToZeroAddress() public {
@@ -423,24 +392,6 @@ contract PaymentFunctionsTest is Test {
             newToken,
             usdcAmount,
             bytes32(uint256(uint160(onBehalfOf))),
-            targetMerchant,
-            memoBytes,
-            address(callbackContract),
-            callbackData
-        );
-    }
-
-    function testSendWithCallbackNotErc20Token() public {
-        MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
-        bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);
-
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
-
-        vm.expectRevert(ZKPay.NotErc20Token.selector);
-        zkpay.sendWithCallback(
-            NATIVE_ADDRESS,
-            nativeAmount,
-            onBehalfOfBytes32,
             targetMerchant,
             memoBytes,
             address(callbackContract),

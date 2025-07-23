@@ -10,7 +10,7 @@ import {ZKPayV2} from "./mocks/ZKPayV2.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
-import {NATIVE_ADDRESS, ZERO_ADDRESS} from "../src/libraries/Constants.sol";
+import {ZERO_ADDRESS} from "../src/libraries/Constants.sol";
 import {DummyData} from "./data/DummyData.sol";
 import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 import {PayWallLogic} from "../src/libraries/PayWallLogic.sol";
@@ -37,9 +37,7 @@ contract ZKPayTest is Test {
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
             "ZKPay.sol",
             _owner,
-            abi.encodeCall(
-                ZKPay.initialize, (_owner, _treasury, _sxt, _priceFeed, 18, 1000, DummyData.getSwapLogicConfig())
-            )
+            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _sxt, DummyData.getSwapLogicConfig()))
         );
 
         zkpay = ZKPay(zkPayProxyAddress);
@@ -106,9 +104,7 @@ contract ZKPayTest is Test {
         address proxy = Upgrades.deployTransparentProxy(
             "ZKPay.sol",
             msg.sender,
-            abi.encodeCall(
-                ZKPay.initialize, (msg.sender, _treasury, sxt, _priceFeed, 18, 1000, DummyData.getSwapLogicConfig())
-            )
+            abi.encodeCall(ZKPay.initialize, (msg.sender, _treasury, sxt, DummyData.getSwapLogicConfig()))
         );
         address implAddressV1 = Upgrades.getImplementationAddress(proxy);
         address adminAddress = Upgrades.getAdminAddress(proxy);
@@ -166,7 +162,6 @@ contract ZKPayTest is Test {
     }
 
     function testFuzzSetPaymentAsset(address asset) public {
-        vm.assume(asset != NATIVE_ADDRESS);
         vm.prank(_owner);
 
         vm.expectEmit(true, true, true, true);
@@ -176,7 +171,6 @@ contract ZKPayTest is Test {
     }
 
     function testFuzzSetPaymentAssetInvalidPath(address asset) public {
-        vm.assume(asset != NATIVE_ADDRESS);
         vm.prank(_owner);
         vm.assume(asset != DummyData.getUsdtAddress());
 
@@ -216,16 +210,6 @@ contract ZKPayTest is Test {
         zkpay.removePaymentAsset(address(0x100));
     }
 
-    function testGetPaymentAsset() public {
-        vm.prank(_owner);
-
-        AssetManagement.PaymentAsset memory paymentAsset = zkpay.getPaymentAsset(NATIVE_ADDRESS);
-        assertEq(paymentAsset.allowedPaymentTypes, AssetManagement.NONE_PAYMENT_FLAG);
-        assertEq(paymentAsset.priceFeed, _priceFeed);
-        assertEq(paymentAsset.tokenDecimals, 18);
-        assertEq(paymentAsset.stalePriceThresholdInSeconds, 1000);
-    }
-
     function _setupMockTokenForAuthorize(uint248 amount) internal returns (MockERC20) {
         MockERC20 mockToken = new MockERC20();
         mockToken.mint(address(this), amount);
@@ -242,9 +226,8 @@ contract ZKPayTest is Test {
     function testInitializeWithZeroSXTAddressReverts() public {
         address implementation = address(new ZKPay());
 
-        bytes memory initData = abi.encodeCall(
-            ZKPay.initialize, (_owner, _treasury, address(0), _priceFeed, 18, 1000, DummyData.getSwapLogicConfig())
-        );
+        bytes memory initData =
+            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, address(0), DummyData.getSwapLogicConfig()));
 
         vm.expectRevert(ZKPay.SXTAddressCannotBeZero.selector);
         new TransparentUpgradeableProxy(implementation, _owner, initData);
@@ -523,7 +506,7 @@ contract ZKPayTest is Test {
         mockToken.mint(address(this), amount);
         mockToken.approve(address(zkpay), amount);
 
-        AssetManagement.PaymentAsset memory queryOnlyAsset = AssetManagement.PaymentAsset({
+        AssetManagement.PaymentAsset memory nonePaymentAsset = AssetManagement.PaymentAsset({
             allowedPaymentTypes: AssetManagement.NONE_PAYMENT_FLAG,
             priceFeed: _priceFeed,
             tokenDecimals: 18,
@@ -531,7 +514,7 @@ contract ZKPayTest is Test {
         });
 
         vm.prank(_owner);
-        zkpay.setPaymentAsset(address(mockToken), queryOnlyAsset, DummyData.getOriginAssetPath(address(mockToken)));
+        zkpay.setPaymentAsset(address(mockToken), nonePaymentAsset, DummyData.getOriginAssetPath(address(mockToken)));
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
         zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);

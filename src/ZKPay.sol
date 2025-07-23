@@ -9,7 +9,7 @@ import {ZKPayStorage} from "./ZKPayStorage.sol";
 import {IZKPay} from "./interfaces/IZKPay.sol";
 import {AssetManagement} from "./libraries/AssetManagement.sol";
 import {MerchantLogic} from "./libraries/MerchantLogic.sol";
-import {NATIVE_ADDRESS, ZERO_ADDRESS} from "./libraries/Constants.sol";
+import {ZERO_ADDRESS} from "./libraries/Constants.sol";
 import {SwapLogic} from "./libraries/SwapLogic.sol";
 import {PayWallLogic} from "./libraries/PayWallLogic.sol";
 import {SafeExecutor} from "./SafeExecutor.sol";
@@ -26,7 +26,6 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
 
     error TreasuryAddressCannotBeZero();
     error TreasuryAddressSameAsCurrent();
-    error NotErc20Token();
     error SXTAddressCannotBeZero();
     error InsufficientPayment();
     error ExecutorAddressCannotBeZero();
@@ -42,9 +41,6 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         address owner,
         address treasury,
         address sxt,
-        address nativeTokenPriceFeed,
-        uint8 nativeTokenDecimals,
-        uint64 nativeTokenStalePriceThresholdInSeconds,
         SwapLogic.SwapLogicConfig calldata swapLogicConfig
     ) external initializer {
         __Ownable_init(owner);
@@ -54,17 +50,6 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         _deployExecutor();
 
         _swapLogicStorage.setConfig(swapLogicConfig);
-
-        AssetManagement.set(
-            _assets,
-            NATIVE_ADDRESS,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.NONE_PAYMENT_FLAG,
-                priceFeed: nativeTokenPriceFeed,
-                tokenDecimals: nativeTokenDecimals,
-                stalePriceThresholdInSeconds: nativeTokenStalePriceThresholdInSeconds
-            })
-        );
     }
 
     function _deployExecutor() internal {
@@ -158,10 +143,6 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         bytes calldata memo,
         bytes32 itemId
     ) internal {
-        if (asset == NATIVE_ADDRESS) {
-            revert NotErc20Token();
-        }
-
         (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
             _assets.send(asset, amount, merchant, _treasury, _sxt);
 

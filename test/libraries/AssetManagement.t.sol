@@ -6,7 +6,7 @@ import {AssetManagement} from "../../src/libraries/AssetManagement.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
-import {NATIVE_ADDRESS, ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
+import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
 import {Setup} from "./Setup.sol";
 
 // Mock contract that simulates incomplete round data from Chainlink price feed
@@ -86,10 +86,6 @@ contract AssetManagementTestWrapper {
         return AssetManagement.convertToUsd(_assets, asset, amount);
     }
 
-    function convertNativeToToken(address nativeTokenAddress, uint248 nativeAmount) external view returns (uint248) {
-        return AssetManagement.convertNativeToToken(_assets, nativeTokenAddress, nativeAmount);
-    }
-
     function escrowPayment(address asset, uint248 amount) external returns (uint248, uint248) {
         return AssetManagement.escrowPayment(_assets, asset, amount);
     }
@@ -109,8 +105,6 @@ contract AssetManagementTest is Test {
         uint64 stalePriceThresholdInSeconds
     ) public {
         address priceFeed = address(new MockV3Aggregator(8, 100));
-
-        vm.assume(asset != NATIVE_ADDRESS || allowedPaymentTypes == AssetManagement.NONE_PAYMENT_FLAG);
 
         vm.expectEmit(true, true, true, true);
         emit AssetManagement.AssetAdded(
@@ -171,14 +165,7 @@ contract AssetManagementTest is Test {
         assertEq(_wrapper.getPaymentAsset(address(0x4)).allowedPaymentTypes, AssetManagement.NONE_PAYMENT_FLAG);
     }
 
-    /// forge-config: default.allow_internal_expect_revert = true
-    function testCanNotRemoveNativeToken() public {
-        vm.expectRevert(AssetManagement.NativeTokenCannotBeRemoved.selector);
-        _wrapper.removeAsset(NATIVE_ADDRESS);
-    }
-
     function testIsSupported() public {
-        assertEq(_wrapper.isSupported(NATIVE_ADDRESS, AssetManagement.PaymentType.Send), false);
         assertEq(_wrapper.isSupported(address(0x1), AssetManagement.PaymentType.Send), false);
 
         address priceFeed = address(new MockV3Aggregator(8, 100));
@@ -341,44 +328,6 @@ contract AssetManagementTest is Test {
         uint248 amount = 1e18;
         uint248 usdValue = _wrapper.convertToUsd(address(0x1), amount);
         assertEq(usdValue, amount);
-    }
-
-    function testConvertNativeToToken() public {
-        address nativeTokenAddress = NATIVE_ADDRESS;
-        address nativeTokenPriceFeed = address(new MockV3Aggregator(8, 1000e8)); // 1 native = 1000 USD
-
-        address usdcTokenAddress = address(0x01);
-        address usdcTokenPriceFeed = address(new MockV3Aggregator(8, 1e8)); // 1e8 = 1 USD
-
-        _wrapper.setPaymentAsset(
-            nativeTokenAddress,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
-                priceFeed: nativeTokenPriceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
-        );
-
-        _wrapper.setPaymentAsset(
-            usdcTokenAddress,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
-                priceFeed: usdcTokenPriceFeed,
-                tokenDecimals: 6,
-                stalePriceThresholdInSeconds: 100
-            })
-        );
-
-        // native -> native
-        uint248 nativeAmount = 1e18;
-        uint248 result = _wrapper.convertNativeToToken(nativeTokenAddress, nativeAmount);
-        assertEq(result, nativeAmount);
-
-        // native -> usdc
-        uint248 usdcAmount = 1000e6;
-        uint248 result2 = _wrapper.convertNativeToToken(usdcTokenAddress, nativeAmount);
-        assertEq(result2, usdcAmount);
     }
 
     function testMockContractDummyFunctions() public {

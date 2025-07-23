@@ -29,7 +29,7 @@ library Setup {
         });
 
         _assets[usdcAddress] = AssetManagement.PaymentAsset({
-            allowedPaymentTypes: AssetManagement.QUERY_PAYMENT_FLAG,
+            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
             priceFeed: usdcPriceFeed,
             tokenDecimals: usdcDecimals,
             stalePriceThresholdInSeconds: usdcStalePriceThresholdInSeconds

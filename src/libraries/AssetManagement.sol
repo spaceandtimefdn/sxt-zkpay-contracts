@@ -48,10 +48,10 @@ library AssetManagement {
 
     /**
      * @notice Defines methods for accepted asset types within the ZKpay protocol.
-     * @dev Indicates whether an asset can be used for direct payment to target protocol or for on-demand queries.
+     * @dev Indicates whether an asset can be used for direct payment to target protocol.
      */
     struct PaymentAsset {
-        /// @notice 1 byte representing allowed payment types, 0x01 = Send, 0x02 = Query
+        /// @notice 1 byte representing allowed payment types, 0x01 = Send
         bytes1 allowedPaymentTypes;
         /// @notice  Price oracle
         address priceFeed;
@@ -63,17 +63,14 @@ library AssetManagement {
 
     bytes1 public constant NONE_PAYMENT_FLAG = bytes1(uint8(0x00));
     bytes1 public constant SEND_PAYMENT_FLAG = bytes1(uint8(0x01) << uint8(PaymentType.Send));
-    bytes1 public constant QUERY_PAYMENT_FLAG = bytes1(uint8(0x01) << uint8(PaymentType.Query));
 
     /**
      * @notice Specifies the type of payment being made.
-     * @dev Used to distinguish between credit purchases and on-demand query payments.
+     * @dev Used to distinguish between different payment types.
      */
     enum PaymentType {
-        /// @notice for sending payments, ie. calling `pay` function
-        Send,
-        /// @notice for querying payments, ie. calling `query*` functions
-        Query
+        /// @notice for sending payments, ie. calling `send` function
+        Send
     }
 
     /// @notice Validates the price feed
@@ -211,33 +208,6 @@ library AssetManagement {
         } else {
             usdValue = uint248((tokenAmount * safePrice) * 10 ** (18 - paymentAsset.tokenDecimals - priceFeedDecimals));
         }
-    }
-
-    /**
-     * @notice Handles a query payment for a given asset.
-     * @param _assets The mapping of assets to their payment information.
-     * @param assetAddress The address of the asset to handle the payment for.
-     * @param tokenAmount The amount of the asset to handle the payment for.
-     * @return actualAmountReceived The actual amount received by the contract.
-     * @return amountInUSD The amount in USD.
-     * @dev This function could revert if `tokenAmount * safePrice` overflows uint248
-     */
-    function handleQueryPayment(
-        mapping(address asset => PaymentAsset) storage _assets,
-        address assetAddress,
-        uint248 tokenAmount
-    ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD) {
-        if (!isSupported(_assets, assetAddress, PaymentType.Query)) {
-            revert AssetIsNotSupportedForThisMethod();
-        }
-
-        uint256 balanceBefore = IERC20(assetAddress).balanceOf(address(this));
-        IERC20(assetAddress).safeTransferFrom(msg.sender, address(this), tokenAmount);
-        uint256 balanceAfter = IERC20(assetAddress).balanceOf(address(this));
-
-        actualAmountReceived = uint248(balanceAfter - balanceBefore);
-
-        amountInUSD = convertToUsd(_assets, assetAddress, actualAmountReceived);
     }
 
     /**

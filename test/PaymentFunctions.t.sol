@@ -222,7 +222,7 @@ contract PaymentFunctionsTest is Test {
         zkpay.setPaymentAsset(
             newToken,
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: bytes1(0x02), // Only Query payment type (0x02), not Send (0x01)
+                allowedPaymentTypes: AssetManagement.NONE_PAYMENT_FLAG, // No payment types allowed for this test
                 priceFeed: newTokenPriceFeed,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 1000

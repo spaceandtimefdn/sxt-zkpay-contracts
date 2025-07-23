@@ -9,24 +9,15 @@ import {ZKPay} from "../src/ZKPay.sol";
 import {ZKPayV2} from "./mocks/ZKPayV2.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
-import {QueryLogic} from "../src/libraries/QueryLogic.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
-import {IZKPay} from "../src/interfaces/IZKPay.sol";
-import {
-    NATIVE_ADDRESS,
-    ZERO_ADDRESS,
-    MAX_GAS_CLIENT_CALLBACK,
-    PROTOCOL_FEE,
-    PROTOCOL_FEE_PRECISION
-} from "../src/libraries/Constants.sol";
-import {IZKPayClient} from "../src/interfaces/IZKPayClient.sol";
+import {NATIVE_ADDRESS, ZERO_ADDRESS} from "../src/libraries/Constants.sol";
 import {DummyData} from "./data/DummyData.sol";
 import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 import {PayWallLogic} from "../src/libraries/PayWallLogic.sol";
-import {MockCustomLogic} from "./mocks/MockCustomLogic.sol";
 import {EscrowPayment} from "../src/libraries/EscrowPayment.sol";
+import {IZKPay} from "../src/interfaces/IZKPay.sol";
 
-contract ZKPayTest is Test, IZKPayClient {
+contract ZKPayTest is Test {
     ZKPay public zkpay;
     address public _owner;
     address public _treasury;
@@ -34,8 +25,6 @@ contract ZKPayTest is Test, IZKPayClient {
     AssetManagement.PaymentAsset public paymentAssetInstance;
     address public _sxt;
     int256 public _tokenPrice;
-
-    event CallbackCalled(bytes32 queryHash, bytes queryResult, bytes callbackData);
 
     function setUp() public {
         _owner = vm.addr(0x1);
@@ -56,7 +45,7 @@ contract ZKPayTest is Test, IZKPayClient {
         zkpay = ZKPay(zkPayProxyAddress);
 
         paymentAssetInstance = AssetManagement.PaymentAsset({
-            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
             priceFeed: _priceFeed,
             tokenDecimals: 18,
             stalePriceThresholdInSeconds: 1000
@@ -181,9 +170,7 @@ contract ZKPayTest is Test, IZKPayClient {
         vm.prank(_owner);
 
         vm.expectEmit(true, true, true, true);
-        emit AssetManagement.AssetAdded(
-            asset, AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG, _priceFeed, 18, 1000
-        );
+        emit AssetManagement.AssetAdded(asset, AssetManagement.SEND_PAYMENT_FLAG, _priceFeed, 18, 1000);
 
         zkpay.setPaymentAsset(asset, paymentAssetInstance, DummyData.getOriginAssetPath(asset));
     }
@@ -239,86 +226,6 @@ contract ZKPayTest is Test, IZKPayClient {
         assertEq(paymentAsset.stalePriceThresholdInSeconds, 1000);
     }
 
-    function testQuery() public {
-        uint248 usdcAmount = 10e6;
-
-        // deploy usdc
-        uint8 usdcDecimals = 6;
-        MockERC20 usdc = new MockERC20();
-        usdc.mint(address(this), 100e6); // 100 usdc
-
-        // deploy mock price feed
-        address mockUsdcPriceFeed = address(new MockV3Aggregator(8, 1e8));
-
-        paymentAssetInstance = AssetManagement.PaymentAsset({
-            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
-            priceFeed: mockUsdcPriceFeed,
-            tokenDecimals: usdcDecimals,
-            stalePriceThresholdInSeconds: 1000
-        });
-
-        vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
-
-        MockCustomLogic mockedCustomLogic = new MockCustomLogic();
-
-        QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
-            query: "test",
-            queryParameters: "test",
-            timeout: uint64(block.timestamp + 100),
-            callbackClientContractAddress: address(this),
-            callbackGasLimit: 1000000,
-            callbackData: "test",
-            customLogicContractAddress: address(mockedCustomLogic)
-        });
-
-        // allow the zkpay contract to transfer usdc
-        usdc.approve(address(zkpay), usdcAmount);
-
-        uint248 queryNonce = 1;
-
-        // query
-        QueryLogic.QueryPayment memory payment =
-            QueryLogic.QueryPayment({asset: address(usdc), amount: usdcAmount, source: address(this)});
-
-        bytes32 expectedQueryHash =
-            keccak256(abi.encode(block.chainid, address(zkpay), queryNonce, queryRequest, payment));
-
-        vm.expectEmit(true, true, true, true);
-        emit QueryLogic.QueryReceived(
-            queryNonce,
-            address(this),
-            queryRequest.query,
-            queryRequest.queryParameters,
-            queryRequest.timeout,
-            queryRequest.callbackClientContractAddress,
-            queryRequest.callbackGasLimit,
-            queryRequest.callbackData,
-            queryRequest.customLogicContractAddress,
-            expectedQueryHash
-        );
-
-        uint248 usdcDecimalsIn18Decimals = uint248(usdcAmount) * uint248(10 ** (18 - usdcDecimals));
-        vm.expectEmit(true, true, true, true);
-        emit IZKPay.NewQueryPayment(
-            expectedQueryHash, address(usdc), usdcAmount, address(this), usdcDecimalsIn18Decimals
-        );
-
-        zkpay.query(address(usdc), usdcAmount, queryRequest);
-
-        vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
-        zkpay.query(address(0x0123), usdcAmount, queryRequest);
-
-        usdc.approve(address(zkpay), usdcAmount);
-        vm.warp(block.timestamp + 101);
-        vm.expectRevert(QueryLogic.InvalidQueryTimeout.selector);
-        zkpay.query(address(usdc), usdcAmount, queryRequest);
-    }
-
-    function zkPayCallback(bytes32 queryHash, bytes calldata queryResult, bytes calldata callbackData) external {
-        emit CallbackCalled(queryHash, queryResult, callbackData);
-    }
-
     function _setupMockTokenForAuthorize(uint248 amount) internal returns (MockERC20) {
         MockERC20 mockToken = new MockERC20();
         mockToken.mint(address(this), amount);
@@ -330,165 +237,6 @@ contract ZKPayTest is Test, IZKPayClient {
         );
 
         return mockToken;
-    }
-
-    function testFuzzValidateQueryRequest(bytes32 queryHashFuzzValue) public {
-        uint248 usdcAmount = 10e6;
-
-        // deploy usdc
-        uint8 usdcDecimals = 6;
-        MockERC20 usdc = new MockERC20();
-        usdc.mint(address(this), 100e6); // 100 usdc
-
-        // deploy mock price feed
-        address mockUsdcPriceFeed = address(new MockV3Aggregator(8, 1e8));
-
-        paymentAssetInstance = AssetManagement.PaymentAsset({
-            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
-            priceFeed: mockUsdcPriceFeed,
-            tokenDecimals: usdcDecimals,
-            stalePriceThresholdInSeconds: 1000
-        });
-
-        vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
-
-        MockCustomLogic mockedCustomLogic = new MockCustomLogic();
-
-        QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
-            query: "test",
-            queryParameters: "test",
-            timeout: uint64(block.timestamp + 100),
-            callbackClientContractAddress: address(this),
-            callbackGasLimit: 1000000,
-            callbackData: "test",
-            customLogicContractAddress: address(mockedCustomLogic)
-        });
-
-        vm.expectRevert(ZKPay.InvalidQueryHash.selector);
-        zkpay.validateQueryRequest(queryHashFuzzValue, queryRequest);
-
-        // allow the zkpay contract to spend usdc
-        usdc.approve(address(zkpay), usdcAmount);
-
-        bytes32 queryHash = zkpay.query(address(usdc), usdcAmount, queryRequest);
-
-        QueryLogic.QueryRequest memory queryRequest2 = QueryLogic.QueryRequest({
-            query: "new query",
-            queryParameters: "test",
-            timeout: uint64(block.timestamp + 100),
-            callbackClientContractAddress: address(this),
-            callbackGasLimit: 1000000,
-            callbackData: "test",
-            customLogicContractAddress: address(mockedCustomLogic)
-        });
-
-        vm.expectRevert(ZKPay.InvalidQueryHash.selector);
-        zkpay.validateQueryRequest(queryHash, queryRequest2);
-
-        // shouldn't revert, as it's a valid request
-        zkpay.validateQueryRequest(queryHash, queryRequest);
-    }
-
-    function testFulfillQuery() public {
-        // deploy usdc
-        uint8 usdcDecimals = 6;
-        MockERC20 usdc = new MockERC20();
-        usdc.mint(address(this), 100e6); // 100 usdc
-
-        // paying 10 usdc
-        uint248 usdcAmount = 10e6;
-
-        // deploy mock price feed
-        address mockUsdcPriceFeed = address(new MockV3Aggregator(8, 1e8)); // 1e8 = 1 USD
-
-        paymentAssetInstance = AssetManagement.PaymentAsset({
-            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
-            priceFeed: mockUsdcPriceFeed,
-            tokenDecimals: usdcDecimals,
-            stalePriceThresholdInSeconds: 1000
-        });
-
-        vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
-
-        // deploy custom logic contract
-        MockCustomLogic mockedCustomLogic = new MockCustomLogic();
-
-        QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
-            query: "test",
-            queryParameters: "test",
-            timeout: uint64(block.timestamp + 100),
-            callbackClientContractAddress: address(this),
-            callbackGasLimit: 1_000_000,
-            callbackData: "test",
-            customLogicContractAddress: address(mockedCustomLogic)
-        });
-
-        // allow the zkpay contract to transfer usdc
-        usdc.approve(address(zkpay), usdcAmount);
-
-        // query
-        bytes32 queryHash = zkpay.query(address(usdc), usdcAmount, queryRequest);
-
-        // fulfill query
-        vm.expectEmit(true, true, true, true);
-        emit IZKPay.CallbackSucceeded(queryHash, address(this));
-
-        uint248 paidAmount = 1e6; // todo: need to be constant across all tests
-        uint248 refundAmount = usdcAmount - paidAmount;
-        uint248 protocolFeeAmount = uint248(PROTOCOL_FEE * paidAmount / PROTOCOL_FEE_PRECISION);
-        uint248 merchantPayoutAmount = paidAmount - protocolFeeAmount;
-        vm.expectEmit(true, true, true, true);
-        emit IZKPay.PaymentSettled(queryHash, paidAmount, refundAmount, merchantPayoutAmount, protocolFeeAmount);
-
-        vm.expectEmit(true, true, true, true);
-        emit IZKPay.QueryFulfilled(queryHash);
-
-        zkpay.fulfillQuery(queryHash, queryRequest, "results");
-    }
-
-    function testCallbackGasLimitTooHigh() public {
-        // deploy usdc
-        uint8 usdcDecimals = 6;
-        MockERC20 usdc = new MockERC20();
-        usdc.mint(address(this), 100e6); // 100 usdc
-
-        // paying 10 usdc
-        uint248 usdcAmount = 10e6;
-
-        // deploy mock price feed
-        address mockUsdcPriceFeed = address(new MockV3Aggregator(8, 1e8)); // 1e8 = 1 USD
-
-        paymentAssetInstance = AssetManagement.PaymentAsset({
-            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
-            priceFeed: mockUsdcPriceFeed,
-            tokenDecimals: usdcDecimals,
-            stalePriceThresholdInSeconds: 1000
-        });
-
-        vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
-
-        // deploy custom logic contract
-        MockCustomLogic mockedCustomLogic = new MockCustomLogic();
-
-        QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
-            query: "test",
-            queryParameters: "test",
-            timeout: uint64(block.timestamp + 100),
-            callbackClientContractAddress: address(this),
-            callbackGasLimit: uint64(MAX_GAS_CLIENT_CALLBACK + 1),
-            callbackData: "test",
-            customLogicContractAddress: address(mockedCustomLogic)
-        });
-
-        // allow the zkpay contract to transfer usdc
-        usdc.approve(address(zkpay), usdcAmount);
-
-        // query
-        vm.expectRevert(QueryLogic.CallbackGasLimitTooHigh.selector);
-        zkpay.query(address(usdc), usdcAmount, queryRequest);
     }
 
     function testInitializeWithZeroSXTAddressReverts() public {
@@ -513,53 +261,6 @@ contract ZKPayTest is Test, IZKPayClient {
         vm.prank(merchant);
         zkpay.setPaywallItemPrice(item, price);
         assertEq(zkpay.getPaywallItemPrice(item, merchant), price);
-    }
-
-    function testQueryInsufficientPayment() public {
-        uint248 usdcAmount = 10e6; // 10 usdc
-
-        // deploy usdc
-        uint8 usdcDecimals = 6;
-        MockERC20 usdc = new MockERC20();
-        usdc.mint(address(this), 100e6); // 100 usdc
-
-        // deploy mock price feed
-        address mockUsdcPriceFeed = address(new MockV3Aggregator(8, 1e8));
-
-        paymentAssetInstance = AssetManagement.PaymentAsset({
-            allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
-            priceFeed: mockUsdcPriceFeed,
-            tokenDecimals: usdcDecimals,
-            stalePriceThresholdInSeconds: 1000
-        });
-
-        vm.prank(_owner);
-        zkpay.setPaymentAsset(address(usdc), paymentAssetInstance, DummyData.getOriginAssetPath(address(usdc)));
-
-        MockCustomLogic mockedCustomLogic = new MockCustomLogic();
-
-        QueryLogic.QueryRequest memory queryRequest = QueryLogic.QueryRequest({
-            query: "test",
-            queryParameters: "test",
-            timeout: uint64(block.timestamp + 100),
-            callbackClientContractAddress: address(this),
-            callbackGasLimit: 1000000,
-            callbackData: hex"aabbccdd",
-            customLogicContractAddress: address(mockedCustomLogic)
-        });
-
-        // allow the zkpay contract to transfer usdc
-        usdc.approve(address(zkpay), usdcAmount);
-
-        bytes32 itemId = bytes32(uint256(uint160(address(mockedCustomLogic))));
-
-        (address merchant,) = mockedCustomLogic.getMerchantAddressAndFee();
-        vm.prank(merchant);
-        zkpay.setPaywallItemPrice(itemId, usdcAmount * 1e12 + 1);
-
-        // query
-        vm.expectRevert(ZKPay.InsufficientPayment.selector);
-        zkpay.query(address(usdc), usdcAmount, queryRequest);
     }
 
     function testGetExecutorAddress() public view {
@@ -823,7 +524,7 @@ contract ZKPayTest is Test, IZKPayClient {
         mockToken.approve(address(zkpay), amount);
 
         AssetManagement.PaymentAsset memory queryOnlyAsset = AssetManagement.PaymentAsset({
-            allowedPaymentTypes: AssetManagement.QUERY_PAYMENT_FLAG,
+            allowedPaymentTypes: AssetManagement.NONE_PAYMENT_FLAG,
             priceFeed: _priceFeed,
             tokenDecimals: 18,
             stalePriceThresholdInSeconds: 1000

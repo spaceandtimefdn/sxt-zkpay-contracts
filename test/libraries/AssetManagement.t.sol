@@ -110,7 +110,7 @@ contract AssetManagementTest is Test {
     ) public {
         address priceFeed = address(new MockV3Aggregator(8, 100));
 
-        vm.assume(asset != NATIVE_ADDRESS || allowedPaymentTypes & AssetManagement.QUERY_PAYMENT_FLAG == 0);
+        vm.assume(asset != NATIVE_ADDRESS || allowedPaymentTypes == AssetManagement.NONE_PAYMENT_FLAG);
 
         vm.expectEmit(true, true, true, true);
         emit AssetManagement.AssetAdded(
@@ -140,7 +140,7 @@ contract AssetManagementTest is Test {
         _wrapper.setPaymentAsset(
             address(0x1),
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
                 priceFeed: address(0x1),
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -154,17 +154,14 @@ contract AssetManagementTest is Test {
         _wrapper.setPaymentAsset(
             address(0x4),
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
                 priceFeed: priceFeed,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
             })
         );
 
-        assertEq(
-            _wrapper.getPaymentAsset(address(0x4)).allowedPaymentTypes,
-            AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG
-        );
+        assertEq(_wrapper.getPaymentAsset(address(0x4)).allowedPaymentTypes, AssetManagement.SEND_PAYMENT_FLAG);
 
         vm.expectEmit(true, true, true, true);
         emit AssetManagement.AssetRemoved(address(0x4));
@@ -181,15 +178,14 @@ contract AssetManagementTest is Test {
     }
 
     function testIsSupported() public {
+        assertEq(_wrapper.isSupported(NATIVE_ADDRESS, AssetManagement.PaymentType.Send), false);
         assertEq(_wrapper.isSupported(address(0x1), AssetManagement.PaymentType.Send), false);
-        assertEq(_wrapper.isSupported(address(0x1), AssetManagement.PaymentType.Query), false);
-        assertEq(_wrapper.isSupported(NATIVE_ADDRESS, AssetManagement.PaymentType.Query), false);
 
         address priceFeed = address(new MockV3Aggregator(8, 100));
         _wrapper.setPaymentAsset(
             address(0x1),
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
                 priceFeed: priceFeed,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -197,8 +193,6 @@ contract AssetManagementTest is Test {
         );
 
         assertEq(_wrapper.isSupported(address(0x1), AssetManagement.PaymentType.Send), true);
-        assertEq(_wrapper.isSupported(address(0x1), AssetManagement.PaymentType.Query), true);
-        assertEq(_wrapper.isSupported(NATIVE_ADDRESS, AssetManagement.PaymentType.Query), false);
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
@@ -206,7 +200,7 @@ contract AssetManagementTest is Test {
         vm.expectRevert(AssetManagement.InvalidPriceFeed.selector);
         _wrapper.validatePriceFeed(
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
                 priceFeed: ZERO_ADDRESS,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -220,7 +214,7 @@ contract AssetManagementTest is Test {
         vm.expectRevert(AssetManagement.InvalidPriceFeedData.selector);
         _wrapper.validatePriceFeed(
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
                 priceFeed: priceFeed,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -241,7 +235,7 @@ contract AssetManagementTest is Test {
         vm.expectRevert(AssetManagement.StalePriceFeedData.selector);
         _wrapper.validatePriceFeed(
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
                 priceFeed: address(priceFeed2),
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -255,7 +249,7 @@ contract AssetManagementTest is Test {
         vm.expectRevert(AssetManagement.InvalidPriceFeedData.selector);
         _wrapper.validatePriceFeed(
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
                 priceFeed: priceFeed,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -270,7 +264,7 @@ contract AssetManagementTest is Test {
         vm.expectRevert(AssetManagement.InvalidPriceFeedData.selector);
         _wrapper.validatePriceFeed(
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
                 priceFeed: address(mockZeroAggregator),
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -285,7 +279,7 @@ contract AssetManagementTest is Test {
         vm.expectRevert(AssetManagement.InvalidPriceFeedData.selector);
         _wrapper.validatePriceFeed(
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
                 priceFeed: address(mockIncompleteAggregator),
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -300,7 +294,7 @@ contract AssetManagementTest is Test {
         _wrapper.setPaymentAsset(
             asset,
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
                 priceFeed: address(priceFeed2),
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -319,7 +313,7 @@ contract AssetManagementTest is Test {
         _wrapper.setPaymentAsset(
             asset,
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
                 priceFeed: address(priceFeed2),
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -337,7 +331,7 @@ contract AssetManagementTest is Test {
         _wrapper.setPaymentAsset(
             address(0x1),
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
                 priceFeed: priceFeed,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -474,27 +468,6 @@ contract AssetManagementTest is Test {
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
         _wrapper.escrowPayment(unsupportedAsset, escrowAmount);
-    }
-
-    function testEscrowPaymentQueryOnlyAsset() public {
-        MockERC20 mockToken = new MockERC20();
-        address tokenAddress = address(mockToken);
-        address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1 USD
-
-        _wrapper.setPaymentAsset(
-            tokenAddress,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.QUERY_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
-        );
-
-        uint248 escrowAmount = 1000e18;
-
-        vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
-        _wrapper.escrowPayment(tokenAddress, escrowAmount);
     }
 
     function testEscrowPaymentZeroAmount() public {

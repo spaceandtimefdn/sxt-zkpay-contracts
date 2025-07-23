@@ -8,10 +8,7 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/ut
 import {ZKPayStorage} from "./ZKPayStorage.sol";
 import {IZKPay} from "./interfaces/IZKPay.sol";
 import {AssetManagement} from "./libraries/AssetManagement.sol";
-import {QueryLogic} from "./libraries/QueryLogic.sol";
 import {MerchantLogic} from "./libraries/MerchantLogic.sol";
-import {IZKPayClient} from "./interfaces/IZKPayClient.sol";
-import {ICustomLogic} from "./interfaces/ICustomLogic.sol";
 import {NATIVE_ADDRESS, ZERO_ADDRESS} from "./libraries/Constants.sol";
 import {SwapLogic} from "./libraries/SwapLogic.sol";
 import {PayWallLogic} from "./libraries/PayWallLogic.sol";
@@ -29,16 +26,9 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
 
     error TreasuryAddressCannotBeZero();
     error TreasuryAddressSameAsCurrent();
-    error ValueExceedsUint248Limit();
-    error InvalidQueryHash();
-    error QueryTimeout();
-    error OnlyQuerySourceCanCancel();
-    error QueryHasNotExpired();
-    error NotEnoughGasToExecuteCallback();
     error NotErc20Token();
     error SXTAddressCannotBeZero();
     error InsufficientPayment();
-    error InvalidCallbackData();
     error ExecutorAddressCannotBeZero();
     error InvalidMerchant();
     error ZeroAmountReceived();
@@ -144,121 +134,6 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     /// @inheritdoc IZKPay
     function getPaymentAsset(address asset) external view returns (AssetManagement.PaymentAsset memory paymentAsset) {
         return AssetManagement.get(_assets, asset);
-    }
-
-    function _query(address asset, uint248 amount, QueryLogic.QueryRequest calldata queryRequest)
-        internal
-        returns (bytes32 queryHash)
-    {
-        (uint248 actualAmountReceived, uint248 amountInUSD) = AssetManagement.handleQueryPayment(_assets, asset, amount);
-
-        bytes32 itemId = bytes32(uint256(uint160(queryRequest.customLogicContractAddress)));
-
-        // slither-disable-next-line unused-return
-        (address merchant,) = ICustomLogic(queryRequest.customLogicContractAddress).getMerchantAddressAndFee();
-
-        uint248 itemPrice = _paywallLogicStorage.getItemPrice(merchant, itemId);
-        if (amountInUSD < itemPrice) {
-            revert InsufficientPayment();
-        }
-
-        QueryLogic.QueryPayment memory queryPayment =
-            QueryLogic.QueryPayment({asset: asset, amount: actualAmountReceived, source: msg.sender});
-
-        queryHash =
-            QueryLogic.submitQuery(_queryNonce, _queryNonces, _querySubmissionTimestamps, queryRequest, queryPayment);
-
-        _queryPayments[queryHash] = queryPayment;
-
-        emit NewQueryPayment(queryHash, asset, actualAmountReceived, msg.sender, amountInUSD);
-    }
-
-    /**
-     * @dev Validates the query request.
-     * @param queryHash The unique hash for the submitted query.
-     * @param queryRequest The query request.
-     */
-    function _validateQueryRequest(bytes32 queryHash, QueryLogic.QueryRequest calldata queryRequest) internal view {
-        uint248 queryNonce = _queryNonces[queryHash];
-        if (queryNonce == 0) revert InvalidQueryHash();
-
-        bytes32 calulatedQueryHash = QueryLogic.generateQueryHash(queryNonce, queryRequest, _queryPayments[queryHash]);
-
-        if (calulatedQueryHash != queryHash) {
-            revert InvalidQueryHash();
-        }
-    }
-
-    /// @inheritdoc IZKPay
-    function validateQueryRequest(bytes32 queryHash, QueryLogic.QueryRequest calldata queryRequest) external view {
-        _validateQueryRequest(queryHash, queryRequest);
-    }
-
-    /// @inheritdoc IZKPay
-    function query(address asset, uint248 amount, QueryLogic.QueryRequest calldata queryRequest)
-        external
-        nonReentrant
-        returns (bytes32 queryHash)
-    {
-        return _query(asset, amount, queryRequest);
-    }
-
-    /// @inheritdoc IZKPay
-    function cancelExpiredQuery(bytes32 queryHash, QueryLogic.QueryRequest calldata queryRequest)
-        external
-        nonReentrant
-    {
-        _validateQueryRequest(queryHash, queryRequest);
-
-        // slither-disable-next-line timestamp
-        if (block.timestamp < queryRequest.timeout || queryRequest.timeout == 0) {
-            revert QueryHasNotExpired();
-        }
-
-        QueryLogic.cancelQuery(_queryPayments, _queryNonces, queryHash);
-    }
-
-    /// @inheritdoc IZKPay
-    function fulfillQuery(bytes32 queryHash, QueryLogic.QueryRequest calldata queryRequest, bytes calldata queryResult)
-        external
-        nonReentrant
-        returns (uint248 gasUsed)
-    {
-        _validateQueryRequest(queryHash, queryRequest);
-
-        QueryLogic.QueryPayment memory payment = _queryPayments[queryHash];
-
-        delete _queryNonces[queryHash];
-        delete _queryPayments[queryHash];
-
-        // slither-disable-next-line timestamp
-        if (block.timestamp >= queryRequest.timeout && queryRequest.timeout != 0) {
-            revert QueryTimeout();
-        }
-
-        bytes memory results = ICustomLogic(queryRequest.customLogicContractAddress).execute(queryRequest, queryResult);
-
-        bool success = false;
-        uint256 initialGas = gasleft();
-        try IZKPayClient(queryRequest.callbackClientContractAddress).zkPayCallback{gas: queryRequest.callbackGasLimit}(
-            queryHash, results, queryRequest.callbackData
-        ) {
-            success = true;
-        } catch {
-            success = false;
-        }
-        gasUsed = uint248(initialGas - gasleft());
-        if (success) {
-            emit CallbackSucceeded(queryHash, queryRequest.callbackClientContractAddress);
-        } else {
-            emit CallbackFailed(queryHash, queryRequest.callbackClientContractAddress);
-        }
-
-        (uint248 paidAmount, uint248 refundAmount, uint248 merchantPayoutAmount, uint248 protocolFeeAmount) = QueryLogic
-            .settleQueryPayment(_assets, queryRequest.customLogicContractAddress, gasUsed, payment, _treasury, _sxt);
-
-        emit PaymentSettled(queryHash, paidAmount, refundAmount, merchantPayoutAmount, protocolFeeAmount);
-        emit QueryFulfilled(queryHash);
     }
 
     function _validateMerchant(address merchant, address callbackContractAddress) internal view {

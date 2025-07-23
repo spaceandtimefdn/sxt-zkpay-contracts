@@ -6,7 +6,7 @@ library MerchantLogic {
     /// @param merchant Address of the merchant
     /// @param payoutToken Target token address for payouts
     /// @param payoutAddress Address that will receive payouts
-    /// @param fulfillerPercentage Percentage of payout that goes to query fulfiller in 6 decimals precision
+    /// @param fulfillerPercentage Percentage of payout that goes to fulfiller in 6 decimals precision
     event MerchantConfigSet(
         address indexed merchant, address payoutToken, address payoutAddress, uint32 fulfillerPercentage
     );

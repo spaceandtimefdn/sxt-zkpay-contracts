@@ -342,10 +342,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
             revert ZeroAmountReceived();
         }
 
-        uint248 itemPrice = _paywallLogicStorage.getItemPrice(merchant, itemId);
-        if (amountInUSD < itemPrice) {
-            revert InsufficientPayment();
-        }
+        _validateItemPrice(merchant, itemId, amountInUSD);
 
         EscrowPayment.Transaction memory transaction =
             EscrowPayment.Transaction({asset: asset, amount: actualAmountReceived, from: msg.sender, to: merchant});

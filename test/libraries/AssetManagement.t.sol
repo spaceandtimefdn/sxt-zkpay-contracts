@@ -89,6 +89,10 @@ contract AssetManagementTestWrapper {
     function convertNativeToToken(address nativeTokenAddress, uint248 nativeAmount) external view returns (uint248) {
         return AssetManagement.convertNativeToToken(_assets, nativeTokenAddress, nativeAmount);
     }
+
+    function escrowPayment(address asset, uint248 amount) external returns (uint248, uint248) {
+        return AssetManagement.escrowPayment(_assets, asset, amount);
+    }
 }
 
 contract AssetManagementTest is Test {
@@ -390,5 +394,129 @@ contract AssetManagementTest is Test {
 
         MockIncompleteRoundDataAggregator mockIncomplete = new MockIncompleteRoundDataAggregator();
         assertTrue(mockIncomplete.dummy());
+    }
+
+    function testEscrowPayment() public {
+        MockERC20 mockToken = new MockERC20();
+        address tokenAddress = address(mockToken);
+        address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1 USD
+
+        _wrapper.setPaymentAsset(
+            tokenAddress,
+            AssetManagement.PaymentAsset({
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
+                priceFeed: priceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 100
+            })
+        );
+
+        uint248 escrowAmount = 1000 ether;
+        mockToken.mint(address(this), escrowAmount);
+
+        mockToken.approve(address(_wrapper), escrowAmount);
+
+        uint256 initialContractBalance = mockToken.balanceOf(address(_wrapper));
+        uint256 initialUserBalance = mockToken.balanceOf(address(this));
+
+        (uint248 actualAmountReceived,) = _wrapper.escrowPayment(tokenAddress, escrowAmount);
+
+        uint256 finalContractBalance = mockToken.balanceOf(address(_wrapper));
+        uint256 finalUserBalance = mockToken.balanceOf(address(this));
+
+        assertEq(actualAmountReceived, escrowAmount);
+        assertEq(finalContractBalance, initialContractBalance + escrowAmount);
+        assertEq(finalUserBalance, initialUserBalance - escrowAmount);
+    }
+
+    function testEscrowPaymentWithDifferentAmounts() public {
+        MockERC20 mockToken = new MockERC20();
+        address tokenAddress = address(mockToken);
+        address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1 USD
+
+        _wrapper.setPaymentAsset(
+            tokenAddress,
+            AssetManagement.PaymentAsset({
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
+                priceFeed: priceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 100
+            })
+        );
+
+        uint248[] memory testAmounts = new uint248[](3);
+        testAmounts[0] = 1 ether;
+        testAmounts[1] = 500 ether;
+        testAmounts[2] = 1000000 ether;
+
+        uint256 length = testAmounts.length;
+
+        for (uint256 i = 0; i < length; ++i) {
+            uint248 escrowAmount = testAmounts[i];
+
+            mockToken.mint(address(this), escrowAmount);
+            mockToken.approve(address(_wrapper), escrowAmount);
+
+            uint256 initialContractBalance = mockToken.balanceOf(address(_wrapper));
+
+            (uint248 actualAmountReceived,) = _wrapper.escrowPayment(tokenAddress, escrowAmount);
+
+            uint256 finalContractBalance = mockToken.balanceOf(address(_wrapper));
+
+            assertEq(actualAmountReceived, escrowAmount);
+            assertEq(finalContractBalance, initialContractBalance + escrowAmount);
+        }
+    }
+
+    function testEscrowPaymentUnsupportedAsset() public {
+        address unsupportedAsset = address(0x9999);
+        uint248 escrowAmount = 1000e18;
+
+        vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
+        _wrapper.escrowPayment(unsupportedAsset, escrowAmount);
+    }
+
+    function testEscrowPaymentQueryOnlyAsset() public {
+        MockERC20 mockToken = new MockERC20();
+        address tokenAddress = address(mockToken);
+        address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1 USD
+
+        _wrapper.setPaymentAsset(
+            tokenAddress,
+            AssetManagement.PaymentAsset({
+                allowedPaymentTypes: AssetManagement.QUERY_PAYMENT_FLAG,
+                priceFeed: priceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 100
+            })
+        );
+
+        uint248 escrowAmount = 1000e18;
+
+        vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
+        _wrapper.escrowPayment(tokenAddress, escrowAmount);
+    }
+
+    function testEscrowPaymentZeroAmount() public {
+        MockERC20 mockToken = new MockERC20();
+        address tokenAddress = address(mockToken);
+        address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1 USD
+
+        _wrapper.setPaymentAsset(
+            tokenAddress,
+            AssetManagement.PaymentAsset({
+                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
+                priceFeed: priceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 100
+            })
+        );
+
+        mockToken.mint(address(this), 1000e18);
+        mockToken.approve(address(_wrapper), 1000e18);
+
+        (uint248 actualAmountReceived,) = _wrapper.escrowPayment(tokenAddress, 0);
+
+        assertEq(actualAmountReceived, 0);
     }
 }

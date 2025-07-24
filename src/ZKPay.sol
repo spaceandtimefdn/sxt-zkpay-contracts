@@ -209,6 +209,31 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     }
 
     /// @inheritdoc IZKPay
+    function pullPayment(
+        address sourceAsset,
+        uint248 sourceAssetAmount,
+        address from,
+        bytes32 transactionHash,
+        uint248 requiredTargetAssetAmount
+    ) external {
+        address merchant = msg.sender;
+
+        EscrowPayment.Transaction memory transaction =
+            EscrowPayment.Transaction({asset: sourceAsset, amount: sourceAssetAmount, from: from, to: merchant});
+
+        // get sourceAsset balance (beforeBalance)
+        // swap to target asset amountOut (requiredTargetAssetAmount).
+        // get sourceAsset balance (afterBalance)
+        // diffSourceAssetBalance = beforeBalance - afterBalance
+        // require(diffSourceAssetBalance <= amount);
+        // remaining = amount - diffSourceAssetBalance;
+        // trasnfer back the `remaining` of source asset
+        // transfer the merchant the `requiredTargetAssetAmount` of target token
+
+        _escrowPaymentStorage.completeAuthorizedTransaction(transaction, transactionHash);
+    }
+
+    /// @inheritdoc IZKPay
     function setMerchantConfig(MerchantLogic.MerchantConfig calldata config, bytes calldata path) external {
         _merchantConfigs.set(msg.sender, config);
         _swapLogicStorage.setMerchantTargetAssetPath(msg.sender, path);

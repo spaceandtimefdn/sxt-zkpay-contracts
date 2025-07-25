@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {AssetManagement} from "../libraries/AssetManagement.sol";
 import {QueryLogic} from "../libraries/QueryLogic.sol";
 import {MerchantLogic} from "../libraries/MerchantLogic.sol";
+import {EscrowPayment} from "../libraries/EscrowPayment.sol";
 
 interface IZKPay {
     /// @notice Emitted when the treasury address is set
@@ -68,6 +69,16 @@ interface IZKPay {
         uint248 amountInUSD,
         address indexed sender,
         bytes32 itemId
+    );
+
+    /// @notice Emitted when a payment is authorized
+    /// @param transaction The transaction that was authorized
+    /// @param transactionHash The hash of the transaction
+    /// @param onBehalfOf The identifier on whose behalf the payment is made
+    /// @param memo Additional data or information about the payment
+    /// @param itemId The item ID
+    event Authorized(
+        EscrowPayment.Transaction transaction, bytes32 transactionHash, bytes32 onBehalfOf, bytes memo, bytes32 itemId
     );
 
     /// @notice Sets the treasury address
@@ -162,6 +173,25 @@ interface IZKPay {
         address callbackContractAddress,
         bytes calldata callbackData
     ) external;
+
+    /// @notice Authorizes a payment to a target address
+    /// the payment will be pulled from `msg.sender` and held in ZKpay contract as escrow
+    /// the payment is accounted for `onBehalfOf` which means that any refunded amount will be send to `onBehalfOf`
+    /// @param asset The address of the ERC20 token to send
+    /// @param amount The amount of tokens to send
+    /// @param onBehalfOf The identifier on whose behalf the payment is made
+    /// @param merchant The merchant address
+    /// @param memo Additional data or information about the payment
+    /// @param itemId The item ID
+    /// @return transactionHash The hash of the transaction
+    function authorize(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        bytes32 itemId
+    ) external returns (bytes32 transactionHash);
 
     /// @notice Sets the merchant configuration for the caller
     /// @param config Merchant configuration struct

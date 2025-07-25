@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {MerchantLogic} from "../../src/libraries/MerchantLogic.sol";
+import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
 
 contract MerchantLogicWrapper {
     mapping(address merchant => MerchantLogic.MerchantConfig) internal _configs;
@@ -55,7 +56,7 @@ contract MerchantLogicTest is Test {
 
     function testZeroPayoutAddress() public {
         MerchantLogic.MerchantConfig memory merchantConfig =
-            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: address(0), fulfillerPercentage: 1});
+            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: ZERO_ADDRESS, fulfillerPercentage: 1});
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
         _wrapper.set(address(this), merchantConfig);

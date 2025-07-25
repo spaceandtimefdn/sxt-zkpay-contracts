@@ -6,7 +6,7 @@ import {AssetManagement} from "../../src/libraries/AssetManagement.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
-import {NATIVE_ADDRESS, ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
+import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
 import {Setup} from "./Setup.sol";
 
 // Mock contract that simulates incomplete round data from Chainlink price feed
@@ -78,20 +78,20 @@ contract AssetManagementTestWrapper {
         AssetManagement.remove(_assets, asset);
     }
 
-    function isSupported(address asset, AssetManagement.PaymentType paymentType) external view returns (bool) {
-        return AssetManagement.isSupported(_assets, asset, paymentType);
+    function isSupported(address asset) external view returns (bool) {
+        return AssetManagement.isSupported(_assets, asset);
     }
 
     function convertToUsd(address asset, uint248 amount) external view returns (uint248) {
         return AssetManagement.convertToUsd(_assets, asset, amount);
     }
 
-    function convertNativeToToken(address nativeTokenAddress, uint248 nativeAmount) external view returns (uint248) {
-        return AssetManagement.convertNativeToToken(_assets, nativeTokenAddress, nativeAmount);
-    }
-
     function escrowPayment(address asset, uint248 amount) external returns (uint248, uint248) {
         return AssetManagement.escrowPayment(_assets, asset, amount);
+    }
+
+    function convertUsdToToken(address asset, uint248 usdValue) external view returns (uint248) {
+        return AssetManagement.convertUsdToToken(_assets, asset, usdValue);
     }
 }
 
@@ -102,25 +102,15 @@ contract AssetManagementTest is Test {
         _wrapper = new AssetManagementTestWrapper();
     }
 
-    function testFuzzSet(
-        address asset,
-        bytes1 allowedPaymentTypes,
-        uint8 tokenDecimals,
-        uint64 stalePriceThresholdInSeconds
-    ) public {
+    function testFuzzSet(address asset, uint8 tokenDecimals, uint64 stalePriceThresholdInSeconds) public {
         address priceFeed = address(new MockV3Aggregator(8, 100));
 
-        vm.assume(asset != NATIVE_ADDRESS || allowedPaymentTypes & AssetManagement.QUERY_PAYMENT_FLAG == 0);
-
         vm.expectEmit(true, true, true, true);
-        emit AssetManagement.AssetAdded(
-            asset, allowedPaymentTypes, priceFeed, tokenDecimals, stalePriceThresholdInSeconds
-        );
+        emit AssetManagement.AssetAdded(asset, priceFeed, tokenDecimals, stalePriceThresholdInSeconds);
 
         _wrapper.setPaymentAsset(
             asset,
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: allowedPaymentTypes,
                 priceFeed: priceFeed,
                 tokenDecimals: tokenDecimals,
                 stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
@@ -128,7 +118,6 @@ contract AssetManagementTest is Test {
         );
 
         AssetManagement.PaymentAsset memory paymentAsset = _wrapper.getPaymentAsset(asset);
-        assertEq(paymentAsset.allowedPaymentTypes, allowedPaymentTypes);
         assertEq(paymentAsset.priceFeed, priceFeed);
         assertEq(paymentAsset.tokenDecimals, tokenDecimals);
         assertEq(paymentAsset.stalePriceThresholdInSeconds, stalePriceThresholdInSeconds);
@@ -139,12 +128,7 @@ contract AssetManagementTest is Test {
         vm.expectRevert(AssetManagement.InvalidPriceFeed.selector);
         _wrapper.setPaymentAsset(
             address(0x1),
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
-                priceFeed: address(0x1),
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            AssetManagement.PaymentAsset({priceFeed: address(0x1), tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
     }
 
@@ -153,17 +137,7 @@ contract AssetManagementTest is Test {
 
         _wrapper.setPaymentAsset(
             address(0x4),
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
-        );
-
-        assertEq(
-            _wrapper.getPaymentAsset(address(0x4)).allowedPaymentTypes,
-            AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG
+            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
 
         vm.expectEmit(true, true, true, true);
@@ -171,46 +145,26 @@ contract AssetManagementTest is Test {
 
         _wrapper.removeAsset(address(0x4));
 
-        assertEq(_wrapper.getPaymentAsset(address(0x4)).allowedPaymentTypes, AssetManagement.NONE_PAYMENT_FLAG);
-    }
-
-    /// forge-config: default.allow_internal_expect_revert = true
-    function testCanNotRemoveNativeToken() public {
-        vm.expectRevert(AssetManagement.NativeTokenCannotBeRemoved.selector);
-        _wrapper.removeAsset(NATIVE_ADDRESS);
+        assertEq(_wrapper.getPaymentAsset(address(0x4)).priceFeed, ZERO_ADDRESS);
     }
 
     function testIsSupported() public {
-        assertEq(_wrapper.isSupported(address(0x1), AssetManagement.PaymentType.Send), false);
-        assertEq(_wrapper.isSupported(address(0x1), AssetManagement.PaymentType.Query), false);
-        assertEq(_wrapper.isSupported(NATIVE_ADDRESS, AssetManagement.PaymentType.Query), false);
+        assertEq(_wrapper.isSupported(address(0x1)), false);
 
         address priceFeed = address(new MockV3Aggregator(8, 100));
         _wrapper.setPaymentAsset(
             address(0x1),
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
 
-        assertEq(_wrapper.isSupported(address(0x1), AssetManagement.PaymentType.Send), true);
-        assertEq(_wrapper.isSupported(address(0x1), AssetManagement.PaymentType.Query), true);
-        assertEq(_wrapper.isSupported(NATIVE_ADDRESS, AssetManagement.PaymentType.Query), false);
+        assertEq(_wrapper.isSupported(address(0x1)), true);
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
     function testInvalidPriceFeedWhenZeroAddress() public {
         vm.expectRevert(AssetManagement.InvalidPriceFeed.selector);
         _wrapper.validatePriceFeed(
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
-                priceFeed: ZERO_ADDRESS,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            AssetManagement.PaymentAsset({priceFeed: ZERO_ADDRESS, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
     }
 
@@ -219,12 +173,7 @@ contract AssetManagementTest is Test {
         MockV3Aggregator(priceFeed).updateAnswer(0);
         vm.expectRevert(AssetManagement.InvalidPriceFeedData.selector);
         _wrapper.validatePriceFeed(
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
     }
 
@@ -241,7 +190,6 @@ contract AssetManagementTest is Test {
         vm.expectRevert(AssetManagement.StalePriceFeedData.selector);
         _wrapper.validatePriceFeed(
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
                 priceFeed: address(priceFeed2),
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -254,12 +202,7 @@ contract AssetManagementTest is Test {
         MockV3Aggregator(priceFeed).updateAnswer(-1);
         vm.expectRevert(AssetManagement.InvalidPriceFeedData.selector);
         _wrapper.validatePriceFeed(
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
     }
 
@@ -270,7 +213,6 @@ contract AssetManagementTest is Test {
         vm.expectRevert(AssetManagement.InvalidPriceFeedData.selector);
         _wrapper.validatePriceFeed(
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
                 priceFeed: address(mockZeroAggregator),
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -285,7 +227,6 @@ contract AssetManagementTest is Test {
         vm.expectRevert(AssetManagement.InvalidPriceFeedData.selector);
         _wrapper.validatePriceFeed(
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
                 priceFeed: address(mockIncompleteAggregator),
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -300,7 +241,6 @@ contract AssetManagementTest is Test {
         _wrapper.setPaymentAsset(
             asset,
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
                 priceFeed: address(priceFeed2),
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -319,7 +259,6 @@ contract AssetManagementTest is Test {
         _wrapper.setPaymentAsset(
             asset,
             AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
                 priceFeed: address(priceFeed2),
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 100
@@ -336,12 +275,7 @@ contract AssetManagementTest is Test {
 
         _wrapper.setPaymentAsset(
             address(0x1),
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG | AssetManagement.QUERY_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
 
         uint248 amount = 1e18;
@@ -349,42 +283,17 @@ contract AssetManagementTest is Test {
         assertEq(usdValue, amount);
     }
 
-    function testConvertNativeToToken() public {
-        address nativeTokenAddress = NATIVE_ADDRESS;
-        address nativeTokenPriceFeed = address(new MockV3Aggregator(8, 1000e8)); // 1 native = 1000 USD
-
-        address usdcTokenAddress = address(0x01);
-        address usdcTokenPriceFeed = address(new MockV3Aggregator(8, 1e8)); // 1e8 = 1 USD
+    function testConvertUsdToToken() public {
+        address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1e8 = 1 USD
 
         _wrapper.setPaymentAsset(
-            nativeTokenAddress,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
-                priceFeed: nativeTokenPriceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            address(0x1),
+            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
 
-        _wrapper.setPaymentAsset(
-            usdcTokenAddress,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
-                priceFeed: usdcTokenPriceFeed,
-                tokenDecimals: 6,
-                stalePriceThresholdInSeconds: 100
-            })
-        );
-
-        // native -> native
-        uint248 nativeAmount = 1e18;
-        uint248 result = _wrapper.convertNativeToToken(nativeTokenAddress, nativeAmount);
-        assertEq(result, nativeAmount);
-
-        // native -> usdc
-        uint248 usdcAmount = 1000e6;
-        uint248 result2 = _wrapper.convertNativeToToken(usdcTokenAddress, nativeAmount);
-        assertEq(result2, usdcAmount);
+        uint248 usdValue = 1e18; // 1 USD in 18 decimals
+        uint248 tokenAmount = _wrapper.convertUsdToToken(address(0x1), usdValue);
+        assertEq(tokenAmount, 1e18); // Should be 1 token with 18 decimals
     }
 
     function testMockContractDummyFunctions() public {
@@ -403,12 +312,7 @@ contract AssetManagementTest is Test {
 
         _wrapper.setPaymentAsset(
             tokenAddress,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
 
         uint248 escrowAmount = 1000 ether;
@@ -436,12 +340,7 @@ contract AssetManagementTest is Test {
 
         _wrapper.setPaymentAsset(
             tokenAddress,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
 
         uint248[] memory testAmounts = new uint248[](3);
@@ -476,27 +375,6 @@ contract AssetManagementTest is Test {
         _wrapper.escrowPayment(unsupportedAsset, escrowAmount);
     }
 
-    function testEscrowPaymentQueryOnlyAsset() public {
-        MockERC20 mockToken = new MockERC20();
-        address tokenAddress = address(mockToken);
-        address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1 USD
-
-        _wrapper.setPaymentAsset(
-            tokenAddress,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.QUERY_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
-        );
-
-        uint248 escrowAmount = 1000e18;
-
-        vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
-        _wrapper.escrowPayment(tokenAddress, escrowAmount);
-    }
-
     function testEscrowPaymentZeroAmount() public {
         MockERC20 mockToken = new MockERC20();
         address tokenAddress = address(mockToken);
@@ -504,12 +382,7 @@ contract AssetManagementTest is Test {
 
         _wrapper.setPaymentAsset(
             tokenAddress,
-            AssetManagement.PaymentAsset({
-                allowedPaymentTypes: AssetManagement.SEND_PAYMENT_FLAG,
-                priceFeed: priceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
-            })
+            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
         );
 
         mockToken.mint(address(this), 1000e18);

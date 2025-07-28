@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
 
 contract SwapLogicTest is Test {
     SwapLogic.SwapLogicStorage internal _swapLogicStorage;
@@ -46,7 +47,7 @@ contract SwapLogicTest is Test {
 
     function testSetConfigRouterZeroAddressReverts() public {
         SwapLogic.SwapLogicConfig memory cfg;
-        cfg.router = address(0);
+        cfg.router = ZERO_ADDRESS;
         cfg.usdt = USDT;
         cfg.defaultTargetAssetPath = abi.encodePacked(USDT);
         vm.expectRevert(SwapLogic.ZeroAddress.selector);
@@ -56,7 +57,7 @@ contract SwapLogicTest is Test {
     function testSetConfigUsdtZeroAddressReverts() public {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ROUTER;
-        cfg.usdt = address(0);
+        cfg.usdt = ZERO_ADDRESS;
         cfg.defaultTargetAssetPath = abi.encodePacked(USDT);
         vm.expectRevert(SwapLogic.ZeroAddress.selector);
         this._setConfig(cfg);
@@ -134,7 +135,7 @@ contract SwapLogicTest is Test {
         cfg.defaultTargetAssetPath = bytes("");
         this._setConfig(cfg);
 
-        bytes memory zeroPath = abi.encodePacked(address(0));
+        bytes memory zeroPath = abi.encodePacked(ZERO_ADDRESS);
         vm.expectRevert(SwapLogic.PathMustEndWithUSDT.selector);
         this._setSourceAssetPath(zeroPath);
     }
@@ -168,7 +169,7 @@ contract SwapLogicTest is Test {
         cfg.defaultTargetAssetPath = bytes("");
         this._setConfig(cfg);
 
-        bytes memory zeroPath = abi.encodePacked(address(0));
+        bytes memory zeroPath = abi.encodePacked(ZERO_ADDRESS);
         vm.expectRevert(SwapLogic.PathMustStartWithUSDT.selector);
         this._setMerchantTargetAssetPath(MERCHANT, zeroPath);
     }

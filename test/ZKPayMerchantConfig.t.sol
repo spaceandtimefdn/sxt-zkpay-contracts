@@ -8,6 +8,7 @@ import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggreg
 import {ZKPay} from "../src/ZKPay.sol";
 import {MerchantLogic} from "../src/libraries/MerchantLogic.sol";
 import {DummyData} from "./data/DummyData.sol";
+import {ZERO_ADDRESS} from "../src/libraries/Constants.sol";
 
 contract ZKPayMerchantConfigTest is Test {
     ZKPay internal _zkpay;
@@ -26,9 +27,7 @@ contract ZKPayMerchantConfigTest is Test {
         address proxy = Upgrades.deployTransparentProxy(
             "ZKPay.sol",
             _owner,
-            abi.encodeCall(
-                ZKPay.initialize, (_owner, _treasury, _sxt, _priceFeed, 18, 1000, DummyData.getSwapLogicConfig())
-            )
+            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _sxt, DummyData.getSwapLogicConfig()))
         );
         _zkpay = ZKPay(proxy);
     }
@@ -65,7 +64,7 @@ contract ZKPayMerchantConfigTest is Test {
 
     function testSetMerchantConfigZeroPayoutAddress() public {
         MerchantLogic.MerchantConfig memory merchantConfig =
-            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: address(0), fulfillerPercentage: 1});
+            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: ZERO_ADDRESS, fulfillerPercentage: 1});
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
         _zkpay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));

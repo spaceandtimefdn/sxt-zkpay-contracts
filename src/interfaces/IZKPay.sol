@@ -2,7 +2,6 @@
 pragma solidity 0.8.28;
 
 import {AssetManagement} from "../libraries/AssetManagement.sol";
-import {QueryLogic} from "../libraries/QueryLogic.sol";
 import {MerchantLogic} from "../libraries/MerchantLogic.sol";
 import {EscrowPayment} from "../libraries/EscrowPayment.sol";
 
@@ -10,44 +9,6 @@ interface IZKPay {
     /// @notice Emitted when the treasury address is set
     /// @param treasury The new treasury address
     event TreasurySet(address indexed treasury);
-
-    /// @notice Emitted when a new query payment is submitted
-    /// @param queryHash The unique hash representing the query
-    /// @param asset The asset used for the payment
-    /// @param amount The amount of tokens used for the payment
-    /// @param source The source address of the payment
-    /// @param amountInUSD The amount in USD
-    event NewQueryPayment(
-        bytes32 indexed queryHash, address indexed asset, uint248 amount, address indexed source, uint248 amountInUSD
-    );
-
-    /// @notice Emitted when a callback fails.
-    /// @param queryHash The hash of the query that failed.
-    /// @param callbackClientContractAddress The address of the callback client contract.
-    event CallbackFailed(bytes32 indexed queryHash, address indexed callbackClientContractAddress);
-
-    /// @notice Emitted when a callback succeeds.
-    /// @param queryHash The hash of the query that succeeded.
-    /// @param callbackClientContractAddress The address of the callback client contract.
-    event CallbackSucceeded(bytes32 indexed queryHash, address indexed callbackClientContractAddress);
-
-    /// @notice Emitted when a query payment is settled.
-    /// @param queryHash The hash of the query that was settled.
-    /// @param paidAmount The amount of payment used for fulfilling the query.
-    /// @param refundAmount The amount of payment remaining after fulfilling the query.
-    /// @param merchantPayoutAmount The amount of payment paid to the merchant.
-    /// @param protocolFeeAmount The amount of protocol fee in source token.
-    event PaymentSettled(
-        bytes32 indexed queryHash,
-        uint248 paidAmount,
-        uint248 refundAmount,
-        uint248 merchantPayoutAmount,
-        uint248 protocolFeeAmount
-    );
-
-    /// @notice Emitted when a query is fulfilled.
-    /// @param queryHash The hash of the query that was fulfilled.
-    event QueryFulfilled(bytes32 indexed queryHash);
 
     /// @notice Emitted when a payment is made
     /// @param asset The asset used for payment
@@ -111,34 +72,6 @@ interface IZKPay {
     /// @param asset The asset to get
     /// @return paymentAsset The payment asset
     function getPaymentAsset(address asset) external view returns (AssetManagement.PaymentAsset memory paymentAsset);
-
-    /// @notice Cancel a query if it has expired.
-    /// @param queryHash The hash of the query to be canceled.
-    /// @param queryRequest The struct containing the query details.
-    function cancelExpiredQuery(bytes32 queryHash, QueryLogic.QueryRequest calldata queryRequest) external;
-
-    /// @notice Submit a query with a payment in ERC20 tokens.
-    /// @param asset The ERC20 token used for the payment.
-    /// @param amount The amount of tokens to deposit.
-    /// @param queryRequest The struct containing the query details.
-    /// @return queryHash The unique hash representing the query.
-    function query(address asset, uint248 amount, QueryLogic.QueryRequest calldata queryRequest)
-        external
-        returns (bytes32 queryHash);
-
-    /// @notice Validates a query request by checking query nonce and query hash are valid against the query request.
-    /// @param queryHash The unique hash representing the query.
-    /// @param queryRequest The struct containing the query details.
-    function validateQueryRequest(bytes32 queryHash, QueryLogic.QueryRequest calldata queryRequest) external view;
-
-    /// @notice Sends the results of a query back to the callback contract.
-    /// @param queryHash The unique identifier for the submitted query.
-    /// @param queryRequest The struct containing the query details.
-    /// @param queryResult The result of the query.
-    /// @return gasUsed The amount of gas used to fulfill the query.
-    function fulfillQuery(bytes32 queryHash, QueryLogic.QueryRequest calldata queryRequest, bytes calldata queryResult)
-        external
-        returns (uint248 gasUsed);
 
     /// @notice Allows for sending ERC20 tokens to a target address
     /// @param asset The address of the ERC20 token to send

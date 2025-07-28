@@ -5,16 +5,14 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
 import {Utils} from "./Utils.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {NATIVE_ADDRESS, ZERO_ADDRESS, PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "./Constants.sol";
+import {ZERO_ADDRESS, PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "./Constants.sol";
 /// @title AssetManagement
 /// @notice Library for managing payment assets,
-/// @dev It allows for setting, removing and getting payment assets. use address(0) as an asset address to refer to native token.
+/// @dev It allows for setting, removing and getting payment assets.
 
 library AssetManagement {
     using SafeERC20 for IERC20;
 
-    /// @notice Error thrown when trying to remove the native token
-    error NativeTokenCannotBeRemoved();
     /// @notice Error thrown when the price feed is invalid
     error InvalidPriceFeed();
     /// @notice Error thrown when the asset is not found
@@ -30,16 +28,11 @@ library AssetManagement {
 
     /// @notice Emitted when a new asset is added
     /// @param asset The asset address
-    /// @param allowedPaymentTypes The allowed payment types presented as a bytes1 bitmask
     /// @param priceFeed The price feed address
     /// @param tokenDecimals The token decimals
     /// @param stalePriceThresholdInSeconds The stale price threshold in seconds
     event AssetAdded(
-        address indexed asset,
-        bytes1 allowedPaymentTypes,
-        address priceFeed,
-        uint8 tokenDecimals,
-        uint64 stalePriceThresholdInSeconds
+        address indexed asset, address priceFeed, uint8 tokenDecimals, uint64 stalePriceThresholdInSeconds
     );
 
     /// @notice Emitted when an asset is removed
@@ -47,33 +40,15 @@ library AssetManagement {
     event AssetRemoved(address asset);
 
     /**
-     * @notice Defines methods for accepted asset types within the ZKpay protocol.
-     * @dev Indicates whether an asset can be used for direct payment to target protocol or for on-demand queries.
+     * @notice Defines payment asset configuration within the ZKpay protocol.
      */
     struct PaymentAsset {
-        /// @notice 1 byte representing allowed payment types, 0x01 = Send, 0x02 = Query
-        bytes1 allowedPaymentTypes;
         /// @notice  Price oracle
         address priceFeed;
         /// @notice  token decimals, added here in case erc20 token isn't fully compliant and doesn't expose that method.
         uint8 tokenDecimals;
         /// @notice threshold for price feed data in seconds
         uint64 stalePriceThresholdInSeconds;
-    }
-
-    bytes1 public constant NONE_PAYMENT_FLAG = bytes1(uint8(0x00));
-    bytes1 public constant SEND_PAYMENT_FLAG = bytes1(uint8(0x01) << uint8(PaymentType.Send));
-    bytes1 public constant QUERY_PAYMENT_FLAG = bytes1(uint8(0x01) << uint8(PaymentType.Query));
-
-    /**
-     * @notice Specifies the type of payment being made.
-     * @dev Used to distinguish between credit purchases and on-demand query payments.
-     */
-    enum PaymentType {
-        /// @notice for sending payments, ie. calling `pay` function
-        Send,
-        /// @notice for querying payments, ie. calling `query*` functions
-        Query
     }
 
     /// @notice Validates the price feed
@@ -111,21 +86,14 @@ library AssetManagement {
 
         _assets[asset] = paymentAsset;
         emit AssetAdded(
-            asset,
-            paymentAsset.allowedPaymentTypes,
-            paymentAsset.priceFeed,
-            paymentAsset.tokenDecimals,
-            paymentAsset.stalePriceThresholdInSeconds
+            asset, paymentAsset.priceFeed, paymentAsset.tokenDecimals, paymentAsset.stalePriceThresholdInSeconds
         );
     }
 
     /// @notice Removes an asset from the assets mapping
     /// @param _assets assets mapping
     /// @param asset token address
-    /// @dev native token cannot be removed as it's used for gas cost when fulfilling queries
     function remove(mapping(address asset => PaymentAsset) storage _assets, address asset) internal {
-        if (asset == NATIVE_ADDRESS) revert NativeTokenCannotBeRemoved();
-
         delete _assets[asset];
         emit AssetRemoved(asset);
     }
@@ -143,20 +111,16 @@ library AssetManagement {
         if (asset.priceFeed == ZERO_ADDRESS) revert AssetNotFound();
     }
 
-    /// @notice Checks if an asset is supported for a given payment type
+    /// @notice Checks if an asset is supported (exists in the mapping)
     /// @param _assets assets mapping
     /// @param assetAddress token address
-    /// @param paymentType payment type
-    /// @return true if the asset is supported for the payment type, false otherwise
-    function isSupported(
-        mapping(address asset => PaymentAsset) storage _assets,
-        address assetAddress,
-        PaymentType paymentType
-    ) internal view returns (bool) {
-        if (assetAddress == NATIVE_ADDRESS) {
-            return false;
-        }
-        return (_assets[assetAddress].allowedPaymentTypes >> uint8(paymentType)) & bytes1(0x01) == bytes1(0x01);
+    /// @return true if the asset exists, false otherwise
+    function isSupported(mapping(address asset => PaymentAsset) storage _assets, address assetAddress)
+        internal
+        view
+        returns (bool)
+    {
+        return _assets[assetAddress].priceFeed != ZERO_ADDRESS;
     }
 
     /// @notice Gets the price of an asset
@@ -214,33 +178,6 @@ library AssetManagement {
     }
 
     /**
-     * @notice Handles a query payment for a given asset.
-     * @param _assets The mapping of assets to their payment information.
-     * @param assetAddress The address of the asset to handle the payment for.
-     * @param tokenAmount The amount of the asset to handle the payment for.
-     * @return actualAmountReceived The actual amount received by the contract.
-     * @return amountInUSD The amount in USD.
-     * @dev This function could revert if `tokenAmount * safePrice` overflows uint248
-     */
-    function handleQueryPayment(
-        mapping(address asset => PaymentAsset) storage _assets,
-        address assetAddress,
-        uint248 tokenAmount
-    ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD) {
-        if (!isSupported(_assets, assetAddress, PaymentType.Query)) {
-            revert AssetIsNotSupportedForThisMethod();
-        }
-
-        uint256 balanceBefore = IERC20(assetAddress).balanceOf(address(this));
-        IERC20(assetAddress).safeTransferFrom(msg.sender, address(this), tokenAmount);
-        uint256 balanceAfter = IERC20(assetAddress).balanceOf(address(this));
-
-        actualAmountReceived = uint248(balanceAfter - balanceBefore);
-
-        amountInUSD = convertToUsd(_assets, assetAddress, actualAmountReceived);
-    }
-
-    /**
      * @dev Internal helper function to convert a USD value to its equivalent token amount.
      * @param usdValue The USD value to convert in 18 decimals.
      * @param asset The address of the asset to convert.
@@ -257,25 +194,6 @@ library AssetManagement {
         tokenAmount = (usdValue * uint248(10 ** _assets[asset].tokenDecimals)) / adjustedPrice;
     }
 
-    /**
-     * @dev Internal helper function to convert a native amount to its equivalent token amount.
-     * @param _assets assets mapping
-     * @param asset The address of the asset to convert.
-     * @param nativeAmount The amount of the native token.
-     * @return tokenAmount The equivalent token amount.
-     */
-    function convertNativeToToken(
-        mapping(address asset => PaymentAsset) storage _assets,
-        address asset,
-        uint248 nativeAmount
-    ) internal view returns (uint248 tokenAmount) {
-        if (asset == NATIVE_ADDRESS) {
-            return nativeAmount;
-        }
-        uint248 usdValue = convertToUsd(_assets, NATIVE_ADDRESS, nativeAmount);
-        tokenAmount = convertUsdToToken(_assets, asset, usdValue);
-    }
-
     /// @dev Pulls `amount` of `asset` from msg.sender to `to`,
     /// measures the real amount received (fee-on-transfer tokens),
     /// and converts it to USD.
@@ -284,10 +202,9 @@ library AssetManagement {
         mapping(address asset => PaymentAsset) storage _assets,
         address asset,
         address to,
-        uint248 amount,
-        PaymentType paymentType
+        uint248 amount
     ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD) {
-        if (!isSupported(_assets, asset, paymentType)) {
+        if (!isSupported(_assets, asset)) {
             revert AssetIsNotSupportedForThisMethod();
         }
 
@@ -315,13 +232,19 @@ library AssetManagement {
         address treasury,
         address sxt
     ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) {
-        if (merchant == ZERO_ADDRESS) revert MerchantAddressCannotBeZero();
+        if (merchant == ZERO_ADDRESS) {
+            revert MerchantAddressCannotBeZero();
+        }
+
+        if (!isSupported(_assets, asset)) {
+            revert AssetIsNotSupportedForThisMethod();
+        }
 
         protocolFeeAmount = asset == sxt ? 0 : uint248((uint256(amount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
 
         uint248 transferAmount = amount - protocolFeeAmount;
 
-        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, merchant, transferAmount, PaymentType.Send);
+        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, merchant, transferAmount);
 
         if (protocolFeeAmount > 0) {
             SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, treasury, protocolFeeAmount);
@@ -337,6 +260,6 @@ library AssetManagement {
         internal
         returns (uint248 actualAmountReceived, uint248 amountInUSD)
     {
-        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, address(this), amount, PaymentType.Send);
+        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, address(this), amount);
     }
 }

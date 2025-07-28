@@ -1,9 +1,6 @@
 {
   "zkpayOwner": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6",
   "zkpayTreasury": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6",
-  "nativeTokenPriceFeed": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
-  "nativeTokenDecimals": 18,
-  "nativeTokenStalePriceThresholdInSeconds": 3600,
   "posqlMerchantAddress": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6",
   "SXT": "0xC768a8F94dcb61a200C9d9B2adbe50B41A80B839",
   "Usdc payment asset Section": "----------------------------------",

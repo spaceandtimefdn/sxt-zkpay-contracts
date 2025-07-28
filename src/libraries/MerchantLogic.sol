@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import {ZERO_ADDRESS} from "./Constants.sol";
+
 library MerchantLogic {
     /// @notice Emitted when a merchant updates their configuration
     /// @param merchant Address of the merchant
     /// @param payoutToken Target token address for payouts
     /// @param payoutAddress Address that will receive payouts
-    /// @param fulfillerPercentage Percentage of payout that goes to query fulfiller in 6 decimals precision
+    /// @param fulfillerPercentage Percentage of payout that goes to fulfiller in 6 decimals precision
     event MerchantConfigSet(
         address indexed merchant, address payoutToken, address payoutAddress, uint32 fulfillerPercentage
     );
@@ -34,7 +36,7 @@ library MerchantLogic {
         if (config.fulfillerPercentage > MAX_PERCENTAGE) {
             revert InvalidFulfillerPercentage();
         }
-        if (config.payoutAddress == address(0)) {
+        if (config.payoutAddress == ZERO_ADDRESS) {
             revert PayoutAddressCannotBeZero();
         }
 

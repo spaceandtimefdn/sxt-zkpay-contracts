@@ -42,6 +42,28 @@ interface IZKPay {
         EscrowPayment.Transaction transaction, bytes32 transactionHash, bytes32 onBehalfOf, bytes memo, bytes32 itemId
     );
 
+    /// @notice Emitted when a pull payment is completed
+    /// @param sourceAsset The source asset that was swapped
+    /// @param sourceAssetAmount The original amount of source asset
+    /// @param targetAsset The target asset received by merchant
+    /// @param targetAssetAmount The amount of target asset received
+    /// @param swappedSourceAssetAmount The amount of source asset that was swapped
+    /// @param refundedSourceAssetAmount The amount of source asset refunded to user
+    /// @param from The address that authorized the payment
+    /// @param merchant The merchant that pulled the payment
+    /// @param transactionHash The hash of the authorized transaction
+    event PullPaymentCompleted(
+        address indexed sourceAsset,
+        uint248 sourceAssetAmount,
+        address indexed targetAsset,
+        uint248 targetAssetAmount,
+        uint248 swappedSourceAssetAmount,
+        uint248 refundedSourceAssetAmount,
+        address indexed from,
+        address merchant,
+        bytes32 transactionHash
+    );
+
     /// @notice Sets the treasury address
     /// @param treasury The new treasury address
     function setTreasury(address treasury) external;
@@ -151,4 +173,18 @@ interface IZKPay {
     /// @notice Gets the executor address
     /// @return executor The executor address
     function getExecutorAddress() external view returns (address executor);
+
+    /// @notice Pulls an authorized payment by swapping source asset to target asset
+    /// @param sourceAsset The source asset that was authorized
+    /// @param sourceAssetAmount The amount of source asset that was authorized
+    /// @param from The address that authorized the payment
+    /// @param transactionHash The hash of the authorized transaction
+    /// @param requiredTargetAssetAmount The minimum amount of target asset required
+    function pullPayment(
+        address sourceAsset,
+        uint248 sourceAssetAmount,
+        address from,
+        bytes32 transactionHash,
+        uint248 requiredTargetAssetAmount
+    ) external;
 }

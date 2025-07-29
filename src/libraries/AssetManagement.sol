@@ -262,4 +262,14 @@ library AssetManagement {
     {
         (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, address(this), amount);
     }
+
+    /// @notice Transfers asset to recipient
+    /// @param asset The address of the asset to transfer
+    /// @param amount The amount to transfer
+    /// @param recipient The recipient of the transfer
+    function transferAsset(address asset, uint256 amount, address recipient) internal {
+        if (amount > 0) {
+            IERC20(asset).safeTransfer(recipient, amount);
+        }
+    }
 }

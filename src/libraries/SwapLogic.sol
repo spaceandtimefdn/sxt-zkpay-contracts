@@ -45,6 +45,8 @@ library SwapLogic {
     error ZeroAddress();
     /// @notice Error thrown when the paths do not connect
     error PathsDoNotConnect();
+    /// @notice Error thrown when not enough source asset is available for swap
+    error NotEnoughSourceAsset();
 
     /// @notice Emitted when a source asset path is set by owner
     event SourceAssetPathSet(address indexed asset, bytes path);
@@ -176,12 +178,25 @@ library SwapLogic {
         return _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant];
     }
 
+    /// @notice get the payout asset address for a merchant by extracting it from their target asset path
+    /// @param _swapLogicStorage the storage of the swap logic
+    /// @param merchant the address of the merchant
+    /// @return payoutAsset the address of the merchant's payout asset
+    function getMerchantPayoutAsset(SwapLogicStorage storage _swapLogicStorage, address merchant)
+        internal
+        view
+        returns (address payoutAsset)
+    {
+        bytes storage targetAssetPath = _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant];
+        payoutAsset = extractPathDestinationAsset(targetAssetPath);
+    }
+
     /// @notice connect two paths (path1 -> path2)
     /// @param path1 the first path
     /// @param path2 the second path
     /// @return result the connected path
     /// @dev this function assumes the paths are valid and does not check for it for better gas performance. use isValidPath to check for validity
-    function connect2Paths(bytes memory path1, bytes memory path2) internal pure returns (bytes memory result) {
+    function _connect2Paths(bytes memory path1, bytes memory path2) internal pure returns (bytes memory result) {
         address firstPathTokenOut = extractPathDestinationAsset(path1);
         address secondPathTokenIn = extractPathOriginAsset(path2);
 
@@ -202,25 +217,89 @@ library SwapLogic {
         }
     }
 
-    /// @notice does swap with uniswap v3 router
-    /// @param _swapLogicStorage the storage of the swap logic
+    /// @notice Approves the router to spend the source token from the swap path
+    /// @param router the uniswap v3 router address
+    /// @param path the swap path
+    /// @param amount the amount to approve
+    function _approveRouterForSwap(address router, bytes memory path, uint256 amount) internal {
+        address tokenIn = extractPathOriginAsset(path);
+        IERC20(tokenIn).safeIncreaseAllowance(router, amount);
+    }
+
+    /// @notice does swap with uniswap v3 router using exact input amount
+    /// @param router the uniswap v3 router address
     /// @param path the path to swap
     /// @param amountIn the amount of the source asset to swap
     /// @param recipient the recipient of the destination asset
     /// @return amountOut the amount of the destination asset received
     /// @dev this function assumes the path is >= 1 hop valid path, make sure validate the path before calling this function
     /// @dev the contract that implements this library should hold `amountIn` of the source asset
-    function swap(SwapLogicStorage storage _swapLogicStorage, bytes memory path, uint256 amountIn, address recipient)
+    function _swapExactSourceAmount(address router, bytes memory path, uint256 amountIn, address recipient)
         internal
         returns (uint256 amountOut)
     {
-        address router = _swapLogicStorage.swapLogicConfig.router;
-        address tokenIn = extractPathOriginAsset(path);
-
-        IERC20(tokenIn).safeIncreaseAllowance(router, amountIn);
+        _approveRouterForSwap(router, path, amountIn);
 
         ISwapRouter.ExactInputParams memory params =
             ISwapRouter.ExactInputParams(path, recipient, block.timestamp, amountIn, MIN_AMOUNT_OUT);
         amountOut = ISwapRouter(router).exactInput(params);
+    }
+
+    /// @notice does swap with uniswap v3 router using exact output amount
+    /// @param router the uniswap v3 router address
+    /// @param path the path to swap
+    /// @param amountOut the exact amount of the destination asset to receive
+    /// @param amountInMaximum the maximum amount of source asset willing to spend
+    /// @param recipient the recipient of the destination asset
+    /// @return amountIn the actual amount of the source asset spent
+    /// @dev this function assumes the path is >= 1 hop valid path, make sure validate the path before calling this function
+    /// @dev the contract that implements this library should hold at least `amountInMaximum` of the source asset
+    function _swapExactTargetAmount(
+        address router,
+        bytes memory path,
+        uint256 amountOut,
+        uint256 amountInMaximum,
+        address recipient
+    ) internal returns (uint256 amountIn) {
+        _approveRouterForSwap(router, path, amountInMaximum);
+
+        ISwapRouter.ExactOutputParams memory params =
+            ISwapRouter.ExactOutputParams(path, recipient, block.timestamp, amountOut, amountInMaximum);
+        amountIn = ISwapRouter(router).exactOutput(params);
+    }
+
+    /// @notice Swaps source asset to target asset using exact target amount, returns swap results without handling transfers
+    /// @param _swapLogicStorage the storage of the swap logic
+    /// @param sourceAsset the source asset to swap from
+    /// @param merchant the merchant address to get target asset path
+    /// @param sourceAssetAmountIn the amount of source asset available for swap
+    /// @param requiredTargetAssetAmount the exact amount of target asset required
+    /// @param targetAssetRecipient the recipient of the target asset
+    /// @return swappedSourceAmount the amount of source asset that was swapped
+    /// @return remainingSourceAmount the amount of source asset remaining after swap
+    function swapExactAmountOut(
+        SwapLogicStorage storage _swapLogicStorage,
+        address sourceAsset,
+        address merchant,
+        uint256 sourceAssetAmountIn,
+        uint256 requiredTargetAssetAmount,
+        address targetAssetRecipient
+    ) internal returns (uint256 swappedSourceAmount) {
+        bytes memory swapPath = _connect2Paths(
+            _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset],
+            _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant]
+        );
+
+        swappedSourceAmount = _swapExactTargetAmount(
+            _swapLogicStorage.swapLogicConfig.router,
+            swapPath,
+            requiredTargetAssetAmount,
+            sourceAssetAmountIn,
+            targetAssetRecipient
+        );
+
+        if (swappedSourceAmount > sourceAssetAmountIn) {
+            revert NotEnoughSourceAsset();
+        }
     }
 }

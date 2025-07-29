@@ -221,7 +221,7 @@ contract SwapLogicTest is Test {
 
         bytes memory sourcePath = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT); // source -> USDT; 43 bytes
         bytes memory destinationPath = abi.encodePacked(USDT, bytes3(0x102030), destinationAsset); // USDT -> destination; 43 bytes
-        bytes memory result = SwapLogic.connect2Paths(sourcePath, destinationPath); // source -> USDT -> destination; 66 bytes
+        bytes memory result = SwapLogic._connect2Paths(sourcePath, destinationPath); // source -> USDT -> destination; 66 bytes
 
         assertEq(result.length, 66);
         assertEq(SwapLogic.extractPathOriginAsset(result), SOURCE_ASSET);
@@ -233,13 +233,13 @@ contract SwapLogicTest is Test {
         bytes memory path1 = abi.encodePacked(SOURCE_ASSET);
         bytes memory path2 = abi.encodePacked(address(0xDEAD));
         vm.expectRevert(SwapLogic.PathsDoNotConnect.selector);
-        SwapLogic.connect2Paths(path1, path2);
+        SwapLogic._connect2Paths(path1, path2);
     }
 
     function testConnect2PathsBothSingleAsset() public pure {
         bytes memory path1 = abi.encodePacked(SOURCE_ASSET);
         bytes memory path2 = abi.encodePacked(SOURCE_ASSET);
-        bytes memory result = SwapLogic.connect2Paths(path1, path2);
+        bytes memory result = SwapLogic._connect2Paths(path1, path2);
         assertEq(result, path1);
     }
 
@@ -247,14 +247,14 @@ contract SwapLogicTest is Test {
         address destinationAsset = address(0x4444);
         bytes memory path1 = abi.encodePacked(USDT);
         bytes memory path2 = abi.encodePacked(USDT, bytes3(0x102030), destinationAsset);
-        bytes memory result = SwapLogic.connect2Paths(path1, path2);
+        bytes memory result = SwapLogic._connect2Paths(path1, path2);
         assertEq(result, path2);
     }
 
     function testConnect2PathsSecondSingleAsset() public pure {
         bytes memory path1 = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
         bytes memory path2 = abi.encodePacked(USDT);
-        bytes memory result = SwapLogic.connect2Paths(path1, path2);
+        bytes memory result = SwapLogic._connect2Paths(path1, path2);
         assertEq(result, path1);
     }
 }
@@ -282,7 +282,7 @@ contract SwapLogicWrapper {
     }
 
     function swap(bytes memory path, uint256 amountIn, address recipient) public returns (uint256 amountOut) {
-        return SwapLogic.swap(_swapLogicStorage, path, amountIn, recipient);
+        return SwapLogic._swapExactSourceAmount(_swapLogicStorage.swapLogicConfig.router, path, amountIn, recipient);
     }
 
     function calldataExtractPathDestinationAsset(bytes calldata path) external pure returns (address) {

@@ -4,6 +4,8 @@ pragma solidity 0.8.28;
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {ZKPayStorage} from "./ZKPayStorage.sol";
 import {IZKPay} from "./interfaces/IZKPay.sol";
@@ -23,6 +25,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
     using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
+    using SafeERC20 for IERC20;
 
     error TreasuryAddressCannotBeZero();
     error TreasuryAddressSameAsCurrent();
@@ -215,22 +218,33 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         address from,
         bytes32 transactionHash,
         uint248 requiredTargetAssetAmount
-    ) external {
+    ) external nonReentrant {
         address merchant = msg.sender;
+        _escrowPaymentStorage.completeAuthorizedTransaction(
+            EscrowPayment.Transaction({asset: sourceAsset, amount: sourceAssetAmount, from: from, to: msg.sender}),
+            transactionHash
+        );
 
-        EscrowPayment.Transaction memory transaction =
-            EscrowPayment.Transaction({asset: sourceAsset, amount: sourceAssetAmount, from: from, to: merchant});
+        MerchantLogic.MerchantConfig memory merchantConfig = _merchantConfigs.get(merchant);
 
-        // get sourceAsset balance (beforeBalance)
-        // swap to target asset amountOut (requiredTargetAssetAmount).
-        // get sourceAsset balance (afterBalance)
-        // diffSourceAssetBalance = beforeBalance - afterBalance
-        // require(diffSourceAssetBalance <= amount);
-        // remaining = amount - diffSourceAssetBalance;
-        // trasnfer back the `remaining` of source asset
-        // transfer the merchant the `requiredTargetAssetAmount` of target token
+        (uint256 swappedSourceAmount) = _swapLogicStorage.swapExactAmountOut(
+            sourceAsset, merchant, sourceAssetAmount, requiredTargetAssetAmount, merchant
+        );
+        uint256 remainingSourceAmount = sourceAssetAmount - swappedSourceAmount;
 
-        _escrowPaymentStorage.completeAuthorizedTransaction(transaction, transactionHash);
+        AssetManagement.transferAsset(sourceAsset, remainingSourceAmount, from);
+
+        emit PullPaymentCompleted(
+            sourceAsset,
+            sourceAssetAmount,
+            merchantConfig.payoutToken,
+            uint248(requiredTargetAssetAmount),
+            uint248(swappedSourceAmount),
+            uint248(remainingSourceAmount),
+            from,
+            msg.sender,
+            transactionHash
+        );
     }
 
     /// @inheritdoc IZKPay

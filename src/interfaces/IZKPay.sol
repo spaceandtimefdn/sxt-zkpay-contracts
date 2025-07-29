@@ -49,7 +49,7 @@ interface IZKPay {
     /// @param refundedSourceAssetAmount The amount of source asset refunded to user
     /// @param protocolFeeInSourceToken The amount of source asset paid for protocol as fee
     /// @param transactionHash The hash of the authorized transaction
-    event PullPaymentCompleted(
+    event PaymentSettled(
         address indexed targetAsset,
         uint248 receivedTargetAssetAmount,
         uint248 swappedSourceAssetAmount,

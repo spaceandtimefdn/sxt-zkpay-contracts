@@ -292,7 +292,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         uint248 receivedProtocolFeeAmount =
             AssetManagement.transferAsset(sourceAsset, protocolFeeInSourceToken, _treasury); // pay protocol
 
-        emit PullPaymentCompleted(
+        emit PaymentSettled(
             payoutToken,
             uint248(receivedTargetAssetAmount),
             toBePaidInSourceToken,

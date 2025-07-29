@@ -268,38 +268,26 @@ library SwapLogic {
         amountIn = ISwapRouter(router).exactOutput(params);
     }
 
-    /// @notice Swaps source asset to target asset using exact target amount, returns swap results without handling transfers
+    /// @notice Swaps source asset to merchant target asset using exact source amount, returns swap results without handling transfers
     /// @param _swapLogicStorage the storage of the swap logic
     /// @param sourceAsset the source asset to swap from
     /// @param merchant the merchant address to get target asset path
-    /// @param sourceAssetAmountIn the amount of source asset available for swap
-    /// @param requiredTargetAssetAmount the exact amount of target asset required
     /// @param targetAssetRecipient the recipient of the target asset
-    /// @return swappedSourceAmount the amount of source asset that was swapped
-    /// @return remainingSourceAmount the amount of source asset remaining after swap
-    function swapExactAmountOut(
+    /// @return receivedTargetAssetAmount the amount of received target asset tokens from the swapping router
+    function swapExactAmountIn(
         SwapLogicStorage storage _swapLogicStorage,
         address sourceAsset,
         address merchant,
         uint256 sourceAssetAmountIn,
-        uint256 requiredTargetAssetAmount,
         address targetAssetRecipient
-    ) internal returns (uint256 swappedSourceAmount) {
+    ) internal returns (uint256 receivedTargetAssetAmount) {
         bytes memory swapPath = _connect2Paths(
             _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset],
             _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant]
         );
 
-        swappedSourceAmount = _swapExactTargetAmount(
-            _swapLogicStorage.swapLogicConfig.router,
-            swapPath,
-            requiredTargetAssetAmount,
-            sourceAssetAmountIn,
-            targetAssetRecipient
+        receivedTargetAssetAmount = _swapExactSourceAmount(
+            _swapLogicStorage.swapLogicConfig.router, swapPath, sourceAssetAmountIn, targetAssetRecipient
         );
-
-        if (swappedSourceAmount > sourceAssetAmountIn) {
-            revert NotEnoughSourceAsset();
-        }
     }
 }

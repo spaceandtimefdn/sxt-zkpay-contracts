@@ -217,6 +217,21 @@ library AssetManagement {
         amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
     }
 
+    /// @notice Calculates protocol fee and remaining amount for an asset
+    /// @param asset The asset address
+    /// @param amount The total amount
+    /// @param sxt The SXT token address
+    /// @return protocolFeeAmount The calculated protocol fee (0 for SXT)
+    /// @return remainingAmount The amount after deducting protocol fee
+    function _calculateProtocolFee(address asset, uint248 amount, address sxt)
+        internal
+        pure
+        returns (uint248 protocolFeeAmount, uint248 remainingAmount)
+    {
+        protocolFeeAmount = asset == sxt ? 0 : uint248((uint256(amount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
+        remainingAmount = amount - protocolFeeAmount;
+    }
+
     /// @notice Sends a payment to a target address.
     /// @param _assets The mapping of assets to their payment information.
     /// @param asset The address of the asset to send the payment for.
@@ -240,15 +255,41 @@ library AssetManagement {
             revert AssetIsNotSupportedForThisMethod();
         }
 
-        protocolFeeAmount = asset == sxt ? 0 : uint248((uint256(amount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
-
-        uint248 transferAmount = amount - protocolFeeAmount;
+        uint248 transferAmount;
+        (protocolFeeAmount, transferAmount) = _calculateProtocolFee(asset, amount, sxt);
 
         (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, merchant, transferAmount);
 
         if (protocolFeeAmount > 0) {
             SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, treasury, protocolFeeAmount);
         }
+    }
+
+    function computePaymentBreakdown(
+        mapping(address asset => AssetManagement.PaymentAsset) storage _assets,
+        address sourceAsset,
+        uint248 sourceAssetAmount,
+        uint248 maxUsdValueOfTargetToken,
+        address payoutToken,
+        address sxt
+    )
+        internal
+        view
+        returns (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken, uint248 protocolFeeInSourceToken)
+    {
+        uint248 sourceAssetInUsd = convertToUsd(_assets, sourceAsset, sourceAssetAmount);
+        uint248 toBePaidInUsd =
+            maxUsdValueOfTargetToken > sourceAssetInUsd ? sourceAssetInUsd : maxUsdValueOfTargetToken;
+
+        uint248 toBePaidBeforeFee = convertUsdToToken(_assets, sourceAsset, toBePaidInUsd);
+
+        protocolFeeInSourceToken = 0;
+        toBePaidInSourceToken = toBePaidBeforeFee;
+        toBeRefundedInSourceToken = sourceAssetAmount - toBePaidBeforeFee;
+
+        (protocolFeeInSourceToken, toBePaidInSourceToken) = _calculateProtocolFee(payoutToken, toBePaidBeforeFee, sxt);
+
+        return (toBePaidInSourceToken, toBeRefundedInSourceToken, protocolFeeInSourceToken);
     }
 
     /// @notice Escrows a payment by transferring it from the sender to the contract

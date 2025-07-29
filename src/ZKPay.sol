@@ -217,7 +217,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         uint248 sourceAssetAmount,
         address from,
         bytes32 transactionHash,
-        uint248 requiredTargetAssetAmount
+        uint248 maxUsdValueOfTargetToken
     ) external nonReentrant {
         address merchant = msg.sender;
         _escrowPaymentStorage.completeAuthorizedTransaction(
@@ -225,24 +225,27 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
             transactionHash
         );
 
-        MerchantLogic.MerchantConfig memory merchantConfig = _merchantConfigs.get(merchant);
+        address payoutToken = _swapLogicStorage.getMerchantPayoutAsset(merchant);
+        (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken, uint248 protocolFeeInSourceToken) =
+            _assets.computePaymentBreakdown(sourceAsset, sourceAssetAmount, maxUsdValueOfTargetToken, payoutToken, _sxt);
 
-        (uint256 swappedSourceAmount) = _swapLogicStorage.swapExactAmountOut(
-            sourceAsset, merchant, sourceAssetAmount, requiredTargetAssetAmount, merchant
-        );
-        uint256 remainingSourceAmount = sourceAssetAmount - swappedSourceAmount;
+        // pay merchant
+        (uint256 receivedTargetAssetAmount) =
+            _swapLogicStorage.swapExactAmountIn(sourceAsset, merchant, toBePaidInSourceToken, merchant);
 
-        AssetManagement.transferAsset(sourceAsset, remainingSourceAmount, from);
+        AssetManagement.transferAsset(sourceAsset, protocolFeeInSourceToken, _treasury); // pay protocol
+        AssetManagement.transferAsset(sourceAsset, toBeRefundedInSourceToken, from); // refund client
 
         emit PullPaymentCompleted(
             sourceAsset,
             sourceAssetAmount,
-            merchantConfig.payoutToken,
-            uint248(requiredTargetAssetAmount),
-            uint248(swappedSourceAmount),
-            uint248(remainingSourceAmount),
+            payoutToken,
+            uint248(receivedTargetAssetAmount),
+            toBePaidInSourceToken,
+            toBeRefundedInSourceToken,
+            protocolFeeInSourceToken,
             from,
-            msg.sender,
+            merchant,
             transactionHash
         );
     }

@@ -160,7 +160,7 @@ library AssetManagement {
      * @return usdValue The equivalent USD value in 18 decimal places.
      * @dev This function could revert if `tokenAmount * safePrice` overflows uint248
      */
-    function convertToUsd(
+    function _convertToUsd(
         mapping(address asset => PaymentAsset) storage _assets,
         address assetAddress,
         uint248 tokenAmount
@@ -181,7 +181,7 @@ library AssetManagement {
      * @param asset The address of the asset to convert.
      * @return tokenAmount The equivalent token amount.
      */
-    function convertUsdToToken(mapping(address asset => PaymentAsset) storage _assets, address asset, uint248 usdValue)
+    function _convertUsdToToken(mapping(address asset => PaymentAsset) storage _assets, address asset, uint248 usdValue)
         internal
         view
         returns (uint248 tokenAmount)
@@ -219,11 +219,11 @@ library AssetManagement {
         view
         returns (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken, uint248 protocolFeeInSourceToken)
     {
-        uint248 sourceAssetInUsd = convertToUsd(_assets, sourceAsset, sourceAssetAmount);
+        uint248 sourceAssetInUsd = _convertToUsd(_assets, sourceAsset, sourceAssetAmount);
         uint248 toBePaidInUsd =
             maxUsdValueOfTargetToken > sourceAssetInUsd ? sourceAssetInUsd : maxUsdValueOfTargetToken;
 
-        uint248 toBePaidBeforeFee = convertUsdToToken(_assets, sourceAsset, toBePaidInUsd);
+        uint248 toBePaidBeforeFee = _convertUsdToToken(_assets, sourceAsset, toBePaidInUsd);
         (protocolFeeInSourceToken, toBePaidInSourceToken) = _calculateProtocolFee(payoutToken, toBePaidBeforeFee, sxt);
 
         toBeRefundedInSourceToken = sourceAssetAmount - toBePaidBeforeFee;
@@ -245,7 +245,7 @@ library AssetManagement {
         }
 
         (actualAmountReceived) = transferAssetFrom(asset, amount, msg.sender, address(this));
-        amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
+        amountInUSD = _convertToUsd(_assets, asset, actualAmountReceived);
     }
 
     /// @notice Transfers asset to recipient and returns actual amount received

@@ -82,16 +82,16 @@ contract AssetManagementTestWrapper {
         return AssetManagement.isSupported(_assets, asset);
     }
 
-    function convertToUsd(address asset, uint248 amount) external view returns (uint248) {
-        return AssetManagement.convertToUsd(_assets, asset, amount);
+    function _convertToUsd(address asset, uint248 amount) external view returns (uint248) {
+        return AssetManagement._convertToUsd(_assets, asset, amount);
     }
 
     function escrowPayment(address asset, uint248 amount) external returns (uint248, uint248) {
         return AssetManagement.escrowPayment(_assets, asset, amount);
     }
 
-    function convertUsdToToken(address asset, uint248 usdValue) external view returns (uint248) {
-        return AssetManagement.convertUsdToToken(_assets, asset, usdValue);
+    function _convertUsdToToken(address asset, uint248 usdValue) external view returns (uint248) {
+        return AssetManagement._convertUsdToToken(_assets, asset, usdValue);
     }
 }
 
@@ -270,7 +270,7 @@ contract AssetManagementTest is Test {
         _wrapper.getPrice(asset);
     }
 
-    function testConvertToUsd() public {
+    function test_convertToUsd() public {
         address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1e8 = 1 USD
 
         _wrapper.setPaymentAsset(
@@ -279,11 +279,11 @@ contract AssetManagementTest is Test {
         );
 
         uint248 amount = 1e18;
-        uint248 usdValue = _wrapper.convertToUsd(address(0x1), amount);
+        uint248 usdValue = _wrapper._convertToUsd(address(0x1), amount);
         assertEq(usdValue, amount);
     }
 
-    function testConvertUsdToToken() public {
+    function test_convertUsdToToken() public {
         address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1e8 = 1 USD
 
         _wrapper.setPaymentAsset(
@@ -292,7 +292,7 @@ contract AssetManagementTest is Test {
         );
 
         uint248 usdValue = 1e18; // 1 USD in 18 decimals
-        uint248 tokenAmount = _wrapper.convertUsdToToken(address(0x1), usdValue);
+        uint248 tokenAmount = _wrapper._convertUsdToToken(address(0x1), usdValue);
         assertEq(tokenAmount, 1e18); // Should be 1 token with 18 decimals
     }
 

@@ -165,7 +165,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         uint256 receivedTargetAssetAmount =
             _swapLogicStorage.swapExactAmountIn(asset, merchant, transferAmount, merchant);
 
-        uint248 amountInUSD = _assets.convertToUsd(asset, transferAmount);
+        uint248 amountInUSD = _assets._convertToUsd(asset, transferAmount);
         _validateItemPrice(merchant, itemId, amountInUSD);
 
         emit SendPayment(

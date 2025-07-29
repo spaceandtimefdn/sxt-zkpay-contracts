@@ -88,10 +88,7 @@ library PaymentLogic {
         uint248 transferAmount;
         (protocolFeeAmount, transferAmount) = _calculateProtocolFee(asset, amount, sxt);
 
-        if (protocolFeeAmount > 0) {
-            AssetManagement.transferAssetFromCaller(asset, protocolFeeAmount, treasury);
-        }
-
+        AssetManagement.transferAssetFromCaller(asset, protocolFeeAmount, treasury);
         AssetManagement.transferAssetFromCaller(asset, transferAmount, address(this));
 
         uint256 receivedTargetAssetAmount =

@@ -45,8 +45,6 @@ library SwapLogic {
     error ZeroAddress();
     /// @notice Error thrown when the paths do not connect
     error PathsDoNotConnect();
-    /// @notice Error thrown when not enough source asset is available for swap
-    error NotEnoughSourceAsset();
 
     /// @notice Emitted when a source asset path is set by owner
     event SourceAssetPathSet(address indexed asset, bytes path);
@@ -243,29 +241,6 @@ library SwapLogic {
         ISwapRouter.ExactInputParams memory params =
             ISwapRouter.ExactInputParams(path, recipient, block.timestamp, amountIn, MIN_AMOUNT_OUT);
         amountOut = ISwapRouter(router).exactInput(params);
-    }
-
-    /// @notice does swap with uniswap v3 router using exact output amount
-    /// @param router the uniswap v3 router address
-    /// @param path the path to swap
-    /// @param amountOut the exact amount of the destination asset to receive
-    /// @param amountInMaximum the maximum amount of source asset willing to spend
-    /// @param recipient the recipient of the destination asset
-    /// @return amountIn the actual amount of the source asset spent
-    /// @dev this function assumes the path is >= 1 hop valid path, make sure validate the path before calling this function
-    /// @dev the contract that implements this library should hold at least `amountInMaximum` of the source asset
-    function _swapExactTargetAmount(
-        address router,
-        bytes memory path,
-        uint256 amountOut,
-        uint256 amountInMaximum,
-        address recipient
-    ) internal returns (uint256 amountIn) {
-        _approveRouterForSwap(router, path, amountInMaximum);
-
-        ISwapRouter.ExactOutputParams memory params =
-            ISwapRouter.ExactOutputParams(path, recipient, block.timestamp, amountOut, amountInMaximum);
-        amountIn = ISwapRouter(router).exactOutput(params);
     }
 
     /// @notice Swaps source asset to merchant target asset using exact source amount, returns swap results without handling transfers

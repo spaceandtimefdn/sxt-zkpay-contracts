@@ -42,22 +42,6 @@ interface IZKPay {
         EscrowPayment.Transaction transaction, bytes32 transactionHash, bytes32 onBehalfOf, bytes memo, bytes32 itemId
     );
 
-    /// @notice Emitted when a pull payment is completed
-    /// @param targetAsset The target asset received by merchant
-    /// @param receivedTargetAssetAmount The amount of target asset received by merchant
-    /// @param swappedSourceAssetAmount The amount of source asset that was swapped and paid to merchant
-    /// @param refundedSourceAssetAmount The amount of source asset refunded to user
-    /// @param protocolFeeInSourceToken The amount of source asset paid for protocol as fee
-    /// @param transactionHash The hash of the authorized transaction
-    event PaymentSettled(
-        address indexed targetAsset,
-        uint248 receivedTargetAssetAmount,
-        uint248 swappedSourceAssetAmount,
-        uint248 refundedSourceAssetAmount,
-        uint248 protocolFeeInSourceToken,
-        bytes32 transactionHash
-    );
-
     /// @notice Sets the treasury address
     /// @param treasury The new treasury address
     function setTreasury(address treasury) external;

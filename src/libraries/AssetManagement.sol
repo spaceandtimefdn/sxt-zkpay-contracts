@@ -194,29 +194,6 @@ library AssetManagement {
         tokenAmount = (usdValue * uint248(10 ** _assets[asset].tokenDecimals)) / adjustedPrice;
     }
 
-    /// @dev Pulls `amount` of `asset` from msg.sender to `to`,
-    /// measures the real amount received (fee-on-transfer tokens),
-    /// and converts it to USD.
-    /// Reverts if the asset isn’t supported for the given payment type.
-    function _pullAndQuote(
-        mapping(address asset => PaymentAsset) storage _assets,
-        address asset,
-        address to,
-        uint248 amount
-    ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD) {
-        if (!isSupported(_assets, asset)) {
-            revert AssetIsNotSupportedForThisMethod();
-        }
-
-        IERC20 token = IERC20(asset);
-        uint256 beforeBalance = token.balanceOf(to);
-        SafeERC20.safeTransferFrom(token, msg.sender, to, amount);
-        uint256 afterBalance = token.balanceOf(to);
-
-        actualAmountReceived = uint248(afterBalance - beforeBalance);
-        amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
-    }
-
     /// @notice Calculates protocol fee and remaining amount for an asset
     /// @param asset The asset address
     /// @param amount The total amount
@@ -258,14 +235,13 @@ library AssetManagement {
         uint248 transferAmount;
         (protocolFeeAmount, transferAmount) = _calculateProtocolFee(asset, amount, sxt);
 
-        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, merchant, transferAmount);
+        transferAssetFrom(asset, protocolFeeAmount, msg.sender, treasury);
+        (actualAmountReceived) = transferAssetFrom(asset, transferAmount, msg.sender, merchant);
 
-        if (protocolFeeAmount > 0) {
-            SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, treasury, protocolFeeAmount);
-        }
+        amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
     }
 
-    function computePaymentBreakdown(
+    function computeSettlementBreakdown(
         mapping(address asset => AssetManagement.PaymentAsset) storage _assets,
         address sourceAsset,
         uint248 sourceAssetAmount,
@@ -282,12 +258,9 @@ library AssetManagement {
             maxUsdValueOfTargetToken > sourceAssetInUsd ? sourceAssetInUsd : maxUsdValueOfTargetToken;
 
         uint248 toBePaidBeforeFee = convertUsdToToken(_assets, sourceAsset, toBePaidInUsd);
-
-        protocolFeeInSourceToken = 0;
-        toBePaidInSourceToken = toBePaidBeforeFee;
-        toBeRefundedInSourceToken = sourceAssetAmount - toBePaidBeforeFee;
-
         (protocolFeeInSourceToken, toBePaidInSourceToken) = _calculateProtocolFee(payoutToken, toBePaidBeforeFee, sxt);
+
+        toBeRefundedInSourceToken = sourceAssetAmount - toBePaidBeforeFee;
 
         return (toBePaidInSourceToken, toBeRefundedInSourceToken, protocolFeeInSourceToken);
     }
@@ -301,16 +274,46 @@ library AssetManagement {
         internal
         returns (uint248 actualAmountReceived, uint248 amountInUSD)
     {
-        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, address(this), amount);
+        if (!isSupported(_assets, asset)) {
+            revert AssetIsNotSupportedForThisMethod();
+        }
+
+        (actualAmountReceived) = transferAssetFrom(asset, amount, msg.sender, address(this));
+        amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
     }
 
-    /// @notice Transfers asset to recipient
+    /// @notice Transfers asset to recipient and returns actual amount received
     /// @param asset The address of the asset to transfer
     /// @param amount The amount to transfer
     /// @param recipient The recipient of the transfer
-    function transferAsset(address asset, uint256 amount, address recipient) internal {
-        if (amount > 0) {
-            IERC20(asset).safeTransfer(recipient, amount);
-        }
+    /// @return amountReceived The amount actually received by recipient
+    function transferAsset(address asset, uint248 amount, address recipient)
+        internal
+        returns (uint248 amountReceived)
+    {
+        if (amount == 0) return 0;
+        IERC20 token = IERC20(asset);
+        uint256 beforeBalance = token.balanceOf(recipient);
+        token.safeTransfer(recipient, amount);
+        uint256 afterBalance = token.balanceOf(recipient);
+        amountReceived = uint248(afterBalance - beforeBalance);
+    }
+
+    /// @notice Transfers asset from `from` to `recipient` and returns actual amount received
+    /// @param asset The address of the asset to transfer
+    /// @param amount The amount to transfer
+    /// @param from The address to transfer from
+    /// @param recipient The recipient of the transfer
+    /// @return amountReceived The amount actually received by recipient
+    function transferAssetFrom(address asset, uint248 amount, address from, address recipient)
+        internal
+        returns (uint248 amountReceived)
+    {
+        if (amount == 0) return 0;
+        IERC20 token = IERC20(asset);
+        uint256 beforeBalance = token.balanceOf(recipient);
+        token.safeTransferFrom(from, recipient, amount);
+        uint256 afterBalance = token.balanceOf(recipient);
+        amountReceived = uint248(afterBalance - beforeBalance);
     }
 }

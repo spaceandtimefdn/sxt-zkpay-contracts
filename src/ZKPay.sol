@@ -212,7 +212,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     }
 
     /// @inheritdoc IZKPay
-    function pullPayment(
+    function settlePayment(
         address sourceAsset,
         uint248 sourceAssetAmount,
         address from,
@@ -220,32 +220,30 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         uint248 maxUsdValueOfTargetToken
     ) external nonReentrant {
         address merchant = msg.sender;
+
         _escrowPaymentStorage.completeAuthorizedTransaction(
-            EscrowPayment.Transaction({asset: sourceAsset, amount: sourceAssetAmount, from: from, to: msg.sender}),
+            EscrowPayment.Transaction({asset: sourceAsset, amount: sourceAssetAmount, from: from, to: merchant}),
             transactionHash
         );
 
         address payoutToken = _swapLogicStorage.getMerchantPayoutAsset(merchant);
-        (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken, uint248 protocolFeeInSourceToken) =
-            _assets.computePaymentBreakdown(sourceAsset, sourceAssetAmount, maxUsdValueOfTargetToken, payoutToken, _sxt);
+        (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken, uint248 protocolFeeInSourceToken) = _assets
+            .computeSettlementBreakdown(sourceAsset, sourceAssetAmount, maxUsdValueOfTargetToken, payoutToken, _sxt);
 
         // pay merchant
         (uint256 receivedTargetAssetAmount) =
             _swapLogicStorage.swapExactAmountIn(sourceAsset, merchant, toBePaidInSourceToken, merchant);
 
-        AssetManagement.transferAsset(sourceAsset, protocolFeeInSourceToken, _treasury); // pay protocol
-        AssetManagement.transferAsset(sourceAsset, toBeRefundedInSourceToken, from); // refund client
+        uint248 receivedRefundAmount = AssetManagement.transferAsset(sourceAsset, toBeRefundedInSourceToken, from); // refund client
+        uint248 receivedProtocolFeeAmount =
+            AssetManagement.transferAsset(sourceAsset, protocolFeeInSourceToken, _treasury); // pay protocol
 
         emit PullPaymentCompleted(
-            sourceAsset,
-            sourceAssetAmount,
             payoutToken,
             uint248(receivedTargetAssetAmount),
             toBePaidInSourceToken,
-            toBeRefundedInSourceToken,
-            protocolFeeInSourceToken,
-            from,
-            merchant,
+            receivedRefundAmount,
+            receivedProtocolFeeAmount,
             transactionHash
         );
     }

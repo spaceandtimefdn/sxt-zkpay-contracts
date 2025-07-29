@@ -43,26 +43,18 @@ interface IZKPay {
     );
 
     /// @notice Emitted when a pull payment is completed
-    /// @param sourceAsset The source asset that was swapped
-    /// @param sourceAssetAmount The original amount of source asset
     /// @param targetAsset The target asset received by merchant
-    /// @param targetAssetAmount The amount of target asset received
+    /// @param receivedTargetAssetAmount The amount of target asset received by merchant
     /// @param swappedSourceAssetAmount The amount of source asset that was swapped and paid to merchant
     /// @param refundedSourceAssetAmount The amount of source asset refunded to user
     /// @param protocolFeeInSourceToken The amount of source asset paid for protocol as fee
-    /// @param from The address that authorized the payment
-    /// @param merchant The merchant that pulled the payment
     /// @param transactionHash The hash of the authorized transaction
     event PullPaymentCompleted(
-        address indexed sourceAsset,
-        uint248 sourceAssetAmount,
         address indexed targetAsset,
-        uint248 targetAssetAmount,
+        uint248 receivedTargetAssetAmount,
         uint248 swappedSourceAssetAmount,
         uint248 refundedSourceAssetAmount,
         uint248 protocolFeeInSourceToken,
-        address indexed from,
-        address merchant,
         bytes32 transactionHash
     );
 
@@ -176,13 +168,13 @@ interface IZKPay {
     /// @return executor The executor address
     function getExecutorAddress() external view returns (address executor);
 
-    /// @notice Pulls an authorized payment by swapping source asset to target asset
+    /// @notice Settles an authorized payment by swapping source asset to target asset
     /// @param sourceAsset The source asset that was authorized
     /// @param sourceAssetAmount The amount of source asset that was authorized
     /// @param from The address that authorized the payment
     /// @param transactionHash The hash of the authorized transaction
     /// @param maxUsdValueOfTargetToken The maximum amount of target asset to settle to merchant
-    function pullPayment(
+    function settlePayment(
         address sourceAsset,
         uint248 sourceAssetAmount,
         address from,

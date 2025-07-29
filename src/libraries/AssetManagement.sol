@@ -23,8 +23,6 @@ library AssetManagement {
     error StalePriceFeedData();
     /// @notice Error thrown when the asset is not supported for this method
     error AssetIsNotSupportedForThisMethod();
-    /// @notice Error thrown when the merchant address is zero
-    error MerchantAddressCannotBeZero();
 
     /// @notice Emitted when a new asset is added
     /// @param asset The asset address
@@ -207,38 +205,6 @@ library AssetManagement {
     {
         protocolFeeAmount = asset == sxt ? 0 : uint248((uint256(amount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
         remainingAmount = amount - protocolFeeAmount;
-    }
-
-    /// @notice Sends a payment to a target address.
-    /// @param _assets The mapping of assets to their payment information.
-    /// @param asset The address of the asset to send the payment for.
-    /// @param amount The amount of the asset to send.
-    /// @param merchant The address of the merchant to send the payment to.
-    /// @param treasury The address of the treasury to send the protocol fee to.
-    /// @param sxt The address of the SXT token.
-    function send(
-        mapping(address asset => PaymentAsset) storage _assets,
-        address asset,
-        uint248 amount,
-        address merchant,
-        address treasury,
-        address sxt
-    ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) {
-        if (merchant == ZERO_ADDRESS) {
-            revert MerchantAddressCannotBeZero();
-        }
-
-        if (!isSupported(_assets, asset)) {
-            revert AssetIsNotSupportedForThisMethod();
-        }
-
-        uint248 transferAmount;
-        (protocolFeeAmount, transferAmount) = _calculateProtocolFee(asset, amount, sxt);
-
-        transferAssetFrom(asset, protocolFeeAmount, msg.sender, treasury);
-        (actualAmountReceived) = transferAssetFrom(asset, transferAmount, msg.sender, merchant);
-
-        amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
     }
 
     function computeSettlementBreakdown(

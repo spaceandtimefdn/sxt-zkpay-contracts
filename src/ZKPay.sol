@@ -146,13 +146,38 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         bytes calldata memo,
         bytes32 itemId
     ) internal {
-        (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
-            _assets.send(asset, amount, merchant, _treasury, _sxt);
+        if (!_assets.isSupported(asset)) {
+            revert AssetManagement.AssetIsNotSupportedForThisMethod();
+        }
 
+        address payoutToken = _swapLogicStorage.getMerchantPayoutAsset(merchant);
+
+        uint248 protocolFeeAmount;
+        uint248 transferAmount;
+        (protocolFeeAmount, transferAmount) = AssetManagement._calculateProtocolFee(asset, amount, _sxt);
+
+        if (protocolFeeAmount > 0) {
+            AssetManagement.transferAssetFrom(asset, protocolFeeAmount, msg.sender, _treasury);
+        }
+
+        AssetManagement.transferAssetFrom(asset, transferAmount, msg.sender, address(this));
+
+        uint256 receivedTargetAssetAmount =
+            _swapLogicStorage.swapExactAmountIn(asset, merchant, transferAmount, merchant);
+
+        uint248 amountInUSD = _assets.convertToUsd(asset, transferAmount);
         _validateItemPrice(merchant, itemId, amountInUSD);
 
         emit SendPayment(
-            asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, merchant, memo, amountInUSD, msg.sender, itemId
+            payoutToken,
+            uint248(receivedTargetAssetAmount),
+            protocolFeeAmount,
+            onBehalfOf,
+            merchant,
+            memo,
+            amountInUSD,
+            msg.sender,
+            itemId
         );
     }
 

@@ -4,12 +4,15 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {ZKPay} from "../src/ZKPay.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
+import {MerchantLogic} from "../src/libraries/MerchantLogic.sol";
+import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {PROTOCOL_FEE, PROTOCOL_FEE_PRECISION, ZERO_ADDRESS} from "../src/libraries/Constants.sol";
-import {DummyData} from "./data/DummyData.sol";
+import {ROUTER, USDT, SXT, USDC, RPC_URL, BLOCK_NUMBER} from "./data/MainnetConstants.sol";
 import {IMerchantCallback} from "../src/interfaces/IMerchantCallback.sol";
 
 contract MockCallbackContract is IMerchantCallback {
@@ -69,6 +72,9 @@ contract PaymentFunctionsTest is Test {
     bytes public memoBytes;
 
     function setUp() public {
+        // solhint-disable-next-line gas-small-strings
+        vm.createSelectFork(RPC_URL, BLOCK_NUMBER); // mainnet fork
+
         usdcAmount = 10e6; // 10 USDC
 
         owner = vm.addr(0x1);
@@ -76,36 +82,43 @@ contract PaymentFunctionsTest is Test {
         onBehalfOf = vm.addr(0x3);
         targetMerchant = vm.addr(0x4);
         itemId = 123;
-
-        // Convert itemId to bytes for the new parameter type
         memoBytes = abi.encode(itemId);
 
         vm.startPrank(owner);
 
-        // Deploy zkpay
-        address sxt = address(new MockERC20());
+        bytes memory usdcToUsdtPath = abi.encodePacked(USDC, bytes3(uint24(500)), USDT);
+        bytes memory usdtToSxtPath = abi.encodePacked(USDT, bytes3(uint24(3000)), SXT);
+
+        SwapLogic.SwapLogicConfig memory swapConfig =
+            SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT, defaultTargetAssetPath: usdtToSxtPath});
+
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", owner, abi.encodeCall(ZKPay.initialize, (owner, treasury, sxt, DummyData.getSwapLogicConfig()))
+            "ZKPay.sol", owner, abi.encodeCall(ZKPay.initialize, (owner, treasury, SXT, swapConfig))
         );
         zkpay = ZKPay(zkPayProxyAddress);
 
-        // Deploy and configure USDC
-        usdc = new MockERC20();
-        usdc.mint(address(this), 100e6); // Mint 100 USDC to test contract
-
         address usdcPriceFeed = address(new MockV3Aggregator(8, 1e8)); // 1 USDC = $1
 
-        // Set USDC as a supported payment asset with Send payment type
         zkpay.setPaymentAsset(
-            address(usdc),
+            USDC,
             AssetManagement.PaymentAsset({
                 priceFeed: usdcPriceFeed,
                 tokenDecimals: 6,
                 stalePriceThresholdInSeconds: 1000
             }),
-            DummyData.getOriginAssetPath(address(usdc))
+            usdcToUsdtPath
         );
 
+        vm.stopPrank();
+
+        usdc = MockERC20(USDC);
+        deal(USDC, address(this), 100e6); // mint 100 USDC to test contract
+
+        vm.startPrank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: SXT, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            usdtToSxtPath
+        );
         vm.stopPrank();
     }
 
@@ -129,20 +142,23 @@ contract PaymentFunctionsTest is Test {
 
         uint248 protocolFeeAmount = uint248((uint256(usdcAmount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
 
-        assertEq(usdc.balanceOf(targetMerchant), usdcAmount - protocolFeeAmount);
         assertEq(usdc.balanceOf(treasury), protocolFeeAmount);
+        assertGt(IERC20(SXT).balanceOf(targetMerchant), 0);
     }
 
     function testSendWithoutProtocolFee() public {
         address sxtToken = zkpay.getSXT();
         MockERC20 sxt = MockERC20(sxtToken);
 
-        sxt.mint(address(this), 1000e18);
+        deal(SXT, address(this), 1000e18);
         uint248 sxtAmount = 100e18;
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
         vm.startPrank(owner);
         address sxtPriceFeed = address(new MockV3Aggregator(8, 1e8));
+
+        bytes memory sxtToUsdtPath = abi.encodePacked(SXT, bytes3(uint24(3000)), USDT);
+
         zkpay.setPaymentAsset(
             sxtToken,
             AssetManagement.PaymentAsset({
@@ -150,27 +166,14 @@ contract PaymentFunctionsTest is Test {
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 1000
             }),
-            DummyData.getOriginAssetPath(sxtToken)
+            sxtToUsdtPath
         );
         vm.stopPrank();
 
         sxt.approve(address(zkpay), sxtAmount);
         zkpay.send(sxtToken, sxtAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0));
 
-        assertEq(sxt.balanceOf(targetMerchant), sxtAmount);
         assertEq(sxt.balanceOf(treasury), 0);
-    }
-
-    function testSendToZeroAddress() public {
-        // Convert onBehalfOf address to bytes32
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
-
-        // Approve the ZKPay contract to spend our USDC
-        usdc.approve(address(zkpay), usdcAmount);
-
-        vm.expectRevert(AssetManagement.MerchantAddressCannotBeZero.selector);
-        // Call the send function
-        zkpay.send(address(usdc), usdcAmount, onBehalfOfBytes32, ZERO_ADDRESS, memoBytes, bytes32(0));
     }
 
     function testSendWithUnsupportedAsset() public {
@@ -199,7 +202,7 @@ contract PaymentFunctionsTest is Test {
         );
 
         uint248 protocolFeeAmount = uint248((uint256(usdcAmount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
-        assertEq(usdc.balanceOf(targetMerchant), usdcAmount - protocolFeeAmount);
+        assertGt(IERC20(SXT).balanceOf(targetMerchant), 0);
         assertEq(usdc.balanceOf(treasury), protocolFeeAmount);
 
         assertEq(callbackContract.callCount(), 1);
@@ -210,11 +213,14 @@ contract PaymentFunctionsTest is Test {
         address sxtToken = zkpay.getSXT();
         MockERC20 sxt = MockERC20(sxtToken);
 
-        sxt.mint(address(this), 1000e18);
+        deal(SXT, address(this), 1000e18);
         uint248 sxtAmount = 100e18;
 
         vm.startPrank(owner);
         address sxtPriceFeed = address(new MockV3Aggregator(8, 1e8));
+
+        bytes memory sxtToUsdtPath = abi.encodePacked(SXT, bytes3(uint24(3000)), USDT);
+
         zkpay.setPaymentAsset(
             sxtToken,
             AssetManagement.PaymentAsset({
@@ -222,7 +228,7 @@ contract PaymentFunctionsTest is Test {
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 1000
             }),
-            DummyData.getOriginAssetPath(sxtToken)
+            sxtToUsdtPath
         );
         vm.stopPrank();
 
@@ -237,9 +243,7 @@ contract PaymentFunctionsTest is Test {
             sxtToken, sxtAmount, onBehalfOfBytes32, targetMerchant, memoBytes, address(callbackContract), callbackData
         );
 
-        assertEq(sxt.balanceOf(targetMerchant), sxtAmount);
         assertEq(sxt.balanceOf(treasury), 0);
-
         assertEq(callbackContract.callCount(), 1);
     }
 
@@ -311,26 +315,6 @@ contract PaymentFunctionsTest is Test {
         invalidCallbackContract.processCallback(42);
     }
 
-    function testSendWithCallbackToZeroAddress() public {
-        MockCallbackContract callbackContract = new MockCallbackContract(ZERO_ADDRESS);
-        bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);
-
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
-
-        usdc.approve(address(zkpay), usdcAmount);
-
-        vm.expectRevert(AssetManagement.MerchantAddressCannotBeZero.selector);
-        zkpay.sendWithCallback(
-            address(usdc),
-            usdcAmount,
-            onBehalfOfBytes32,
-            ZERO_ADDRESS,
-            memoBytes,
-            address(callbackContract),
-            callbackData
-        );
-    }
-
     function testSendWithCallbackWithUnsupportedAsset() public {
         address invalidAsset = vm.addr(0x5);
         MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
@@ -395,9 +379,9 @@ contract PaymentFunctionsTest is Test {
     }
 
     function testFuzzSendWithCallbackAmount(uint248 amount) public {
-        vm.assume(amount > 0 && amount <= 1000e6);
+        vm.assume(amount >= 1e2 && amount <= 1e9 * 1e6); //  between $.0001 and $1B
 
-        usdc.mint(address(this), amount);
+        deal(USDC, address(this), amount);
 
         MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
         bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);

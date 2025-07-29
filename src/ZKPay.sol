@@ -186,15 +186,14 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         SafeExecutor(_executorAddress).execute(callbackContractAddress, callbackData);
     }
 
-    /// @inheritdoc IZKPay
-    function authorize(
+    function _authorize(
         address asset,
         uint248 amount,
         bytes32 onBehalfOf,
         address merchant,
         bytes calldata memo,
         bytes32 itemId
-    ) external nonReentrant returns (bytes32 transactionHash) {
+    ) internal returns (bytes32 transactionHash) {
         (uint248 actualAmountReceived, uint248 amountInUSD) = _assets.escrowPayment(asset, amount);
 
         if (actualAmountReceived == 0) {
@@ -209,6 +208,36 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         transactionHash = EscrowPayment.authorize(_escrowPaymentStorage, transaction);
 
         emit Authorized(transaction, transactionHash, onBehalfOf, memo, itemId);
+    }
+
+    /// @inheritdoc IZKPay
+    function authorize(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        bytes32 itemId
+    ) external nonReentrant returns (bytes32 transactionHash) {
+        return _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+    }
+
+    /// @inheritdoc IZKPay
+    function authorizeWithCallback(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        address callbackContractAddress,
+        bytes calldata callbackData
+    ) external nonReentrant returns (bytes32 transactionHash) {
+        bytes4 selector = bytes4(callbackData[:4]);
+        bytes32 itemId = keccak256(abi.encode(callbackContractAddress, selector));
+        transactionHash = _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        _validateMerchant(merchant, callbackContractAddress);
+
+        SafeExecutor(_executorAddress).execute(callbackContractAddress, callbackData);
     }
 
     /// @inheritdoc IZKPay

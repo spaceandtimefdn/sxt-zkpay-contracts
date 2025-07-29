@@ -17,6 +17,7 @@ import {PayWallLogic} from "./libraries/PayWallLogic.sol";
 import {SafeExecutor} from "./SafeExecutor.sol";
 import {IMerchantCallback} from "./interfaces/IMerchantCallback.sol";
 import {EscrowPayment} from "./libraries/EscrowPayment.sol";
+import {PaymentLogic} from "./modules/PaymentLogic.sol";
 
 // slither-disable-next-line locked-ether
 contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
@@ -30,10 +31,8 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     error TreasuryAddressCannotBeZero();
     error TreasuryAddressSameAsCurrent();
     error SXTAddressCannotBeZero();
-    error InsufficientPayment();
     error ExecutorAddressCannotBeZero();
     error InvalidMerchant();
-    error ZeroAmountReceived();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -131,56 +130,6 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         }
     }
 
-    function _validateItemPrice(address merchant, bytes32 itemId, uint248 amountInUSD) internal view {
-        uint248 itemPrice = _paywallLogicStorage.getItemPrice(merchant, itemId);
-        if (amountInUSD < itemPrice) {
-            revert InsufficientPayment();
-        }
-    }
-
-    function _sendPayment(
-        address asset,
-        uint248 amount,
-        bytes32 onBehalfOf,
-        address merchant,
-        bytes calldata memo,
-        bytes32 itemId
-    ) internal {
-        if (!_assets.isSupported(asset)) {
-            revert AssetManagement.AssetIsNotSupportedForThisMethod();
-        }
-
-        address payoutToken = _swapLogicStorage.getMerchantPayoutAsset(merchant);
-
-        uint248 protocolFeeAmount;
-        uint248 transferAmount;
-        (protocolFeeAmount, transferAmount) = AssetManagement._calculateProtocolFee(asset, amount, _sxt);
-
-        if (protocolFeeAmount > 0) {
-            AssetManagement.transferAssetFrom(asset, protocolFeeAmount, msg.sender, _treasury);
-        }
-
-        AssetManagement.transferAssetFrom(asset, transferAmount, msg.sender, address(this));
-
-        uint256 receivedTargetAssetAmount =
-            _swapLogicStorage.swapExactAmountIn(asset, merchant, transferAmount, merchant);
-
-        uint248 amountInUSD = _assets._convertToUsd(asset, transferAmount);
-        _validateItemPrice(merchant, itemId, amountInUSD);
-
-        emit SendPayment(
-            payoutToken,
-            uint248(receivedTargetAssetAmount),
-            protocolFeeAmount,
-            onBehalfOf,
-            merchant,
-            memo,
-            amountInUSD,
-            msg.sender,
-            itemId
-        );
-    }
-
     /// @inheritdoc IZKPay
     function send(
         address asset,
@@ -190,7 +139,19 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         bytes calldata memo,
         bytes32 itemId
     ) external nonReentrant {
-        _sendPayment(asset, amount, onBehalfOf, merchant, memo, itemId);
+        PaymentLogic.processPayment(
+            _swapLogicStorage,
+            _assets,
+            _paywallLogicStorage,
+            asset,
+            amount,
+            onBehalfOf,
+            merchant,
+            memo,
+            itemId,
+            _treasury,
+            _sxt
+        );
     }
 
     /// @inheritdoc IZKPay
@@ -205,34 +166,22 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     ) external nonReentrant {
         bytes4 selector = bytes4(callbackData[:4]);
         bytes32 itemId = keccak256(abi.encode(callbackContractAddress, selector));
-        _sendPayment(asset, amount, onBehalfOf, merchant, memo, itemId);
+        PaymentLogic.processPayment(
+            _swapLogicStorage,
+            _assets,
+            _paywallLogicStorage,
+            asset,
+            amount,
+            onBehalfOf,
+            merchant,
+            memo,
+            itemId,
+            _treasury,
+            _sxt
+        );
         _validateMerchant(merchant, callbackContractAddress);
 
         SafeExecutor(_executorAddress).execute(callbackContractAddress, callbackData);
-    }
-
-    function _authorize(
-        address asset,
-        uint248 amount,
-        bytes32 onBehalfOf,
-        address merchant,
-        bytes calldata memo,
-        bytes32 itemId
-    ) internal returns (bytes32 transactionHash) {
-        (uint248 actualAmountReceived, uint248 amountInUSD) = _assets.escrowPayment(asset, amount);
-
-        if (actualAmountReceived == 0) {
-            revert ZeroAmountReceived();
-        }
-
-        _validateItemPrice(merchant, itemId, amountInUSD);
-
-        EscrowPayment.Transaction memory transaction =
-            EscrowPayment.Transaction({asset: asset, amount: actualAmountReceived, from: msg.sender, to: merchant});
-
-        transactionHash = EscrowPayment.authorize(_escrowPaymentStorage, transaction);
-
-        emit Authorized(transaction, transactionHash, onBehalfOf, memo, itemId);
     }
 
     /// @inheritdoc IZKPay
@@ -244,7 +193,9 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         bytes calldata memo,
         bytes32 itemId
     ) external nonReentrant returns (bytes32 transactionHash) {
-        return _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        return PaymentLogic.authorizePayment(
+            _escrowPaymentStorage, _assets, _paywallLogicStorage, asset, amount, onBehalfOf, merchant, memo, itemId
+        );
     }
 
     /// @inheritdoc IZKPay
@@ -259,7 +210,9 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     ) external nonReentrant returns (bytes32 transactionHash) {
         bytes4 selector = bytes4(callbackData[:4]);
         bytes32 itemId = keccak256(abi.encode(callbackContractAddress, selector));
-        transactionHash = _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        transactionHash = PaymentLogic.authorizePayment(
+            _escrowPaymentStorage, _assets, _paywallLogicStorage, asset, amount, onBehalfOf, merchant, memo, itemId
+        );
         _validateMerchant(merchant, callbackContractAddress);
 
         SafeExecutor(_executorAddress).execute(callbackContractAddress, callbackData);
@@ -275,30 +228,18 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     ) external nonReentrant {
         address merchant = msg.sender;
 
-        _escrowPaymentStorage.completeAuthorizedTransaction(
-            EscrowPayment.Transaction({asset: sourceAsset, amount: sourceAssetAmount, from: from, to: merchant}),
-            transactionHash
-        );
-
-        address payoutToken = _swapLogicStorage.getMerchantPayoutAsset(merchant);
-        (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken, uint248 protocolFeeInSourceToken) = _assets
-            .computeSettlementBreakdown(sourceAsset, sourceAssetAmount, maxUsdValueOfTargetToken, payoutToken, _sxt);
-
-        // pay merchant
-        (uint256 receivedTargetAssetAmount) =
-            _swapLogicStorage.swapExactAmountIn(sourceAsset, merchant, toBePaidInSourceToken, merchant);
-
-        uint248 receivedRefundAmount = AssetManagement.transferAsset(sourceAsset, toBeRefundedInSourceToken, from); // refund client
-        uint248 receivedProtocolFeeAmount =
-            AssetManagement.transferAsset(sourceAsset, protocolFeeInSourceToken, _treasury); // pay protocol
-
-        emit PaymentSettled(
-            payoutToken,
-            uint248(receivedTargetAssetAmount),
-            toBePaidInSourceToken,
-            receivedRefundAmount,
-            receivedProtocolFeeAmount,
-            transactionHash
+        PaymentLogic.processSettlement(
+            _escrowPaymentStorage,
+            _swapLogicStorage,
+            _assets,
+            sourceAsset,
+            sourceAssetAmount,
+            from,
+            merchant,
+            transactionHash,
+            maxUsdValueOfTargetToken,
+            _treasury,
+            _sxt
         );
     }
 

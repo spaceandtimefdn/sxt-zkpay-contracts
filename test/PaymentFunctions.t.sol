@@ -11,9 +11,10 @@ import {AssetManagement} from "../src/libraries/AssetManagement.sol";
 import {MerchantLogic} from "../src/libraries/MerchantLogic.sol";
 import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
-import {PROTOCOL_FEE, PROTOCOL_FEE_PRECISION, ZERO_ADDRESS} from "../src/libraries/Constants.sol";
+import {PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "../src/libraries/Constants.sol";
 import {ROUTER, USDT, SXT, USDC, RPC_URL, BLOCK_NUMBER} from "./data/MainnetConstants.sol";
 import {IMerchantCallback} from "../src/interfaces/IMerchantCallback.sol";
+import {PaymentLogic} from "../src/modules/PaymentLogic.sol";
 
 contract MockCallbackContract is IMerchantCallback {
     address private _merchant;
@@ -130,7 +131,7 @@ contract PaymentFunctionsTest is Test {
         vm.prank(targetMerchant);
         zkpay.setPaywallItemPrice(bytes32(uint256(itemId)), usdcAmount * 1e12 + 1);
 
-        vm.expectRevert(ZKPay.InsufficientPayment.selector);
+        vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
         zkpay.send(address(usdc), usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(uint256(itemId)));
     }
 

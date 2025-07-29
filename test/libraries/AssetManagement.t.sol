@@ -82,16 +82,12 @@ contract AssetManagementTestWrapper {
         return AssetManagement.isSupported(_assets, asset);
     }
 
-    function _convertToUsd(address asset, uint248 amount) external view returns (uint248) {
-        return AssetManagement._convertToUsd(_assets, asset, amount);
+    function convertToUsd(address asset, uint248 amount) external view returns (uint248) {
+        return AssetManagement.convertToUsd(_assets, asset, amount);
     }
 
-    function escrowPayment(address asset, uint248 amount) external returns (uint248, uint248) {
-        return AssetManagement.escrowPayment(_assets, asset, amount);
-    }
-
-    function _convertUsdToToken(address asset, uint248 usdValue) external view returns (uint248) {
-        return AssetManagement._convertUsdToToken(_assets, asset, usdValue);
+    function convertUsdToToken(address asset, uint248 usdValue) external view returns (uint248) {
+        return AssetManagement.convertUsdToToken(_assets, asset, usdValue);
     }
 }
 
@@ -270,7 +266,7 @@ contract AssetManagementTest is Test {
         _wrapper.getPrice(asset);
     }
 
-    function test_convertToUsd() public {
+    function testconvertToUsd() public {
         address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1e8 = 1 USD
 
         _wrapper.setPaymentAsset(
@@ -279,11 +275,11 @@ contract AssetManagementTest is Test {
         );
 
         uint248 amount = 1e18;
-        uint248 usdValue = _wrapper._convertToUsd(address(0x1), amount);
+        uint248 usdValue = _wrapper.convertToUsd(address(0x1), amount);
         assertEq(usdValue, amount);
     }
 
-    function test_convertUsdToToken() public {
+    function testconvertUsdToToken() public {
         address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1e8 = 1 USD
 
         _wrapper.setPaymentAsset(
@@ -292,7 +288,7 @@ contract AssetManagementTest is Test {
         );
 
         uint248 usdValue = 1e18; // 1 USD in 18 decimals
-        uint248 tokenAmount = _wrapper._convertUsdToToken(address(0x1), usdValue);
+        uint248 tokenAmount = _wrapper.convertUsdToToken(address(0x1), usdValue);
         assertEq(tokenAmount, 1e18); // Should be 1 token with 18 decimals
     }
 
@@ -303,93 +299,5 @@ contract AssetManagementTest is Test {
 
         MockIncompleteRoundDataAggregator mockIncomplete = new MockIncompleteRoundDataAggregator();
         assertTrue(mockIncomplete.dummy());
-    }
-
-    function testEscrowPayment() public {
-        MockERC20 mockToken = new MockERC20();
-        address tokenAddress = address(mockToken);
-        address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1 USD
-
-        _wrapper.setPaymentAsset(
-            tokenAddress,
-            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
-        );
-
-        uint248 escrowAmount = 1000 ether;
-        mockToken.mint(address(this), escrowAmount);
-
-        mockToken.approve(address(_wrapper), escrowAmount);
-
-        uint256 initialContractBalance = mockToken.balanceOf(address(_wrapper));
-        uint256 initialUserBalance = mockToken.balanceOf(address(this));
-
-        (uint248 actualAmountReceived,) = _wrapper.escrowPayment(tokenAddress, escrowAmount);
-
-        uint256 finalContractBalance = mockToken.balanceOf(address(_wrapper));
-        uint256 finalUserBalance = mockToken.balanceOf(address(this));
-
-        assertEq(actualAmountReceived, escrowAmount);
-        assertEq(finalContractBalance, initialContractBalance + escrowAmount);
-        assertEq(finalUserBalance, initialUserBalance - escrowAmount);
-    }
-
-    function testEscrowPaymentWithDifferentAmounts() public {
-        MockERC20 mockToken = new MockERC20();
-        address tokenAddress = address(mockToken);
-        address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1 USD
-
-        _wrapper.setPaymentAsset(
-            tokenAddress,
-            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
-        );
-
-        uint248[] memory testAmounts = new uint248[](3);
-        testAmounts[0] = 1 ether;
-        testAmounts[1] = 500 ether;
-        testAmounts[2] = 1000000 ether;
-
-        uint256 length = testAmounts.length;
-
-        for (uint256 i = 0; i < length; ++i) {
-            uint248 escrowAmount = testAmounts[i];
-
-            mockToken.mint(address(this), escrowAmount);
-            mockToken.approve(address(_wrapper), escrowAmount);
-
-            uint256 initialContractBalance = mockToken.balanceOf(address(_wrapper));
-
-            (uint248 actualAmountReceived,) = _wrapper.escrowPayment(tokenAddress, escrowAmount);
-
-            uint256 finalContractBalance = mockToken.balanceOf(address(_wrapper));
-
-            assertEq(actualAmountReceived, escrowAmount);
-            assertEq(finalContractBalance, initialContractBalance + escrowAmount);
-        }
-    }
-
-    function testEscrowPaymentUnsupportedAsset() public {
-        address unsupportedAsset = address(0x9999);
-        uint248 escrowAmount = 1000e18;
-
-        vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
-        _wrapper.escrowPayment(unsupportedAsset, escrowAmount);
-    }
-
-    function testEscrowPaymentZeroAmount() public {
-        MockERC20 mockToken = new MockERC20();
-        address tokenAddress = address(mockToken);
-        address priceFeed = address(new MockV3Aggregator(8, 1e8)); // 1 USD
-
-        _wrapper.setPaymentAsset(
-            tokenAddress,
-            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
-        );
-
-        mockToken.mint(address(this), 1000e18);
-        mockToken.approve(address(_wrapper), 1000e18);
-
-        (uint248 actualAmountReceived,) = _wrapper.escrowPayment(tokenAddress, 0);
-
-        assertEq(actualAmountReceived, 0);
     }
 }

@@ -3,8 +3,12 @@ pragma solidity 0.8.28;
 
 /// @title EscrowPayment
 library EscrowPayment {
+    error TransactionNotAuthorized();
+    error TransactionHashMismatch();
+
     /// @notice Transaction struct
     /// @dev The transaction struct is not meant to be stored
+
     // solhint-disable-next-line gas-struct-packing
     struct Transaction {
         /// @notice The asset being transferred
@@ -50,5 +54,26 @@ library EscrowPayment {
     {
         transactionHash = generateTransactionHash(transaction, escrowPaymentStorage.nonce);
         escrowPaymentStorage.transactionNonces[transactionHash] = escrowPaymentStorage.nonce;
+    }
+
+    /// @notice complete authorized transaction from the escrow
+    /// @param escrowPaymentStorage The storage of the escrow payment
+    /// @param transaction The transaction to pull the payment from
+    /// @param transactionHash the authorized transaction hash
+    function completeAuthorizedTransaction(
+        EscrowPaymentStorage storage escrowPaymentStorage,
+        Transaction memory transaction,
+        bytes32 transactionHash
+    ) internal {
+        uint248 transactionNonce = escrowPaymentStorage.transactionNonces[transactionHash];
+        if (transactionNonce == 0) revert TransactionNotAuthorized();
+
+        bytes32 expectedTransactionHash = generateTransactionHash(transaction, transactionNonce);
+
+        if (transactionHash != expectedTransactionHash) {
+            revert TransactionHashMismatch();
+        }
+
+        escrowPaymentStorage.transactionNonces[transactionHash] = 0;
     }
 }

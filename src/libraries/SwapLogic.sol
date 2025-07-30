@@ -215,15 +215,6 @@ library SwapLogic {
         }
     }
 
-    /// @notice Approves the router to spend the source token from the swap path
-    /// @param router the uniswap v3 router address
-    /// @param path the swap path
-    /// @param amount the amount to approve
-    function _approveRouterForSwap(address router, bytes memory path, uint256 amount) internal {
-        address tokenIn = extractPathOriginAsset(path);
-        IERC20(tokenIn).safeIncreaseAllowance(router, amount);
-    }
-
     /// @notice does swap with uniswap v3 router using exact input amount
     /// @param router the uniswap v3 router address
     /// @param path the path to swap
@@ -236,8 +227,8 @@ library SwapLogic {
         internal
         returns (uint256 amountOut)
     {
-        _approveRouterForSwap(router, path, amountIn);
-
+        address tokenIn = extractPathOriginAsset(path);
+        IERC20(tokenIn).safeIncreaseAllowance(router, amountIn);
         ISwapRouter.ExactInputParams memory params =
             ISwapRouter.ExactInputParams(path, recipient, block.timestamp, amountIn, MIN_AMOUNT_OUT);
         amountOut = ISwapRouter(router).exactInput(params);

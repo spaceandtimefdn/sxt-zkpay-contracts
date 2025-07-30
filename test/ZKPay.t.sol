@@ -16,6 +16,7 @@ import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 import {PayWallLogic} from "../src/libraries/PayWallLogic.sol";
 import {EscrowPayment} from "../src/libraries/EscrowPayment.sol";
 import {IZKPay} from "../src/interfaces/IZKPay.sol";
+import {PaymentLogic} from "../src/modules/PaymentLogic.sol";
 
 contract ZKPayTest is Test {
     ZKPay public zkpay;
@@ -298,7 +299,7 @@ contract ZKPayTest is Test {
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
 
-        vm.expectRevert(ZKPay.ZeroAmountReceived.selector);
+        vm.expectRevert(PaymentLogic.ZeroAmountReceived.selector);
         zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
 
         amount = 1;
@@ -511,7 +512,7 @@ contract ZKPayTest is Test {
         vm.prank(merchant);
         zkpay.setPaywallItemPrice(itemId, itemPrice);
 
-        vm.expectRevert(ZKPay.InsufficientPayment.selector);
+        vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
         zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 }

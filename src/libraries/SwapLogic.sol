@@ -176,12 +176,25 @@ library SwapLogic {
         return _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant];
     }
 
+    /// @notice get the payout asset address for a merchant by extracting it from their target asset path
+    /// @param _swapLogicStorage the storage of the swap logic
+    /// @param merchant the address of the merchant
+    /// @return payoutAsset the address of the merchant's payout asset
+    function getMerchantPayoutAsset(SwapLogicStorage storage _swapLogicStorage, address merchant)
+        internal
+        view
+        returns (address payoutAsset)
+    {
+        bytes storage targetAssetPath = _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant];
+        payoutAsset = extractPathDestinationAsset(targetAssetPath);
+    }
+
     /// @notice connect two paths (path1 -> path2)
     /// @param path1 the first path
     /// @param path2 the second path
     /// @return result the connected path
     /// @dev this function assumes the paths are valid and does not check for it for better gas performance. use isValidPath to check for validity
-    function connect2Paths(bytes memory path1, bytes memory path2) internal pure returns (bytes memory result) {
+    function _connect2Paths(bytes memory path1, bytes memory path2) internal pure returns (bytes memory result) {
         address firstPathTokenOut = extractPathDestinationAsset(path1);
         address secondPathTokenIn = extractPathOriginAsset(path2);
 
@@ -202,25 +215,45 @@ library SwapLogic {
         }
     }
 
-    /// @notice does swap with uniswap v3 router
-    /// @param _swapLogicStorage the storage of the swap logic
+    /// @notice does swap with uniswap v3 router using exact input amount
+    /// @param router the uniswap v3 router address
     /// @param path the path to swap
     /// @param amountIn the amount of the source asset to swap
     /// @param recipient the recipient of the destination asset
     /// @return amountOut the amount of the destination asset received
     /// @dev this function assumes the path is >= 1 hop valid path, make sure validate the path before calling this function
     /// @dev the contract that implements this library should hold `amountIn` of the source asset
-    function swap(SwapLogicStorage storage _swapLogicStorage, bytes memory path, uint256 amountIn, address recipient)
+    function _swapExactAmountIn(address router, bytes memory path, uint256 amountIn, address recipient)
         internal
         returns (uint256 amountOut)
     {
-        address router = _swapLogicStorage.swapLogicConfig.router;
         address tokenIn = extractPathOriginAsset(path);
-
         IERC20(tokenIn).safeIncreaseAllowance(router, amountIn);
-
         ISwapRouter.ExactInputParams memory params =
             ISwapRouter.ExactInputParams(path, recipient, block.timestamp, amountIn, MIN_AMOUNT_OUT);
         amountOut = ISwapRouter(router).exactInput(params);
+    }
+
+    /// @notice Swaps source asset to merchant target asset using exact source amount, returns swap results without handling transfers
+    /// @param _swapLogicStorage the storage of the swap logic
+    /// @param sourceAsset the source asset to swap from
+    /// @param merchant the merchant address to get target asset path
+    /// @param targetAssetRecipient the recipient of the target asset
+    /// @return receivedTargetAssetAmount the amount of received target asset tokens from the swapping router
+    function swapExactSourceAssetAmount(
+        SwapLogicStorage storage _swapLogicStorage,
+        address sourceAsset,
+        address merchant,
+        uint256 sourceAssetAmountIn,
+        address targetAssetRecipient
+    ) internal returns (uint256 receivedTargetAssetAmount) {
+        bytes memory swapPath = _connect2Paths(
+            _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset],
+            _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant]
+        );
+
+        receivedTargetAssetAmount = _swapExactAmountIn(
+            _swapLogicStorage.swapLogicConfig.router, swapPath, sourceAssetAmountIn, targetAssetRecipient
+        );
     }
 }

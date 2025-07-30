@@ -275,7 +275,7 @@ contract SwapLogicWrapper {
     }
 
     function swap(bytes memory path, uint256 amountIn, address recipient) public returns (uint256 amountOut) {
-        return SwapLogic._swapExactSourceAmount(_swapLogicStorage.swapLogicConfig.router, path, amountIn, recipient);
+        return SwapLogic._swapExactAmountIn(_swapLogicStorage.swapLogicConfig.router, path, amountIn, recipient);
     }
 
     function calldataExtractPathDestinationAsset(bytes calldata path) external pure returns (address) {

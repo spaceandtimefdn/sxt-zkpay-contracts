@@ -92,7 +92,7 @@ library PaymentLogic {
         AssetManagement.transferAssetFromCaller(asset, transferAmount, address(this));
 
         uint256 receivedTargetAssetAmount =
-            _swapLogicStorage.swapExactAmountIn(asset, merchant, transferAmount, merchant);
+            _swapLogicStorage.swapExactSourceAssetAmount(asset, merchant, transferAmount, merchant);
 
         uint248 amountInUSD = _assets.convertToUsd(asset, transferAmount);
 
@@ -115,14 +115,14 @@ library PaymentLogic {
         EscrowPayment.EscrowPaymentStorage storage _escrowPaymentStorage,
         SwapLogic.SwapLogicStorage storage _swapLogicStorage,
         mapping(address => AssetManagement.PaymentAsset) storage _assets,
+        address treasury,
+        address sxt,
         address sourceAsset,
         uint248 sourceAssetAmount,
         address from,
         address merchant,
         bytes32 transactionHash,
-        uint248 maxUsdValueOfTargetToken,
-        address treasury,
-        address sxt
+        uint248 maxUsdValueOfTargetToken
     ) internal {
         _escrowPaymentStorage.completeAuthorizedTransaction(
             EscrowPayment.Transaction({asset: sourceAsset, amount: sourceAssetAmount, from: from, to: merchant}),
@@ -135,7 +135,7 @@ library PaymentLogic {
 
         // pay merchant
         (uint256 receivedTargetAssetAmount) =
-            _swapLogicStorage.swapExactAmountIn(sourceAsset, merchant, toBePaidInSourceToken, merchant);
+            _swapLogicStorage.swapExactSourceAssetAmount(sourceAsset, merchant, toBePaidInSourceToken, merchant);
 
         uint248 receivedRefundAmount = AssetManagement.transferAsset(sourceAsset, toBeRefundedInSourceToken, from); // refund client
         uint248 receivedProtocolFeeAmount =

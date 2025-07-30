@@ -223,7 +223,7 @@ library SwapLogic {
     /// @return amountOut the amount of the destination asset received
     /// @dev this function assumes the path is >= 1 hop valid path, make sure validate the path before calling this function
     /// @dev the contract that implements this library should hold `amountIn` of the source asset
-    function _swapExactSourceAmount(address router, bytes memory path, uint256 amountIn, address recipient)
+    function _swapExactAmountIn(address router, bytes memory path, uint256 amountIn, address recipient)
         internal
         returns (uint256 amountOut)
     {
@@ -240,7 +240,7 @@ library SwapLogic {
     /// @param merchant the merchant address to get target asset path
     /// @param targetAssetRecipient the recipient of the target asset
     /// @return receivedTargetAssetAmount the amount of received target asset tokens from the swapping router
-    function swapExactAmountIn(
+    function swapExactSourceAssetAmount(
         SwapLogicStorage storage _swapLogicStorage,
         address sourceAsset,
         address merchant,
@@ -252,7 +252,7 @@ library SwapLogic {
             _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant]
         );
 
-        receivedTargetAssetAmount = _swapExactSourceAmount(
+        receivedTargetAssetAmount = _swapExactAmountIn(
             _swapLogicStorage.swapLogicConfig.router, swapPath, sourceAssetAmountIn, targetAssetRecipient
         );
     }

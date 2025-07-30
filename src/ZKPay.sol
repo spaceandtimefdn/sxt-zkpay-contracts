@@ -232,14 +232,14 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
             _escrowPaymentStorage,
             _swapLogicStorage,
             _assets,
+            _treasury,
+            _sxt,
             sourceAsset,
             sourceAssetAmount,
             from,
             merchant,
             transactionHash,
-            maxUsdValueOfTargetToken,
-            _treasury,
-            _sxt
+            maxUsdValueOfTargetToken
         );
     }
 

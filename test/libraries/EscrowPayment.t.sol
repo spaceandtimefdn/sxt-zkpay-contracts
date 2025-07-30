@@ -31,6 +31,12 @@ contract EscrowPaymentWrapper {
     function setNonce(uint248 nonce) external {
         _escrowPaymentStorage.nonce = nonce;
     }
+
+    function completeAuthorizedTransaction(EscrowPayment.Transaction calldata transaction, bytes32 transactionHash)
+        external
+    {
+        EscrowPayment.completeAuthorizedTransaction(_escrowPaymentStorage, transaction, transactionHash);
+    }
 }
 
 contract EscrowPaymentTest is Test {
@@ -175,5 +181,68 @@ contract EscrowPaymentTest is Test {
 
         assertEq(_wrapper.getNonce(), 1);
         assertEq(_wrapper.getTransactionNonce(expectedHash), 1);
+    }
+
+    function testCompleteAuthorizedTransaction() public {
+        bytes32 transactionHash = _wrapper.generateTransactionHash(_sampleTransaction, 1);
+        _wrapper.authorize(_sampleTransaction);
+
+        assertEq(_wrapper.getTransactionNonce(transactionHash), 1);
+
+        _wrapper.completeAuthorizedTransaction(_sampleTransaction, transactionHash);
+
+        assertEq(_wrapper.getTransactionNonce(transactionHash), 0);
+    }
+
+    function testCompleteAuthorizedTransactionNotAuthorized() public {
+        bytes32 transactionHash = _wrapper.generateTransactionHash(_sampleTransaction, 1);
+
+        vm.expectRevert(EscrowPayment.TransactionNotAuthorized.selector);
+        _wrapper.completeAuthorizedTransaction(_sampleTransaction, transactionHash);
+    }
+
+    function testCompleteAuthorizedTransactionHashMismatch() public {
+        bytes32 transactionHash = _wrapper.generateTransactionHash(_sampleTransaction, 1);
+        _wrapper.authorize(_sampleTransaction);
+
+        EscrowPayment.Transaction memory differentTransaction = EscrowPayment.Transaction({
+            asset: address(0x1234),
+            amount: 2000,
+            from: address(0x5678),
+            to: address(0x9abc)
+        });
+
+        vm.expectRevert(EscrowPayment.TransactionHashMismatch.selector);
+        _wrapper.completeAuthorizedTransaction(differentTransaction, transactionHash);
+    }
+
+    function testCompleteAuthorizedTransactionMultiple() public {
+        bytes32 hash1 = _wrapper.generateTransactionHash(_sampleTransaction, 1);
+        _wrapper.authorize(_sampleTransaction);
+
+        EscrowPayment.Transaction memory transaction2 =
+            EscrowPayment.Transaction({asset: address(0x1111), amount: 200, from: address(0x2222), to: address(0x3333)});
+        bytes32 hash2 = _wrapper.generateTransactionHash(transaction2, 2);
+        _wrapper.authorize(transaction2);
+
+        assertEq(_wrapper.getTransactionNonce(hash1), 1);
+        assertEq(_wrapper.getTransactionNonce(hash2), 2);
+
+        _wrapper.completeAuthorizedTransaction(_sampleTransaction, hash1);
+        assertEq(_wrapper.getTransactionNonce(hash1), 0);
+        assertEq(_wrapper.getTransactionNonce(hash2), 2);
+
+        _wrapper.completeAuthorizedTransaction(transaction2, hash2);
+        assertEq(_wrapper.getTransactionNonce(hash2), 0);
+    }
+
+    function testCompleteAuthorizedTransactionAlreadyCompleted() public {
+        bytes32 transactionHash = _wrapper.generateTransactionHash(_sampleTransaction, 1);
+        _wrapper.authorize(_sampleTransaction);
+
+        _wrapper.completeAuthorizedTransaction(_sampleTransaction, transactionHash);
+
+        vm.expectRevert(EscrowPayment.TransactionNotAuthorized.selector);
+        _wrapper.completeAuthorizedTransaction(_sampleTransaction, transactionHash);
     }
 }

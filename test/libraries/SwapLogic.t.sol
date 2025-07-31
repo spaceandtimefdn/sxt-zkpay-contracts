@@ -221,7 +221,7 @@ contract SwapLogicTest is Test {
 
         bytes memory sourcePath = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT); // source -> USDT; 43 bytes
         bytes memory destinationPath = abi.encodePacked(USDT, bytes3(0x102030), destinationAsset); // USDT -> destination; 43 bytes
-        bytes memory result = SwapLogic.connect2Paths(sourcePath, destinationPath); // source -> USDT -> destination; 66 bytes
+        bytes memory result = SwapLogic._connect2Paths(sourcePath, destinationPath); // source -> USDT -> destination; 66 bytes
 
         assertEq(result.length, 66);
         assertEq(SwapLogic.extractPathOriginAsset(result), SOURCE_ASSET);
@@ -233,13 +233,13 @@ contract SwapLogicTest is Test {
         bytes memory path1 = abi.encodePacked(SOURCE_ASSET);
         bytes memory path2 = abi.encodePacked(address(0xDEAD));
         vm.expectRevert(SwapLogic.PathsDoNotConnect.selector);
-        SwapLogic.connect2Paths(path1, path2);
+        SwapLogic._connect2Paths(path1, path2);
     }
 
     function testConnect2PathsBothSingleAsset() public pure {
         bytes memory path1 = abi.encodePacked(SOURCE_ASSET);
         bytes memory path2 = abi.encodePacked(SOURCE_ASSET);
-        bytes memory result = SwapLogic.connect2Paths(path1, path2);
+        bytes memory result = SwapLogic._connect2Paths(path1, path2);
         assertEq(result, path1);
     }
 
@@ -247,15 +247,25 @@ contract SwapLogicTest is Test {
         address destinationAsset = address(0x4444);
         bytes memory path1 = abi.encodePacked(USDT);
         bytes memory path2 = abi.encodePacked(USDT, bytes3(0x102030), destinationAsset);
-        bytes memory result = SwapLogic.connect2Paths(path1, path2);
+        bytes memory result = SwapLogic._connect2Paths(path1, path2);
         assertEq(result, path2);
     }
 
     function testConnect2PathsSecondSingleAsset() public pure {
         bytes memory path1 = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
         bytes memory path2 = abi.encodePacked(USDT);
-        bytes memory result = SwapLogic.connect2Paths(path1, path2);
+        bytes memory result = SwapLogic._connect2Paths(path1, path2);
         assertEq(result, path1);
+    }
+
+    function testGetMerchantPayoutAsset() public {
+        address payoutAsset = address(0x5555);
+        bytes memory merchantPath = abi.encodePacked(USDT, bytes3(0x102030), payoutAsset);
+
+        this._setMerchantTargetAssetPath(MERCHANT, merchantPath);
+
+        address retrievedPayoutAsset = SwapLogic.getMerchantPayoutAsset(_swapLogicStorage, MERCHANT);
+        assertEq(retrievedPayoutAsset, payoutAsset);
     }
 }
 
@@ -281,8 +291,11 @@ contract SwapLogicWrapper {
             SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT, defaultTargetAssetPath: defaultTargetAssetPath});
     }
 
-    function swap(bytes memory path, uint256 amountIn, address recipient) public returns (uint256 amountOut) {
-        return SwapLogic.swap(_swapLogicStorage, path, amountIn, recipient);
+    function _swapExactAmountIn(bytes memory path, uint256 amountIn, address recipient)
+        public
+        returns (uint256 amountOut)
+    {
+        return SwapLogic._swapExactAmountIn(ROUTER, path, amountIn, recipient);
     }
 
     function calldataExtractPathDestinationAsset(bytes calldata path) external pure returns (address) {
@@ -291,6 +304,25 @@ contract SwapLogicWrapper {
 
     function calldataExtractPathOriginAsset(bytes calldata path) external pure returns (address) {
         return SwapLogic.calldataExtractPathOriginAsset(path);
+    }
+
+    function setSourceAssetPath(address sourceAsset, bytes calldata path) external {
+        _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset] = path;
+    }
+
+    function setMerchantTargetAssetPath(address merchant, bytes calldata path) external {
+        _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant] = path;
+    }
+
+    function swapExactSourceAssetAmount(
+        address sourceAsset,
+        address merchant,
+        uint256 sourceAssetAmountIn,
+        address targetAssetRecipient
+    ) external returns (uint256 receivedTargetAssetAmount) {
+        return SwapLogic.swapExactSourceAssetAmount(
+            _swapLogicStorage, sourceAsset, merchant, sourceAssetAmountIn, targetAssetRecipient
+        );
     }
 }
 
@@ -312,7 +344,7 @@ contract SwapLogicSwapTest is Test {
         // deal wrapper amountIn of sxt
         deal(wrapper.SXT(), address(wrapper), amountIn);
 
-        uint256 amountOut = wrapper.swap(path, amountIn, recipient);
+        uint256 amountOut = wrapper._swapExactAmountIn(path, amountIn, recipient);
         assertGt(IERC20(wrapper.USDT()).balanceOf(recipient), 0);
         assertEq(IERC20(wrapper.USDT()).balanceOf(recipient), amountOut);
     }
@@ -328,8 +360,30 @@ contract SwapLogicSwapTest is Test {
         // deal wrapper amountIn of sxt
         deal(wrapper.SXT(), address(wrapper), amountIn);
 
-        uint256 amountOut = wrapper.swap(path, amountIn, recipient);
+        uint256 amountOut = wrapper._swapExactAmountIn(path, amountIn, recipient);
         assertGt(IERC20(wrapper.USDC()).balanceOf(recipient), 0);
         assertEq(IERC20(wrapper.USDC()).balanceOf(recipient), amountOut);
+    }
+
+    function testSwapExactSourceAssetAmount() public {
+        address merchant = address(0x1234);
+        address sourceAsset = wrapper.SXT();
+        address targetAsset = wrapper.USDC();
+        wrapper.setSourceAssetPath(sourceAsset, abi.encodePacked(sourceAsset, bytes3(uint24(3000)), wrapper.USDT()));
+        wrapper.setMerchantTargetAssetPath(
+            merchant, abi.encodePacked(wrapper.USDT(), bytes3(uint24(3000)), targetAsset)
+        );
+
+        uint256 amountIn = 100e18; // 100 SXT
+        address recipient = address(0x5678);
+
+        assertEq(IERC20(sourceAsset).balanceOf(address(wrapper)), 0);
+        deal(sourceAsset, address(wrapper), amountIn);
+
+        uint256 receivedTargetAssetAmount =
+            wrapper.swapExactSourceAssetAmount(sourceAsset, merchant, amountIn, recipient);
+        assertGt(IERC20(targetAsset).balanceOf(recipient), 0);
+        assertEq(IERC20(targetAsset).balanceOf(recipient), receivedTargetAssetAmount);
+        assertEq(IERC20(sourceAsset).balanceOf(address(wrapper)), 0);
     }
 }

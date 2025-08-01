@@ -262,4 +262,38 @@ library AssetManagement {
     {
         (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, address(this), amount);
     }
+
+    /// @notice Transfers asset to recipient and returns actual amount received
+    /// @param asset The address of the asset to transfer
+    /// @param amount The amount to transfer
+    /// @param recipient The recipient of the transfer
+    /// @return amountReceived The amount actually received by recipient
+    function transferAsset(address asset, uint248 amount, address recipient)
+        internal
+        returns (uint248 amountReceived)
+    {
+        if (amount == 0) return 0;
+        IERC20 token = IERC20(asset);
+        uint256 beforeBalance = token.balanceOf(recipient);
+        token.safeTransfer(recipient, amount);
+        uint256 afterBalance = token.balanceOf(recipient);
+        amountReceived = uint248(afterBalance - beforeBalance);
+    }
+
+    /// @notice Transfers asset from `from` to `recipient` and returns actual amount received
+    /// @param asset The address of the asset to transfer
+    /// @param amount The amount to transfer
+    /// @param recipient The recipient of the transfer
+    /// @return amountReceived The amount actually received by recipient
+    function transferAssetFromCaller(address asset, uint248 amount, address recipient)
+        internal
+        returns (uint248 amountReceived)
+    {
+        if (amount == 0) return 0;
+        IERC20 token = IERC20(asset);
+        uint256 beforeBalance = token.balanceOf(recipient);
+        token.safeTransferFrom(msg.sender, recipient, amount);
+        uint256 afterBalance = token.balanceOf(recipient);
+        amountReceived = uint248(afterBalance - beforeBalance);
+    }
 }

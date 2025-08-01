@@ -10,6 +10,7 @@ extra_output = ["storageLayout"]
 fs_permissions = [{ access = "read-write", path = "./" }]
 optimizer = true
 optimizer_runs = 2000
+via_ir = true
 # Only show coverage for files that do not match the specified regex pattern.
 no_match_coverage = "test/mocks/**|script/**"
 

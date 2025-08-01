@@ -95,11 +95,19 @@ contract AssetManagementTestWrapper {
     }
 }
 
+contract TransferHelper {
+    function transferAssetFromCaller(address asset, uint248 amount, address recipient) external returns (uint248) {
+        return AssetManagement.transferAssetFromCaller(asset, amount, recipient);
+    }
+}
+
 contract AssetManagementTest is Test {
     AssetManagementTestWrapper internal _wrapper;
+    TransferHelper internal _transferHelper;
 
     function setUp() public {
         _wrapper = new AssetManagementTestWrapper();
+        _transferHelper = new TransferHelper();
     }
 
     function testFuzzSet(address asset, uint8 tokenDecimals, uint64 stalePriceThresholdInSeconds) public {
@@ -389,6 +397,66 @@ contract AssetManagementTest is Test {
         mockToken.approve(address(_wrapper), 1000e18);
 
         (uint248 actualAmountReceived,) = _wrapper.escrowPayment(tokenAddress, 0);
+
+        assertEq(actualAmountReceived, 0);
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testTransferAsset() public {
+        MockERC20 mockToken = new MockERC20();
+        address tokenAddress = address(mockToken);
+        address recipient = address(0x1234);
+        uint248 transferAmount = 1000e18;
+
+        mockToken.mint(address(this), transferAmount);
+
+        uint256 initialRecipientBalance = mockToken.balanceOf(recipient);
+        uint256 initialTestBalance = mockToken.balanceOf(address(this));
+
+        uint248 actualAmountReceived = AssetManagement.transferAsset(tokenAddress, transferAmount, recipient);
+
+        uint256 finalRecipientBalance = mockToken.balanceOf(recipient);
+        uint256 finalTestBalance = mockToken.balanceOf(address(this));
+
+        assertEq(actualAmountReceived, transferAmount);
+        assertEq(finalRecipientBalance, initialRecipientBalance + transferAmount);
+        assertEq(finalTestBalance, initialTestBalance - transferAmount);
+    }
+
+    function testTransferAssetZeroAmount() public {
+        MockERC20 mockToken = new MockERC20();
+        address tokenAddress = address(mockToken);
+        address recipient = address(0x1234);
+
+        uint248 actualAmountReceived = AssetManagement.transferAsset(tokenAddress, 0, recipient);
+
+        assertEq(actualAmountReceived, 0);
+    }
+
+    function testTransferAssetFromCaller() public {
+        MockERC20 mockToken = new MockERC20();
+        address tokenAddress = address(mockToken);
+        address recipient = address(0x1234);
+        uint248 transferAmount = 1000e18;
+
+        mockToken.mint(address(this), transferAmount);
+        mockToken.approve(address(_transferHelper), transferAmount);
+
+        uint256 initialRecipientBalance = mockToken.balanceOf(recipient);
+        uint256 initialCallerBalance = mockToken.balanceOf(address(this));
+
+        uint248 actualAmountReceived = _transferHelper.transferAssetFromCaller(tokenAddress, transferAmount, recipient);
+
+        uint256 finalRecipientBalance = mockToken.balanceOf(recipient);
+        uint256 finalCallerBalance = mockToken.balanceOf(address(this));
+
+        assertEq(actualAmountReceived, transferAmount);
+        assertEq(finalRecipientBalance, initialRecipientBalance + transferAmount);
+        assertEq(finalCallerBalance, initialCallerBalance - transferAmount);
+    }
+
+    function testTransferAssetFromCallerZeroAmount() public {
+        uint248 actualAmountReceived = AssetManagement.transferAssetFromCaller(address(0x1234), 0, address(0x5678));
 
         assertEq(actualAmountReceived, 0);
     }

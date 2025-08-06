@@ -3,9 +3,14 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {PaymentLogic} from "../../src/module/PaymentLogic.sol";
+import {PayWallLogic} from "../../src/libraries/PayWallLogic.sol";
 import {PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "../../src/libraries/Constants.sol";
 
 contract PaymentLogicTestWrapper {
+    using PayWallLogic for PayWallLogic.PayWallLogicStorage;
+
+    PayWallLogic.PayWallLogicStorage internal _paywallStorage;
+
     function calculateProtocolFee(address asset, uint248 amount, address sxt)
         external
         pure
@@ -13,12 +18,22 @@ contract PaymentLogicTestWrapper {
     {
         return PaymentLogic._calculateProtocolFee(asset, amount, sxt);
     }
+
+    function setItemPrice(address merchant, bytes32 itemId, uint248 price) external {
+        _paywallStorage.setItemPrice(merchant, itemId, price);
+    }
+
+    function validateItemPrice(address merchant, bytes32 itemId, uint248 amountInUSD) external view {
+        PaymentLogic._validateItemPrice(_paywallStorage, merchant, itemId, amountInUSD);
+    }
 }
 
 contract PaymentLogicTest is Test {
     PaymentLogicTestWrapper internal _wrapper;
     address internal constant SXT_TOKEN = address(0x1);
     address internal constant OTHER_TOKEN = address(0x2);
+    address internal constant MERCHANT = address(0x3);
+    bytes32 internal constant ITEM_ID = keccak256("test_item");
 
     function setUp() public {
         _wrapper = new PaymentLogicTestWrapper();
@@ -94,5 +109,83 @@ contract PaymentLogicTest is Test {
             assertEq(remainingAmount, amount - expectedProtocolFee);
             assertEq(protocolFeeAmount + remainingAmount, amount);
         }
+    }
+
+    function testValidateItemPriceSuccess() public {
+        uint248 itemPrice = 100 ether;
+        uint248 paymentAmount = 150 ether;
+
+        _wrapper.setItemPrice(MERCHANT, ITEM_ID, itemPrice);
+        _wrapper.validateItemPrice(MERCHANT, ITEM_ID, paymentAmount);
+    }
+
+    function testValidateItemPriceExactAmount() public {
+        uint248 itemPrice = 100 ether;
+        uint248 paymentAmount = 100 ether;
+
+        _wrapper.setItemPrice(MERCHANT, ITEM_ID, itemPrice);
+        _wrapper.validateItemPrice(MERCHANT, ITEM_ID, paymentAmount);
+    }
+
+    function testValidateItemPriceInsufficientPayment() public {
+        uint248 itemPrice = 100 ether;
+        uint248 paymentAmount = 99 ether;
+
+        _wrapper.setItemPrice(MERCHANT, ITEM_ID, itemPrice);
+
+        vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
+        _wrapper.validateItemPrice(MERCHANT, ITEM_ID, paymentAmount);
+    }
+
+    function testValidateItemPriceZeroItemPrice() public {
+        uint248 itemPrice = 0;
+        uint248 paymentAmount = 1 ether;
+
+        _wrapper.setItemPrice(MERCHANT, ITEM_ID, itemPrice);
+        _wrapper.validateItemPrice(MERCHANT, ITEM_ID, paymentAmount);
+    }
+
+    function testValidateItemPriceZeroPaymentAmount() public {
+        uint248 itemPrice = 1 ether;
+        uint248 paymentAmount = 0;
+
+        _wrapper.setItemPrice(MERCHANT, ITEM_ID, itemPrice);
+
+        vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
+        _wrapper.validateItemPrice(MERCHANT, ITEM_ID, paymentAmount);
+    }
+
+    function testFuzzValidateItemPrice(address merchant, bytes32 itemId, uint248 itemPrice, uint248 paymentAmount)
+        public
+    {
+        _wrapper.setItemPrice(merchant, itemId, itemPrice);
+
+        if (paymentAmount >= itemPrice) {
+            _wrapper.validateItemPrice(merchant, itemId, paymentAmount);
+        } else {
+            vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
+            _wrapper.validateItemPrice(merchant, itemId, paymentAmount);
+        }
+    }
+
+    function testValidateItemPriceMultipleMerchants() public {
+        address merchant1 = address(0x4);
+        address merchant2 = address(0x5);
+        bytes32 itemId1 = keccak256("item1");
+        bytes32 itemId2 = keccak256("item2");
+        uint248 price1 = 50 ether;
+        uint248 price2 = 75 ether;
+
+        _wrapper.setItemPrice(merchant1, itemId1, price1);
+        _wrapper.setItemPrice(merchant2, itemId2, price2);
+
+        _wrapper.validateItemPrice(merchant1, itemId1, price1);
+        _wrapper.validateItemPrice(merchant2, itemId2, price2);
+
+        vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
+        _wrapper.validateItemPrice(merchant1, itemId1, price1 - 1);
+
+        vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
+        _wrapper.validateItemPrice(merchant2, itemId2, price2 - 1);
     }
 }

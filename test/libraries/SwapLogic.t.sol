@@ -5,13 +5,11 @@ import {Test} from "forge-std/Test.sol";
 import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
+import {RPC_URL, ROUTER, USDT, SXT, USDC, BLOCK_NUMBER} from "../data/MainnetConstants.sol";
 
 contract SwapLogicTest is Test {
     SwapLogic.SwapLogicStorage internal _swapLogicStorage;
 
-    address internal constant ROUTER = address(0x1111);
-    address internal constant USDT = address(0x2222);
-    address internal constant SXT = address(0x3333);
     address internal constant SOURCE_ASSET = address(0xAAAA);
     address internal constant MERCHANT = address(0xBBBB);
 
@@ -272,11 +270,6 @@ contract SwapLogicTest is Test {
 contract SwapLogicWrapper {
     SwapLogic.SwapLogicStorage internal _swapLogicStorage;
 
-    address public constant ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    address public constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
-    address public constant SXT = 0xE6Bfd33F52d82Ccb5b37E16D3dD81f9FFDAbB195;
-    address public constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-
     constructor() {
         // source paths
         _swapLogicStorage.assetSwapPaths.sourceAssetPaths[SXT] = abi.encodePacked(SXT, bytes3(uint24(3000)), USDT);
@@ -330,49 +323,45 @@ contract SwapLogicSwapTest is Test {
     SwapLogicWrapper internal wrapper;
 
     function setUp() public {
-        // solhint-disable-next-line gas-small-strings
-        vm.createSelectFork("https://ethereum-rpc.publicnode.com", 22790000); // mainnet fork
+        vm.createSelectFork(RPC_URL, BLOCK_NUMBER);
         wrapper = new SwapLogicWrapper();
     }
 
     function testSwapSXTtoUSDT() public {
-        bytes memory path = abi.encodePacked(wrapper.SXT(), bytes3(uint24(3000)), wrapper.USDT());
+        bytes memory path = abi.encodePacked(SXT, bytes3(uint24(3000)), USDT);
 
         uint256 amountIn = 100e18; // 100 SXT
         address recipient = address(0x1234);
 
         // deal wrapper amountIn of sxt
-        deal(wrapper.SXT(), address(wrapper), amountIn);
+        deal(SXT, address(wrapper), amountIn);
 
         uint256 amountOut = wrapper._swapExactAmountIn(path, amountIn, recipient);
-        assertGt(IERC20(wrapper.USDT()).balanceOf(recipient), 0);
-        assertEq(IERC20(wrapper.USDT()).balanceOf(recipient), amountOut);
+        assertGt(IERC20(USDT).balanceOf(recipient), 0);
+        assertEq(IERC20(USDT).balanceOf(recipient), amountOut);
     }
 
     // SXT -> USDT -> USDC
     function testSwapSXTtoUSDTtoUSDC() public {
-        bytes memory path =
-            abi.encodePacked(wrapper.SXT(), bytes3(uint24(3000)), wrapper.USDT(), bytes3(uint24(3000)), wrapper.USDC());
+        bytes memory path = abi.encodePacked(SXT, bytes3(uint24(3000)), USDT, bytes3(uint24(3000)), USDC);
 
         uint256 amountIn = 100e18; // 100 SXT
         address recipient = address(0x1234);
 
         // deal wrapper amountIn of sxt
-        deal(wrapper.SXT(), address(wrapper), amountIn);
+        deal(SXT, address(wrapper), amountIn);
 
         uint256 amountOut = wrapper._swapExactAmountIn(path, amountIn, recipient);
-        assertGt(IERC20(wrapper.USDC()).balanceOf(recipient), 0);
-        assertEq(IERC20(wrapper.USDC()).balanceOf(recipient), amountOut);
+        assertGt(IERC20(USDC).balanceOf(recipient), 0);
+        assertEq(IERC20(USDC).balanceOf(recipient), amountOut);
     }
 
     function testSwapExactSourceAssetAmount() public {
         address merchant = address(0x1234);
-        address sourceAsset = wrapper.SXT();
-        address targetAsset = wrapper.USDC();
-        wrapper.setSourceAssetPath(sourceAsset, abi.encodePacked(sourceAsset, bytes3(uint24(3000)), wrapper.USDT()));
-        wrapper.setMerchantTargetAssetPath(
-            merchant, abi.encodePacked(wrapper.USDT(), bytes3(uint24(3000)), targetAsset)
-        );
+        address sourceAsset = SXT;
+        address targetAsset = USDC;
+        wrapper.setSourceAssetPath(sourceAsset, abi.encodePacked(sourceAsset, bytes3(uint24(3000)), USDT));
+        wrapper.setMerchantTargetAssetPath(merchant, abi.encodePacked(USDT, bytes3(uint24(3000)), targetAsset));
 
         uint256 amountIn = 100e18; // 100 SXT
         address recipient = address(0x5678);

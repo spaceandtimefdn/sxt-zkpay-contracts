@@ -5,6 +5,12 @@ import {Test} from "forge-std/Test.sol";
 import {PaymentLogic} from "../../src/module/PaymentLogic.sol";
 import {PayWallLogic} from "../../src/libraries/PayWallLogic.sol";
 import {PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "../../src/libraries/Constants.sol";
+import {ZKPay} from "../../src/ZKPay.sol";
+import {AssetManagement} from "../../src/libraries/AssetManagement.sol";
+import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
+import {RPC_URL, ROUTER, USDT, SXT, USDC, BLOCK_NUMBER} from "../data/MainnetConstants.sol";
 
 contract PaymentLogicTestWrapper {
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
@@ -187,5 +193,129 @@ contract PaymentLogicTest is Test {
 
         vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
         _wrapper.validateItemPrice(merchant2, itemId2, price2 - 1);
+    }
+}
+
+contract PaymentLogicProcessPaymentWrapper {
+    using PaymentLogic for ZKPay.ZKPayStorage;
+    using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
+    using SwapLogic for SwapLogic.SwapLogicStorage;
+    using PayWallLogic for PayWallLogic.PayWallLogicStorage;
+
+    ZKPay.ZKPayStorage internal zkPayStorage;
+
+    address public constant TREASURY = address(0x9999);
+    address public constant MERCHANT = address(0x8888);
+
+    constructor() {
+        zkPayStorage.sxt = SXT;
+        zkPayStorage.treasury = TREASURY;
+
+        zkPayStorage.swapLogicStorage.swapLogicConfig =
+            SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT, defaultTargetAssetPath: abi.encodePacked(USDT)});
+
+        zkPayStorage.swapLogicStorage.assetSwapPaths.sourceAssetPaths[SXT] =
+            abi.encodePacked(SXT, bytes3(uint24(3000)), USDT);
+        zkPayStorage.swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[MERCHANT] =
+            abi.encodePacked(USDT, bytes3(uint24(3000)), USDC);
+
+        MockV3Aggregator sxtPriceFeed = new MockV3Aggregator(8, 1000000000);
+        AssetManagement.PaymentAsset memory sxtAsset = AssetManagement.PaymentAsset({
+            priceFeed: address(sxtPriceFeed),
+            tokenDecimals: 18,
+            stalePriceThresholdInSeconds: 3600
+        });
+        AssetManagement.set(zkPayStorage.assets, SXT, sxtAsset);
+    }
+
+    function processPayment(PaymentLogic.ProcessPaymentParams calldata params)
+        external
+        returns (
+            address payoutToken,
+            uint248 receivedProtocolFeeAmount,
+            uint248 amountInUSD,
+            uint256 recievedPayoutAmount
+        )
+    {
+        return PaymentLogic.processPayment(zkPayStorage, params);
+    }
+
+    function setItemPrice(address merchant, bytes32 itemId, uint248 price) external {
+        zkPayStorage.paywallLogicStorage.setItemPrice(merchant, itemId, price);
+    }
+}
+
+contract PaymentLogicProcessPaymentTest is Test {
+    using PaymentLogic for ZKPay.ZKPayStorage;
+    using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
+    using SwapLogic for SwapLogic.SwapLogicStorage;
+
+    PaymentLogicProcessPaymentWrapper internal wrapper;
+
+    address public constant TREASURY = address(0x9999);
+    address public constant MERCHANT = address(0x8888);
+
+    function setUp() public {
+        vm.createSelectFork(RPC_URL, BLOCK_NUMBER);
+        wrapper = new PaymentLogicProcessPaymentWrapper();
+    }
+
+    function testProcessPaymentSXTToUSDC() public {
+        uint248 amount = 100 ether;
+        bytes32 itemId = bytes32("test_item");
+
+        deal(SXT, address(this), amount);
+        IERC20(SXT).approve(address(wrapper), amount);
+
+        PaymentLogic.ProcessPaymentParams memory params =
+            PaymentLogic.ProcessPaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
+
+        try wrapper.processPayment(params) returns (
+            address payoutToken, uint248 receivedProtocolFeeAmount, uint248 amountInUSD, uint256 recievedPayoutAmount
+        ) {
+            assertEq(payoutToken, USDC);
+            assertEq(receivedProtocolFeeAmount, 0);
+            assertGt(amountInUSD, 0);
+            assertGt(recievedPayoutAmount, 0);
+            assertEq(IERC20(USDC).balanceOf(MERCHANT), recievedPayoutAmount);
+        } catch (bytes memory reason) {
+            emit log("Failed with reason:");
+            emit log_bytes(reason);
+            // solhint-disable-next-line gas-custom-errors
+            revert("processPayment failed");
+        }
+    }
+
+    function testProcessPaymentInsufficientPaymentReverts() public {
+        uint248 amount = 1 ether;
+        bytes32 itemId = bytes32("expensive_item");
+        uint248 itemPrice = 10000 ether;
+
+        wrapper.setItemPrice(MERCHANT, itemId, itemPrice);
+
+        deal(SXT, address(this), amount);
+        IERC20(SXT).approve(address(wrapper), amount);
+
+        PaymentLogic.ProcessPaymentParams memory params =
+            PaymentLogic.ProcessPaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
+
+        vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
+        wrapper.processPayment(params);
+    }
+
+    function testProcessPaymentUnsupportedAssetReverts() public {
+        uint248 amount = 100 ether;
+        bytes32 itemId = bytes32("test_item");
+        address unsupportedAsset = address(0xDEAD);
+
+        PaymentLogic.ProcessPaymentParams memory params = PaymentLogic.ProcessPaymentParams({
+            asset: unsupportedAsset,
+            amount: amount,
+            merchant: MERCHANT,
+            itemId: itemId
+        });
+
+        vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
+        wrapper.processPayment(params);
     }
 }

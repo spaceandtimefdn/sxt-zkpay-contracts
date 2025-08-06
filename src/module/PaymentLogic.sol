@@ -71,37 +71,39 @@ library PaymentLogic {
         bytes32 itemId;
     }
 
+    struct ProcessPaymentResult {
+        address payoutToken;
+        uint248 receivedProtocolFeeAmount;
+        uint248 amountInUSD;
+        uint256 recievedPayoutAmount;
+    }
+
     /// @notice Processes a direct payment with asset swapping to merchant's preferred payout token
     /// @param _zkPayStorage The ZKPay storage
     /// @param params The payment parameters struct
     function processPayment(ZKPay.ZKPayStorage storage _zkPayStorage, ProcessPaymentParams memory params)
         internal
         _validateAsset(_zkPayStorage.assets, params.asset)
-        returns (
-            address payoutToken,
-            uint248 receivedProtocolFeeAmount,
-            uint248 amountInUSD,
-            uint256 recievedPayoutAmount
-        )
+        returns (ProcessPaymentResult memory result)
     {
-        payoutToken = _zkPayStorage.swapLogicStorage.getMerchantPayoutAsset(params.merchant);
+        result.payoutToken = _zkPayStorage.swapLogicStorage.getMerchantPayoutAsset(params.merchant);
 
         (uint248 protocolFeeAmount, uint248 transferAmount) =
             _calculateProtocolFee(params.asset, params.amount, _zkPayStorage.sxt);
 
-        receivedProtocolFeeAmount =
+        result.receivedProtocolFeeAmount =
             AssetManagement.transferAssetFromCaller(params.asset, protocolFeeAmount, _zkPayStorage.treasury);
         uint248 receivedTransferAmount =
             AssetManagement.transferAssetFromCaller(params.asset, transferAmount, address(this));
 
         if (receivedTransferAmount > 0) {
-            recievedPayoutAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
+            result.recievedPayoutAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
                 params.asset, params.merchant, receivedTransferAmount, params.merchant
             );
         }
 
-        amountInUSD = _zkPayStorage.assets.convertToUsd(params.asset, receivedTransferAmount);
+        result.amountInUSD = _zkPayStorage.assets.convertToUsd(params.asset, receivedTransferAmount);
 
-        _validateItemPrice(_zkPayStorage.paywallLogicStorage, params.merchant, params.itemId, amountInUSD);
+        _validateItemPrice(_zkPayStorage.paywallLogicStorage, params.merchant, params.itemId, result.amountInUSD);
     }
 }

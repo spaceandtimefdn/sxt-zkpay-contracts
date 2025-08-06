@@ -230,12 +230,7 @@ contract PaymentLogicProcessPaymentWrapper {
 
     function processPayment(PaymentLogic.ProcessPaymentParams calldata params)
         external
-        returns (
-            address payoutToken,
-            uint248 receivedProtocolFeeAmount,
-            uint248 amountInUSD,
-            uint256 recievedPayoutAmount
-        )
+        returns (PaymentLogic.ProcessPaymentResult memory result)
     {
         return PaymentLogic.processPayment(zkPayStorage, params);
     }
@@ -270,14 +265,12 @@ contract PaymentLogicProcessPaymentTest is Test {
         PaymentLogic.ProcessPaymentParams memory params =
             PaymentLogic.ProcessPaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
 
-        try wrapper.processPayment(params) returns (
-            address payoutToken, uint248 receivedProtocolFeeAmount, uint248 amountInUSD, uint256 recievedPayoutAmount
-        ) {
-            assertEq(payoutToken, USDC);
-            assertEq(receivedProtocolFeeAmount, 0);
-            assertGt(amountInUSD, 0);
-            assertGt(recievedPayoutAmount, 0);
-            assertEq(IERC20(USDC).balanceOf(MERCHANT), recievedPayoutAmount);
+        try wrapper.processPayment(params) returns (PaymentLogic.ProcessPaymentResult memory result) {
+            assertEq(result.payoutToken, USDC);
+            assertEq(result.receivedProtocolFeeAmount, 0);
+            assertGt(result.amountInUSD, 0);
+            assertGt(result.recievedPayoutAmount, 0);
+            assertEq(IERC20(USDC).balanceOf(MERCHANT), result.recievedPayoutAmount);
         } catch (bytes memory reason) {
             emit log("Failed with reason:");
             emit log_bytes(reason);

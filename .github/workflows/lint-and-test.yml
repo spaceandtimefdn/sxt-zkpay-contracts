@@ -50,8 +50,14 @@ jobs:
       - name: Run tests
         run: |
           export OZ_NO_VALIDATE=true
-          forge clean && forge test --gas-price 1000000000
+          forge clean && forge test
         id: test
+
+      - name: Run tests with via-ir
+        run: |
+          export OZ_NO_VALIDATE=true
+          forge clean && forge test --via-ir
+        id: test-via-ir
 
       - name: Make coverage script executable
         run: chmod +x jobs/check_coverage.sh

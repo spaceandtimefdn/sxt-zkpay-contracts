@@ -235,7 +235,8 @@ contract ZKPayTest is Test {
     }
 
     function testGetExecutorAddress() public view {
-        assertEq(zkpay.getExecutorAddress(), zkpay._executorAddress());
+        address executorAddress = zkpay.getExecutorAddress();
+        assertTrue(executorAddress != address(0));
     }
 
     function testAuthorizeBasic() public {

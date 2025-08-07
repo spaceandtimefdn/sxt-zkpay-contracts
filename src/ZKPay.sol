@@ -5,7 +5,6 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
-import {ZKPayStorage} from "./ZKPayStorage.sol";
 import {IZKPay} from "./interfaces/IZKPay.sol";
 import {AssetManagement} from "./libraries/AssetManagement.sol";
 import {MerchantLogic} from "./libraries/MerchantLogic.sol";
@@ -17,7 +16,7 @@ import {IMerchantCallback} from "./interfaces/IMerchantCallback.sol";
 import {EscrowPayment} from "./libraries/EscrowPayment.sol";
 
 // slither-disable-next-line locked-ether
-contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
     using SwapLogic for SwapLogic.SwapLogicStorage;
@@ -31,6 +30,20 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     error ExecutorAddressCannotBeZero();
     error InvalidMerchant();
     error ZeroAmountReceived();
+
+    // solhint-disable-next-line gas-struct-packing
+    struct ZKPayStorage {
+        address sxt;
+        address treasury;
+        address executorAddress;
+        mapping(address asset => AssetManagement.PaymentAsset) assets;
+        mapping(address merchantAddress => MerchantLogic.MerchantConfig merchantConfig) merchantConfigs;
+        SwapLogic.SwapLogicStorage swapLogicStorage;
+        PayWallLogic.PayWallLogicStorage paywallLogicStorage;
+        EscrowPayment.EscrowPaymentStorage escrowPaymentStorage;
+    }
+
+    ZKPayStorage internal _zkPayStorage;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -49,18 +62,18 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         _setSXT(sxt);
         _deployExecutor();
 
-        _swapLogicStorage.setConfig(swapLogicConfig);
+        _zkPayStorage.swapLogicStorage.setConfig(swapLogicConfig);
     }
 
     function _deployExecutor() internal {
-        _executorAddress = address(new SafeExecutor());
+        _zkPayStorage.executorAddress = address(new SafeExecutor());
     }
 
     function _setSXT(address sxt) internal {
         if (sxt == ZERO_ADDRESS) {
             revert SXTAddressCannotBeZero();
         }
-        _sxt = sxt;
+        _zkPayStorage.sxt = sxt;
     }
 
     function _setTreasury(address treasury) internal {
@@ -68,11 +81,11 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
             revert TreasuryAddressCannotBeZero();
         }
 
-        if (treasury == _treasury) {
+        if (treasury == _zkPayStorage.treasury) {
             revert TreasuryAddressSameAsCurrent();
         }
 
-        _treasury = treasury;
+        _zkPayStorage.treasury = treasury;
         emit TreasurySet(treasury);
     }
 
@@ -83,17 +96,17 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
 
     /// @inheritdoc IZKPay
     function getTreasury() external view returns (address treasury) {
-        return _treasury;
+        return _zkPayStorage.treasury;
     }
 
     /// @inheritdoc IZKPay
     function getSXT() external view returns (address sxt) {
-        return _sxt;
+        return _zkPayStorage.sxt;
     }
 
     /// @inheritdoc IZKPay
     function getExecutorAddress() external view returns (address executor) {
-        return _executorAddress;
+        return _zkPayStorage.executorAddress;
     }
 
     /// @inheritdoc IZKPay
@@ -107,18 +120,18 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
             revert SwapLogic.InvalidPath();
         }
 
-        AssetManagement.set(_assets, assetAddress, paymentAsset);
-        _swapLogicStorage.setSourceAssetPath(path);
+        AssetManagement.set(_zkPayStorage.assets, assetAddress, paymentAsset);
+        _zkPayStorage.swapLogicStorage.setSourceAssetPath(path);
     }
 
     /// @inheritdoc IZKPay
     function removePaymentAsset(address asset) external onlyOwner {
-        AssetManagement.remove(_assets, asset);
+        AssetManagement.remove(_zkPayStorage.assets, asset);
     }
 
     /// @inheritdoc IZKPay
     function getPaymentAsset(address asset) external view returns (AssetManagement.PaymentAsset memory paymentAsset) {
-        return AssetManagement.get(_assets, asset);
+        return AssetManagement.get(_zkPayStorage.assets, asset);
     }
 
     function _validateMerchant(address merchant, address callbackContractAddress) internal view {
@@ -129,7 +142,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
     }
 
     function _validateItemPrice(address merchant, bytes32 itemId, uint248 amountInUSD) internal view {
-        uint248 itemPrice = _paywallLogicStorage.getItemPrice(merchant, itemId);
+        uint248 itemPrice = _zkPayStorage.paywallLogicStorage.getItemPrice(merchant, itemId);
         if (amountInUSD < itemPrice) {
             revert InsufficientPayment();
         }
@@ -144,7 +157,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         bytes32 itemId
     ) internal {
         (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
-            _assets.send(asset, amount, merchant, _treasury, _sxt);
+            _zkPayStorage.assets.send(asset, amount, merchant, _zkPayStorage.treasury, _zkPayStorage.sxt);
 
         _validateItemPrice(merchant, itemId, amountInUSD);
 
@@ -180,7 +193,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         _sendPayment(asset, amount, onBehalfOf, merchant, memo, itemId);
         _validateMerchant(merchant, callbackContractAddress);
 
-        SafeExecutor(_executorAddress).execute(callbackContractAddress, callbackData);
+        SafeExecutor(_zkPayStorage.executorAddress).execute(callbackContractAddress, callbackData);
     }
 
     /// @inheritdoc IZKPay
@@ -192,7 +205,7 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         bytes calldata memo,
         bytes32 itemId
     ) external nonReentrant returns (bytes32 transactionHash) {
-        (uint248 actualAmountReceived, uint248 amountInUSD) = _assets.escrowPayment(asset, amount);
+        (uint248 actualAmountReceived, uint248 amountInUSD) = _zkPayStorage.assets.escrowPayment(asset, amount);
 
         if (actualAmountReceived == 0) {
             revert ZeroAmountReceived();
@@ -203,29 +216,29 @@ contract ZKPay is ZKPayStorage, IZKPay, Initializable, OwnableUpgradeable, Reent
         EscrowPayment.Transaction memory transaction =
             EscrowPayment.Transaction({asset: asset, amount: actualAmountReceived, from: msg.sender, to: merchant});
 
-        transactionHash = EscrowPayment.authorize(_escrowPaymentStorage, transaction);
+        transactionHash = EscrowPayment.authorize(_zkPayStorage.escrowPaymentStorage, transaction);
 
         emit Authorized(transaction, transactionHash, onBehalfOf, memo, itemId);
     }
 
     /// @inheritdoc IZKPay
     function setMerchantConfig(MerchantLogic.MerchantConfig calldata config, bytes calldata path) external {
-        _merchantConfigs.set(msg.sender, config);
-        _swapLogicStorage.setMerchantTargetAssetPath(msg.sender, path);
+        _zkPayStorage.merchantConfigs.set(msg.sender, config);
+        _zkPayStorage.swapLogicStorage.setMerchantTargetAssetPath(msg.sender, path);
     }
 
     /// @inheritdoc IZKPay
     function getMerchantConfig(address merchant) external view returns (MerchantLogic.MerchantConfig memory config) {
-        return _merchantConfigs.get(merchant);
+        return _zkPayStorage.merchantConfigs.get(merchant);
     }
 
     /// @inheritdoc IZKPay
     function setPaywallItemPrice(bytes32 item, uint248 price) external {
-        _paywallLogicStorage.setItemPrice(msg.sender, item, price);
+        _zkPayStorage.paywallLogicStorage.setItemPrice(msg.sender, item, price);
     }
 
     /// @inheritdoc IZKPay
     function getPaywallItemPrice(bytes32 item, address merchant) external view returns (uint248 price) {
-        return _paywallLogicStorage.getItemPrice(merchant, item);
+        return _zkPayStorage.paywallLogicStorage.getItemPrice(merchant, item);
     }
 }

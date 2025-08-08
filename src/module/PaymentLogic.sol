@@ -6,6 +6,7 @@ import {PayWallLogic} from "../libraries/PayWallLogic.sol";
 import {ZKPay} from "../ZKPay.sol";
 import {SwapLogic} from "../libraries/SwapLogic.sol";
 import {AssetManagement} from "../libraries/AssetManagement.sol";
+import {EscrowPayment} from "../libraries/EscrowPayment.sol";
 
 /// @title PaymentLogic
 /// @notice Library for processing payments, authorizations, and settlements in the ZKPay protocol
@@ -14,8 +15,10 @@ library PaymentLogic {
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using SwapLogic for SwapLogic.SwapLogicStorage;
+    using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
 
     error InsufficientPayment();
+    error ZeroAmountReceived();
 
     /// @notice Modifier to validate that an asset is supported for payment operations
     /// @param _assets The assets mapping
@@ -105,5 +108,141 @@ library PaymentLogic {
         result.amountInUSD = _zkPayStorage.assets.convertToUsd(params.asset, receivedTransferAmount);
 
         _validateItemPrice(_zkPayStorage.paywallLogicStorage, params.merchant, params.itemId, result.amountInUSD);
+    }
+
+    struct AuthorizePaymentParams {
+        address asset;
+        uint248 amount;
+        address merchant;
+        bytes32 itemId;
+    }
+
+    /// @notice Authorizes a payment by transferring assets to escrow
+    /// @param _zkPayStorage The ZKPay storage
+    /// @param params The payment parameters struct
+    /// @return transactionHash The hash of the authorized transaction
+    function authorizePayment(ZKPay.ZKPayStorage storage _zkPayStorage, AuthorizePaymentParams memory params)
+        internal
+        _validateAsset(_zkPayStorage.assets, params.asset)
+        returns (bytes32 transactionHash)
+    {
+        uint248 actualAmountReceived =
+            AssetManagement.transferAssetFromCaller(params.asset, params.amount, address(this));
+        uint248 amountInUSD = _zkPayStorage.assets.convertToUsd(params.asset, actualAmountReceived);
+
+        if (actualAmountReceived == 0) {
+            revert ZeroAmountReceived();
+        }
+
+        _validateItemPrice(_zkPayStorage.paywallLogicStorage, params.merchant, params.itemId, amountInUSD);
+
+        EscrowPayment.Transaction memory transaction = EscrowPayment.Transaction({
+            asset: params.asset,
+            amount: actualAmountReceived,
+            from: msg.sender,
+            to: params.merchant
+        });
+
+        transactionHash = EscrowPayment.authorize(_zkPayStorage.escrowPaymentStorage, transaction);
+    }
+
+    /// @notice Computes the breakdown of amounts for settlement (payment, refund, protocol fee)
+    /// @param _assets The assets mapping
+    /// @param sourceAsset The source asset address
+    /// @param sourceAssetAmount The total source asset amount
+    /// @param maxUsdValueOfTargetToken Maximum USD value allowed for the target token
+    /// @param payoutToken The payout token address
+    /// @param sxt The SXT token address
+    /// @return toBePaidInSourceToken Amount to be paid to merchant in source token
+    /// @return toBeRefundedInSourceToken Amount to be refunded to client in source token
+    /// @return protocolFeeInSourceToken Protocol fee amount in source token
+
+    function _computeSettlementBreakdown(
+        mapping(address asset => AssetManagement.PaymentAsset) storage _assets,
+        address sxt,
+        address sourceAsset,
+        uint248 sourceAssetAmount,
+        uint248 maxUsdValueOfTargetToken,
+        address payoutToken
+    )
+        internal
+        view
+        returns (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken, uint248 protocolFeeInSourceToken)
+    {
+        uint248 sourceAssetInUsd = _assets.convertToUsd(sourceAsset, sourceAssetAmount);
+        uint248 toBePaidInUsd =
+            maxUsdValueOfTargetToken > sourceAssetInUsd ? sourceAssetInUsd : maxUsdValueOfTargetToken;
+
+        uint248 toBePaidBeforeFee = _assets.convertUsdToToken(sourceAsset, toBePaidInUsd);
+        (protocolFeeInSourceToken, toBePaidInSourceToken) = _calculateProtocolFee(payoutToken, toBePaidBeforeFee, sxt);
+
+        toBeRefundedInSourceToken = sourceAssetAmount - toBePaidBeforeFee;
+
+        return (toBePaidInSourceToken, toBeRefundedInSourceToken, protocolFeeInSourceToken);
+    }
+
+    // solhint-disable-next-line gas-struct-packing
+    struct ProcessSettlementParams {
+        address sourceAsset;
+        uint248 sourceAssetAmount;
+        address from;
+        address merchant;
+        bytes32 transactionHash;
+        uint248 maxUsdValueOfTargetToken;
+    }
+
+    struct ProcessSettlementResult {
+        address payoutToken;
+        uint256 receivedTargetAssetAmount;
+        uint248 receivedRefundAmount;
+        uint248 receivedProtocolFeeAmount;
+    }
+
+    /// @notice Settles an escrowed payment by
+    /// - completing the authorized transaction
+    /// - computing the settlement breakdown
+    /// - paying the merchant
+    /// - refunding the client
+    /// - paying the protocol fee
+    /// @param _zkPayStorage The ZKPay storage
+    /// @param params The settlement parameters struct
+    function processSettlement(ZKPay.ZKPayStorage storage _zkPayStorage, ProcessSettlementParams memory params)
+        internal
+        returns (ProcessSettlementResult memory result)
+    {
+        _zkPayStorage.escrowPaymentStorage.completeAuthorizedTransaction(
+            EscrowPayment.Transaction({
+                asset: params.sourceAsset,
+                amount: params.sourceAssetAmount,
+                from: params.from,
+                to: params.merchant
+            }),
+            params.transactionHash
+        );
+
+        result.payoutToken = _zkPayStorage.swapLogicStorage.getMerchantPayoutAsset(params.merchant);
+        (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken, uint248 protocolFeeInSourceToken) =
+        _computeSettlementBreakdown(
+            _zkPayStorage.assets,
+            _zkPayStorage.sxt,
+            params.sourceAsset,
+            params.sourceAssetAmount,
+            params.maxUsdValueOfTargetToken,
+            result.payoutToken
+        );
+
+        // 1. pay merchant
+        // slither-disable-next-line reentrancy-events
+        result.receivedTargetAssetAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
+            params.sourceAsset, params.merchant, toBePaidInSourceToken, params.merchant
+        );
+
+        // 2. refund client
+        result.receivedRefundAmount =
+            AssetManagement.transferAsset(params.sourceAsset, toBeRefundedInSourceToken, params.from);
+
+        // 3. pay protocol
+        result.receivedProtocolFeeAmount =
+            AssetManagement.transferAsset(params.sourceAsset, protocolFeeInSourceToken, _zkPayStorage.treasury);
     }
 }

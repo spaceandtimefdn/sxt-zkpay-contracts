@@ -369,6 +369,13 @@ contract PaymentLogicAuthorizePaymentWrapper {
     function isTransactionAuthorized(bytes32 transactionHash) external view returns (bool) {
         return zkPayStorage.escrowPaymentStorage.transactionNonces[transactionHash] > 0;
     }
+
+    function processSettlement(PaymentLogic.ProcessSettlementParams calldata params)
+        external
+        returns (PaymentLogic.ProcessSettlementResult memory result)
+    {
+        return PaymentLogic.processSettlement(zkPayStorage, params);
+    }
 }
 
 contract PaymentLogicAuthorizePaymentTest is Test {
@@ -573,5 +580,41 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         assertTrue(wrapper.isTransactionAuthorized(txHash));
         assertEq(IERC20(SXT).balanceOf(address(wrapper)), amount);
         vm.stopPrank();
+    }
+
+    function testProcessSettlement() public {
+        uint248 amount = 100 ether;
+        uint248 maxUsdValue = 50 ether;
+
+        deal(SXT, USER, amount);
+
+        vm.startPrank(USER);
+        IERC20(SXT).approve(address(wrapper), amount);
+
+        bytes32 txHash = wrapper.authorizePayment(
+            PaymentLogic.AuthorizePaymentParams({
+                asset: SXT,
+                amount: amount,
+                merchant: MERCHANT,
+                itemId: bytes32("test_item")
+            })
+        );
+        vm.stopPrank();
+
+        PaymentLogic.ProcessSettlementParams memory params = PaymentLogic.ProcessSettlementParams({
+            sourceAsset: SXT,
+            sourceAssetAmount: amount,
+            from: USER,
+            merchant: MERCHANT,
+            transactionHash: txHash,
+            maxUsdValueOfTargetToken: maxUsdValue
+        });
+
+        PaymentLogic.ProcessSettlementResult memory result = wrapper.processSettlement(params);
+
+        assertEq(result.payoutToken, USDC);
+        assertGt(result.receivedTargetAssetAmount, 0);
+        assertGt(result.receivedRefundAmount, 0);
+        assertGt(result.receivedProtocolFeeAmount, 0);
     }
 }

@@ -10,6 +10,7 @@ import {AssetManagement} from "../../src/libraries/AssetManagement.sol";
 import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
+import {EscrowPayment} from "../../src/libraries/EscrowPayment.sol";
 import {RPC_URL, ROUTER, USDT, SXT, USDC, BLOCK_NUMBER} from "../data/MainnetConstants.sol";
 
 contract PaymentLogicTestWrapper {
@@ -310,5 +311,267 @@ contract PaymentLogicProcessPaymentTest is Test {
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
         wrapper.processPayment(params);
+    }
+}
+
+contract PaymentLogicAuthorizePaymentWrapper {
+    using PaymentLogic for ZKPay.ZKPayStorage;
+    using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
+    using SwapLogic for SwapLogic.SwapLogicStorage;
+    using PayWallLogic for PayWallLogic.PayWallLogicStorage;
+    using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
+
+    ZKPay.ZKPayStorage internal zkPayStorage;
+
+    address public constant TREASURY = address(0x9999);
+    address public constant MERCHANT = address(0x8888);
+
+    constructor() {
+        zkPayStorage.sxt = SXT;
+        zkPayStorage.treasury = TREASURY;
+
+        zkPayStorage.swapLogicStorage.swapLogicConfig =
+            SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT, defaultTargetAssetPath: abi.encodePacked(USDT)});
+
+        zkPayStorage.swapLogicStorage.assetSwapPaths.sourceAssetPaths[SXT] =
+            abi.encodePacked(SXT, bytes3(uint24(3000)), USDT);
+        zkPayStorage.swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[MERCHANT] =
+            abi.encodePacked(USDT, bytes3(uint24(3000)), USDC);
+
+        MockV3Aggregator sxtPriceFeed = new MockV3Aggregator(8, 1000000000);
+        AssetManagement.PaymentAsset memory sxtAsset = AssetManagement.PaymentAsset({
+            priceFeed: address(sxtPriceFeed),
+            tokenDecimals: 18,
+            stalePriceThresholdInSeconds: 3600
+        });
+        AssetManagement.set(zkPayStorage.assets, SXT, sxtAsset);
+
+        MockV3Aggregator usdtPriceFeed = new MockV3Aggregator(8, 100000000);
+        AssetManagement.PaymentAsset memory usdtAsset = AssetManagement.PaymentAsset({
+            priceFeed: address(usdtPriceFeed),
+            tokenDecimals: 6,
+            stalePriceThresholdInSeconds: 3600
+        });
+        AssetManagement.set(zkPayStorage.assets, USDT, usdtAsset);
+    }
+
+    function authorizePayment(PaymentLogic.AuthorizePaymentParams calldata params)
+        external
+        returns (bytes32 transactionHash)
+    {
+        return PaymentLogic.authorizePayment(zkPayStorage, params);
+    }
+
+    function setItemPrice(address merchant, bytes32 itemId, uint248 price) external {
+        zkPayStorage.paywallLogicStorage.setItemPrice(merchant, itemId, price);
+    }
+
+    function isTransactionAuthorized(bytes32 transactionHash) external view returns (bool) {
+        return zkPayStorage.escrowPaymentStorage.transactionNonces[transactionHash] > 0;
+    }
+}
+
+contract PaymentLogicAuthorizePaymentTest is Test {
+    using PaymentLogic for ZKPay.ZKPayStorage;
+    using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
+
+    PaymentLogicAuthorizePaymentWrapper internal wrapper;
+
+    address public constant TREASURY = address(0x9999);
+    address public constant MERCHANT = address(0x8888);
+    address public constant USER = address(0x7777);
+
+    function setUp() public {
+        vm.createSelectFork(RPC_URL, BLOCK_NUMBER);
+        wrapper = new PaymentLogicAuthorizePaymentWrapper();
+        vm.deal(USER, 100 ether);
+    }
+
+    function testAuthorizePaymentSXTSuccess() public {
+        uint248 amount = 100 ether;
+        bytes32 itemId = bytes32("test_item");
+
+        deal(SXT, USER, amount);
+
+        vm.startPrank(USER);
+        IERC20(SXT).approve(address(wrapper), amount);
+
+        PaymentLogic.AuthorizePaymentParams memory params =
+            PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
+
+        bytes32 txHash = wrapper.authorizePayment(params);
+
+        assertTrue(wrapper.isTransactionAuthorized(txHash));
+        assertEq(IERC20(SXT).balanceOf(address(wrapper)), amount);
+        assertEq(IERC20(SXT).balanceOf(USER), 0);
+        vm.stopPrank();
+    }
+
+    function testAuthorizePaymentSmallAmount() public {
+        uint248 amount = 1;
+        bytes32 itemId = bytes32("test_item");
+
+        deal(SXT, USER, amount);
+
+        vm.startPrank(USER);
+        IERC20(SXT).approve(address(wrapper), amount);
+
+        PaymentLogic.AuthorizePaymentParams memory params =
+            PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
+
+        bytes32 txHash = wrapper.authorizePayment(params);
+
+        assertTrue(wrapper.isTransactionAuthorized(txHash));
+        assertEq(IERC20(SXT).balanceOf(address(wrapper)), amount);
+        assertEq(IERC20(SXT).balanceOf(USER), 0);
+        vm.stopPrank();
+    }
+
+    function testAuthorizePaymentZeroAmountReverts() public {
+        uint248 amount = 0;
+        bytes32 itemId = bytes32("test_item");
+
+        vm.startPrank(USER);
+
+        PaymentLogic.AuthorizePaymentParams memory params =
+            PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
+
+        vm.expectRevert(PaymentLogic.ZeroAmountReceived.selector);
+        wrapper.authorizePayment(params);
+        vm.stopPrank();
+    }
+
+    function testAuthorizePaymentInsufficientPaymentReverts() public {
+        uint248 amount = 1 ether;
+        bytes32 itemId = bytes32("expensive_item");
+        uint248 itemPrice = 100 ether;
+
+        wrapper.setItemPrice(MERCHANT, itemId, itemPrice);
+
+        deal(SXT, USER, amount);
+
+        vm.startPrank(USER);
+        IERC20(SXT).approve(address(wrapper), amount);
+
+        PaymentLogic.AuthorizePaymentParams memory params =
+            PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
+
+        vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
+        wrapper.authorizePayment(params);
+        vm.stopPrank();
+    }
+
+    function testAuthorizePaymentUnsupportedAssetReverts() public {
+        uint248 amount = 100 ether;
+        bytes32 itemId = bytes32("test_item");
+        address unsupportedAsset = address(0xDEAD);
+
+        vm.startPrank(USER);
+
+        PaymentLogic.AuthorizePaymentParams memory params = PaymentLogic.AuthorizePaymentParams({
+            asset: unsupportedAsset,
+            amount: amount,
+            merchant: MERCHANT,
+            itemId: itemId
+        });
+
+        vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
+        wrapper.authorizePayment(params);
+        vm.stopPrank();
+    }
+
+    function testAuthorizePaymentWithItemPrice() public {
+        uint248 amount = 50 ether;
+        bytes32 itemId = bytes32("priced_item");
+        uint248 itemPrice = 30 ether;
+
+        wrapper.setItemPrice(MERCHANT, itemId, itemPrice);
+
+        deal(SXT, USER, amount);
+
+        vm.startPrank(USER);
+        IERC20(SXT).approve(address(wrapper), amount);
+
+        PaymentLogic.AuthorizePaymentParams memory params =
+            PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
+
+        bytes32 txHash = wrapper.authorizePayment(params);
+
+        assertTrue(wrapper.isTransactionAuthorized(txHash));
+        assertEq(IERC20(SXT).balanceOf(address(wrapper)), amount);
+        vm.stopPrank();
+    }
+
+    function testAuthorizePaymentMultipleTransactions() public {
+        uint248 amount1 = 50 ether;
+        uint248 amount2 = 75 ether;
+        bytes32 itemId1 = bytes32("item1");
+        bytes32 itemId2 = bytes32("item2");
+
+        deal(SXT, USER, amount1 + amount2);
+
+        vm.startPrank(USER);
+        IERC20(SXT).approve(address(wrapper), amount1 + amount2);
+
+        PaymentLogic.AuthorizePaymentParams memory params1 =
+            PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount1, merchant: MERCHANT, itemId: itemId1});
+
+        PaymentLogic.AuthorizePaymentParams memory params2 =
+            PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount2, merchant: MERCHANT, itemId: itemId2});
+
+        bytes32 txHash1 = wrapper.authorizePayment(params1);
+        bytes32 txHash2 = wrapper.authorizePayment(params2);
+
+        assertTrue(wrapper.isTransactionAuthorized(txHash1));
+        assertTrue(wrapper.isTransactionAuthorized(txHash2));
+        assertTrue(txHash1 != txHash2);
+        assertEq(IERC20(SXT).balanceOf(address(wrapper)), amount1 + amount2);
+        vm.stopPrank();
+    }
+
+    function testFuzzAuthorizePayment(uint248 amount, uint248 itemPrice, address merchant, bytes32 itemId) public {
+        amount = uint248(bound(amount, 1, type(uint248).max / 1e18));
+        itemPrice = uint248(bound(itemPrice, 0, type(uint248).max / 1e18));
+        vm.assume(merchant != address(0));
+
+        wrapper.setItemPrice(merchant, itemId, itemPrice);
+
+        deal(SXT, USER, amount);
+
+        vm.startPrank(USER);
+        IERC20(SXT).approve(address(wrapper), amount);
+
+        PaymentLogic.AuthorizePaymentParams memory params =
+            PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount, merchant: merchant, itemId: itemId});
+
+        uint248 amountInUSD = amount * 10;
+
+        if (amountInUSD >= itemPrice) {
+            bytes32 txHash = wrapper.authorizePayment(params);
+            assertTrue(wrapper.isTransactionAuthorized(txHash));
+            assertEq(IERC20(SXT).balanceOf(address(wrapper)), amount);
+        } else {
+            vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
+            wrapper.authorizePayment(params);
+        }
+        vm.stopPrank();
+    }
+
+    function testFuzzAuthorizePaymentSXT(uint248 amount, address merchant, bytes32 itemId) public {
+        amount = uint248(bound(amount, 1, type(uint248).max / 1e18));
+        vm.assume(merchant != address(0));
+
+        deal(SXT, USER, amount);
+
+        vm.startPrank(USER);
+        IERC20(SXT).approve(address(wrapper), amount);
+
+        PaymentLogic.AuthorizePaymentParams memory params =
+            PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount, merchant: merchant, itemId: itemId});
+
+        bytes32 txHash = wrapper.authorizePayment(params);
+        assertTrue(wrapper.isTransactionAuthorized(txHash));
+        assertEq(IERC20(SXT).balanceOf(address(wrapper)), amount);
+        vm.stopPrank();
     }
 }

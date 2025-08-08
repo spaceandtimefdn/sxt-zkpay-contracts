@@ -6,6 +6,7 @@ import {PayWallLogic} from "../libraries/PayWallLogic.sol";
 import {ZKPay} from "../ZKPay.sol";
 import {SwapLogic} from "../libraries/SwapLogic.sol";
 import {AssetManagement} from "../libraries/AssetManagement.sol";
+import {EscrowPayment} from "../libraries/EscrowPayment.sol";
 
 /// @title PaymentLogic
 /// @notice Library for processing payments, authorizations, and settlements in the ZKPay protocol
@@ -16,6 +17,7 @@ library PaymentLogic {
     using SwapLogic for SwapLogic.SwapLogicStorage;
 
     error InsufficientPayment();
+    error ZeroAmountReceived();
 
     /// @notice Modifier to validate that an asset is supported for payment operations
     /// @param _assets The assets mapping
@@ -105,5 +107,41 @@ library PaymentLogic {
         result.amountInUSD = _zkPayStorage.assets.convertToUsd(params.asset, receivedTransferAmount);
 
         _validateItemPrice(_zkPayStorage.paywallLogicStorage, params.merchant, params.itemId, result.amountInUSD);
+    }
+
+    struct AuthorizePaymentParams {
+        address asset;
+        uint248 amount;
+        address merchant;
+        bytes32 itemId;
+    }
+
+    /// @notice Authorizes a payment by transferring assets to escrow
+    /// @param _zkPayStorage The ZKPay storage
+    /// @param params The payment parameters struct
+    /// @return transactionHash The hash of the authorized transaction
+    function authorizePayment(ZKPay.ZKPayStorage storage _zkPayStorage, AuthorizePaymentParams memory params)
+        internal
+        _validateAsset(_zkPayStorage.assets, params.asset)
+        returns (bytes32 transactionHash)
+    {
+        uint248 actualAmountReceived =
+            AssetManagement.transferAssetFromCaller(params.asset, params.amount, address(this));
+        uint248 amountInUSD = _zkPayStorage.assets.convertToUsd(params.asset, actualAmountReceived);
+
+        if (actualAmountReceived == 0) {
+            revert ZeroAmountReceived();
+        }
+
+        _validateItemPrice(_zkPayStorage.paywallLogicStorage, params.merchant, params.itemId, amountInUSD);
+
+        EscrowPayment.Transaction memory transaction = EscrowPayment.Transaction({
+            asset: params.asset,
+            amount: actualAmountReceived,
+            from: msg.sender,
+            to: params.merchant
+        });
+
+        transactionHash = EscrowPayment.authorize(_zkPayStorage.escrowPaymentStorage, transaction);
     }
 }

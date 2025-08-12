@@ -17,6 +17,36 @@ import {PayWallLogic} from "../src/libraries/PayWallLogic.sol";
 import {EscrowPayment} from "../src/libraries/EscrowPayment.sol";
 import {IZKPay} from "../src/interfaces/IZKPay.sol";
 
+contract MockAuthorizeCallbackContract {
+    address private _merchant;
+    uint256 public callCount;
+    bytes public lastCallData;
+    bool public shouldFail;
+
+    error AuthorizeCallbackFailed();
+
+    constructor(address merchant_) {
+        _merchant = merchant_;
+    }
+
+    function processAuthorization(uint256 value) external {
+        if (shouldFail) {
+            revert AuthorizeCallbackFailed();
+        }
+        ++callCount;
+        lastCallData = abi.encode(value);
+    }
+
+    function setShouldFail(bool _shouldFail) external {
+        shouldFail = _shouldFail;
+    }
+}
+
+contract MockInvalidAuthorizeCallbackContract {
+    // solhint-disable-next-line no-empty-blocks
+    function processAuthorization(uint256 value) external pure {}
+}
+
 contract ZKPayTest is Test {
     ZKPay public zkpay;
     address public _owner;
@@ -262,8 +292,7 @@ contract ZKPayTest is Test {
         vm.expectEmit(true, true, true, true);
         emit IZKPay.Authorized(expectedTransaction, expectedTransactionHash, onBehalfOf, memo, itemId);
 
-        bytes32 transactionHash = zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
-        assertEq(transactionHash, expectedTransactionHash);
+        zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 
     function testAuthorizeIncrementsNonce() public {
@@ -286,8 +315,7 @@ contract ZKPayTest is Test {
         vm.expectEmit(true, true, true, true);
         emit IZKPay.Authorized(expectedTransaction, expectedTransactionHash, onBehalfOf, memo, itemId);
 
-        bytes32 transactionHash = zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
-        assertEq(transactionHash, expectedTransactionHash);
+        zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 
     function testAuthorizeWithZeroValues() public {
@@ -312,8 +340,7 @@ contract ZKPayTest is Test {
         vm.expectEmit(true, true, true, true);
         emit IZKPay.Authorized(expectedTransaction, expectedTransactionHash, onBehalfOf, memo, itemId);
 
-        bytes32 transactionHash = zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
-        assertEq(transactionHash, expectedTransactionHash);
+        zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 
     function testAuthorizeWithMaxValues() public {
@@ -333,8 +360,7 @@ contract ZKPayTest is Test {
         vm.expectEmit(true, true, true, true);
         emit IZKPay.Authorized(expectedTransaction, expectedTransactionHash, onBehalfOf, memo, itemId);
 
-        bytes32 transactionHash = zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
-        assertEq(transactionHash, expectedTransactionHash);
+        zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 
     function testAuthorizeWithLongMemo() public {
@@ -354,8 +380,7 @@ contract ZKPayTest is Test {
         vm.expectEmit(true, true, true, true);
         emit IZKPay.Authorized(expectedTransaction, expectedTransactionHash, onBehalfOf, memo, itemId);
 
-        bytes32 transactionHash = zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
-        assertEq(transactionHash, expectedTransactionHash);
+        zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 
     function testAuthorizeMultipleDifferentTransactions() public {
@@ -380,7 +405,7 @@ contract ZKPayTest is Test {
         emit IZKPay.Authorized(
             transaction1, expectedHash1, bytes32(uint256(uint160(address(0x2222)))), "tx1", bytes32("item1")
         );
-        bytes32 hash1 = zkpay.authorize(
+        zkpay.authorize(
             transaction1.asset,
             transaction1.amount,
             bytes32(uint256(uint160(address(0x2222)))),
@@ -388,14 +413,13 @@ contract ZKPayTest is Test {
             "tx1",
             bytes32("item1")
         );
-        assertEq(hash1, expectedHash1);
 
         bytes32 expectedHash2 = keccak256(abi.encode(transaction2, 2, block.chainid));
         vm.expectEmit(true, true, true, true);
         emit IZKPay.Authorized(
             transaction2, expectedHash2, bytes32(uint256(uint160(address(0x5555)))), "tx2", bytes32("item2")
         );
-        bytes32 hash2 = zkpay.authorize(
+        zkpay.authorize(
             transaction2.asset,
             transaction2.amount,
             bytes32(uint256(uint160(address(0x5555)))),
@@ -403,7 +427,6 @@ contract ZKPayTest is Test {
             "tx2",
             bytes32("item2")
         );
-        assertEq(hash2, expectedHash2);
     }
 
     function testAuthorizeWithDifferentChainId() public {
@@ -421,8 +444,7 @@ contract ZKPayTest is Test {
         bytes32 hash1 = keccak256(abi.encode(expectedTransaction, 1, block.chainid));
         vm.expectEmit(true, true, true, true);
         emit IZKPay.Authorized(expectedTransaction, hash1, onBehalfOf, memo, itemId);
-        bytes32 actualHash1 = zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
-        assertEq(actualHash1, hash1);
+        zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
 
         vm.chainId(999);
 
@@ -432,8 +454,7 @@ contract ZKPayTest is Test {
         bytes32 hash2 = keccak256(abi.encode(expectedTransaction2, 2, 999));
         vm.expectEmit(true, true, true, true);
         emit IZKPay.Authorized(expectedTransaction2, hash2, onBehalfOf, memo, itemId);
-        bytes32 actualHash2 = zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
-        assertEq(actualHash2, hash2);
+        zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
 
         assertNotEq(hash1, hash2);
 
@@ -456,8 +477,7 @@ contract ZKPayTest is Test {
         vm.expectEmit(true, true, true, true);
         emit IZKPay.Authorized(expectedTransaction, expectedTransactionHash, onBehalfOf, memo, itemId);
 
-        bytes32 transactionHash = zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
-        assertEq(transactionHash, expectedTransactionHash);
+        zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 
     function testFuzzAuthorize(
@@ -480,8 +500,7 @@ contract ZKPayTest is Test {
         vm.expectEmit(true, true, true, true);
         emit IZKPay.Authorized(expectedTransaction, expectedTransactionHash, onBehalfOf, memo, itemId);
 
-        bytes32 transactionHash = zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
-        assertEq(transactionHash, expectedTransactionHash);
+        zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 
     function testAuthorizeWithUnsupportedAsset() public {
@@ -514,5 +533,271 @@ contract ZKPayTest is Test {
 
         vm.expectRevert(ZKPay.InsufficientPayment.selector);
         zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
+    }
+
+    function testAuthorizeWithCallbackBasic() public {
+        address merchant = vm.addr(0x10);
+        MockERC20 mockToken = new MockERC20();
+        uint248 amount = 1000 ether;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
+        bytes memory memo = "test memo";
+
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(zkpay), amount);
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
+        bytes memory callbackData =
+            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 42);
+
+        bytes4 selector = bytes4(callbackData);
+        bytes32 expectedItemId = keccak256(abi.encode(address(callbackContract), selector));
+
+        EscrowPayment.Transaction memory expectedTransaction =
+            EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
+
+        bytes32 expectedTransactionHash = keccak256(abi.encode(expectedTransaction, 1, block.chainid));
+
+        vm.expectEmit(true, true, true, true);
+        emit IZKPay.Authorized(expectedTransaction, expectedTransactionHash, onBehalfOf, memo, expectedItemId);
+
+        zkpay.authorizeWithCallback(
+            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
+        );
+
+        assertEq(callbackContract.callCount(), 1);
+        assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 42);
+
+        assertEq(mockToken.balanceOf(address(zkpay)), amount);
+        assertEq(mockToken.balanceOf(address(this)), 0);
+    }
+
+    function testAuthorizeWithCallbackItemIdGeneration() public {
+        address merchant = vm.addr(0x10);
+        MockERC20 mockToken = new MockERC20();
+        uint248 amount = 500 ether;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
+        bytes memory memo = "itemId test";
+
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(zkpay), amount);
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
+        bytes memory callbackData =
+            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 999);
+
+        bytes4 selector = bytes4(callbackData);
+        bytes32 expectedItemId = keccak256(abi.encode(address(callbackContract), selector));
+        assertTrue(expectedItemId != bytes32(0));
+
+        zkpay.authorizeWithCallback(
+            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
+        );
+
+        assertEq(callbackContract.callCount(), 1);
+        assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 999);
+    }
+
+    function testAuthorizeWithCallbackInvalidMerchant() public {
+        address merchant = vm.addr(0x10);
+        MockERC20 mockToken = new MockERC20();
+        uint248 amount = 500 ether;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
+        bytes memory memo = "invalid merchant test";
+
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(zkpay), amount);
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        MockInvalidAuthorizeCallbackContract invalidCallbackContract = new MockInvalidAuthorizeCallbackContract();
+        bytes memory callbackData =
+            abi.encodeWithSelector(MockInvalidAuthorizeCallbackContract.processAuthorization.selector, 42);
+
+        zkpay.authorizeWithCallback(
+            address(mockToken), amount, onBehalfOf, merchant, memo, address(invalidCallbackContract), callbackData
+        );
+
+        assertEq(mockToken.balanceOf(address(zkpay)), amount);
+        assertEq(mockToken.balanceOf(address(this)), 0);
+    }
+
+    function testAuthorizeWithCallbackFailure() public {
+        address merchant = vm.addr(0x10);
+        MockERC20 mockToken = new MockERC20();
+        uint248 amount = 500 ether;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
+        bytes memory memo = "callback failure test";
+
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(zkpay), amount);
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
+        callbackContract.setShouldFail(true);
+        bytes memory callbackData =
+            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 42);
+
+        vm.expectRevert();
+        zkpay.authorizeWithCallback(
+            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
+        );
+
+        assertEq(mockToken.balanceOf(address(zkpay)), 0);
+        assertEq(mockToken.balanceOf(address(this)), amount);
+    }
+
+    function testAuthorizeWithCallbackUnsupportedAsset() public {
+        address merchant = vm.addr(0x10);
+        address unsupportedToken = vm.addr(0x20);
+        uint248 amount = 500 ether;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
+        bytes memory memo = "unsupported asset test";
+
+        MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
+        bytes memory callbackData =
+            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 42);
+
+        vm.expectRevert();
+        zkpay.authorizeWithCallback(
+            unsupportedToken, amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
+        );
+    }
+
+    function testAuthorizeWithCallbackZeroAmount() public {
+        address merchant = vm.addr(0x10);
+        MockERC20 mockToken = new MockERC20();
+        uint248 amount = 0;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
+        bytes memory memo = "zero amount test";
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
+        bytes memory callbackData =
+            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 42);
+
+        vm.expectRevert();
+        zkpay.authorizeWithCallback(
+            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
+        );
+    }
+
+    function testAuthorizeWithCallbackWithPaywallItemPrice() public {
+        address merchant = vm.addr(0x10);
+        MockERC20 mockToken = new MockERC20();
+        uint248 amount = 1000 ether;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
+        bytes memory memo = "paywall test";
+
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(zkpay), amount);
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
+        bytes memory callbackData =
+            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 789);
+
+        bytes4 selector = bytes4(callbackData);
+        bytes32 itemId = keccak256(abi.encode(address(callbackContract), selector));
+        uint248 itemPrice = 1;
+
+        vm.prank(merchant);
+        zkpay.setPaywallItemPrice(itemId, itemPrice);
+
+        zkpay.authorizeWithCallback(
+            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
+        );
+
+        assertEq(callbackContract.callCount(), 1);
+        assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 789);
+    }
+
+    function testAuthorizeWithCallbackInsufficientPaywallPayment() public {
+        address merchant = vm.addr(0x10);
+        MockERC20 mockToken = new MockERC20();
+        uint248 amount = 500 ether;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
+        bytes memory memo = "insufficient paywall test";
+
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(zkpay), amount);
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
+        bytes memory callbackData =
+            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 123);
+
+        bytes4 selector = bytes4(callbackData);
+        bytes32 itemId = keccak256(abi.encode(address(callbackContract), selector));
+        uint248 itemPrice = 1000 * 1e18;
+
+        vm.prank(merchant);
+        zkpay.setPaywallItemPrice(itemId, itemPrice);
+
+        vm.expectRevert(ZKPay.InsufficientPayment.selector);
+        zkpay.authorizeWithCallback(
+            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
+        );
+    }
+
+    function testFuzzAuthorizeWithCallback(uint248 amount, uint256 callbackValue, address merchant, bytes32 onBehalfOf)
+        public
+    {
+        amount = uint248(bound(amount, 1, 1000000 ether));
+        callbackValue = bound(callbackValue, 0, type(uint256).max);
+        vm.assume(merchant != address(0));
+        vm.assume(merchant != address(zkpay));
+
+        MockERC20 mockToken = new MockERC20();
+        bytes memory memo = "fuzz test";
+
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(zkpay), amount);
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
+        bytes memory callbackData =
+            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, callbackValue);
+
+        zkpay.authorizeWithCallback(
+            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
+        );
+
+        assertEq(callbackContract.callCount(), 1);
+        assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), callbackValue);
+
+        assertEq(mockToken.balanceOf(address(zkpay)), amount);
     }
 }

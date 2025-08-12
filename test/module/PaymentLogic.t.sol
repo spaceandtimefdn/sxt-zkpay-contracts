@@ -357,7 +357,7 @@ contract PaymentLogicAuthorizePaymentWrapper {
 
     function authorizePayment(PaymentLogic.AuthorizePaymentParams calldata params)
         external
-        returns (bytes32 transactionHash)
+        returns (EscrowPayment.Transaction memory transaction, bytes32 transactionHash)
     {
         return PaymentLogic.authorizePayment(zkPayStorage, params);
     }
@@ -406,7 +406,7 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         PaymentLogic.AuthorizePaymentParams memory params =
             PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
 
-        bytes32 txHash = wrapper.authorizePayment(params);
+        (, bytes32 txHash) = wrapper.authorizePayment(params);
 
         assertTrue(wrapper.isTransactionAuthorized(txHash));
         assertEq(IERC20(SXT).balanceOf(address(wrapper)), amount);
@@ -426,7 +426,7 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         PaymentLogic.AuthorizePaymentParams memory params =
             PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
 
-        bytes32 txHash = wrapper.authorizePayment(params);
+        (, bytes32 txHash) = wrapper.authorizePayment(params);
 
         assertTrue(wrapper.isTransactionAuthorized(txHash));
         assertEq(IERC20(SXT).balanceOf(address(wrapper)), amount);
@@ -502,7 +502,7 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         PaymentLogic.AuthorizePaymentParams memory params =
             PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
 
-        bytes32 txHash = wrapper.authorizePayment(params);
+        (, bytes32 txHash) = wrapper.authorizePayment(params);
 
         assertTrue(wrapper.isTransactionAuthorized(txHash));
         assertEq(IERC20(SXT).balanceOf(address(wrapper)), amount);
@@ -526,8 +526,8 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         PaymentLogic.AuthorizePaymentParams memory params2 =
             PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount2, merchant: MERCHANT, itemId: itemId2});
 
-        bytes32 txHash1 = wrapper.authorizePayment(params1);
-        bytes32 txHash2 = wrapper.authorizePayment(params2);
+        (, bytes32 txHash1) = wrapper.authorizePayment(params1);
+        (, bytes32 txHash2) = wrapper.authorizePayment(params2);
 
         assertTrue(wrapper.isTransactionAuthorized(txHash1));
         assertTrue(wrapper.isTransactionAuthorized(txHash2));
@@ -554,7 +554,7 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         uint248 amountInUSD = amount * 10;
 
         if (amountInUSD >= itemPrice) {
-            bytes32 txHash = wrapper.authorizePayment(params);
+            (, bytes32 txHash) = wrapper.authorizePayment(params);
             assertTrue(wrapper.isTransactionAuthorized(txHash));
             assertEq(IERC20(SXT).balanceOf(address(wrapper)), amount);
         } else {
@@ -576,7 +576,7 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         PaymentLogic.AuthorizePaymentParams memory params =
             PaymentLogic.AuthorizePaymentParams({asset: SXT, amount: amount, merchant: merchant, itemId: itemId});
 
-        bytes32 txHash = wrapper.authorizePayment(params);
+        (, bytes32 txHash) = wrapper.authorizePayment(params);
         assertTrue(wrapper.isTransactionAuthorized(txHash));
         assertEq(IERC20(SXT).balanceOf(address(wrapper)), amount);
         vm.stopPrank();
@@ -591,7 +591,7 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         vm.startPrank(USER);
         IERC20(SXT).approve(address(wrapper), amount);
 
-        bytes32 txHash = wrapper.authorizePayment(
+        (, bytes32 txHash) = wrapper.authorizePayment(
             PaymentLogic.AuthorizePaymentParams({
                 asset: SXT,
                 amount: amount,

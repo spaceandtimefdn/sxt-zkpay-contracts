@@ -14,6 +14,7 @@ import {PayWallLogic} from "./libraries/PayWallLogic.sol";
 import {SafeExecutor} from "./SafeExecutor.sol";
 import {IMerchantCallback} from "./interfaces/IMerchantCallback.sol";
 import {EscrowPayment} from "./libraries/EscrowPayment.sol";
+import {PaymentLogic} from "./module/PaymentLogic.sol";
 
 // slither-disable-next-line locked-ether
 contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
@@ -156,13 +157,21 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         bytes calldata memo,
         bytes32 itemId
     ) internal {
-        (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) =
-            _zkPayStorage.assets.send(asset, amount, merchant, _zkPayStorage.treasury, _zkPayStorage.sxt);
-
-        _validateItemPrice(merchant, itemId, amountInUSD);
+        PaymentLogic.ProcessPaymentResult memory result = PaymentLogic.processPayment(
+            _zkPayStorage,
+            PaymentLogic.ProcessPaymentParams({asset: asset, amount: amount, merchant: merchant, itemId: itemId})
+        );
 
         emit SendPayment(
-            asset, actualAmountReceived, protocolFeeAmount, onBehalfOf, merchant, memo, amountInUSD, msg.sender, itemId
+            asset,
+            amount,
+            result.receivedProtocolFeeAmount,
+            onBehalfOf,
+            merchant,
+            memo,
+            result.amountInUSD,
+            msg.sender,
+            itemId
         );
     }
 

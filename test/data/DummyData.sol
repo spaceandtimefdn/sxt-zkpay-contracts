@@ -2,26 +2,27 @@
 pragma solidity 0.8.28;
 
 import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
+import {ROUTER, USDT, SXT} from "./MainnetConstants.sol";
 
 library DummyData {
     function getRouterAddress() internal pure returns (address) {
-        return 0x694AA1769357215DE4FAC081bf1f309aDC325306;
+        return ROUTER;
     }
 
     function getUsdtAddress() internal pure returns (address) {
-        return 0x694AA1769357215DE4FAC081bf1f309aDC325306;
+        return USDT;
     }
 
     function getOriginAssetPath(address originAsset) internal pure returns (bytes memory) {
-        return abi.encodePacked(originAsset, bytes3(0x112233), getUsdtAddress());
+        return abi.encodePacked(originAsset, uint24(3000), getUsdtAddress());
     }
 
     function getDestinationAssetPath(address destinationAsset) internal pure returns (bytes memory) {
-        return abi.encodePacked(getUsdtAddress(), bytes3(0x112233), destinationAsset);
+        return abi.encodePacked(getUsdtAddress(), uint24(3000), destinationAsset);
     }
 
     function getSXTAddress() internal pure returns (address) {
-        return address(0x195);
+        return SXT;
     }
 
     function getSwapLogicConfig() internal pure returns (SwapLogic.SwapLogicConfig memory) {

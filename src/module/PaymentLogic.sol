@@ -120,25 +120,24 @@ library PaymentLogic {
     /// @notice Authorizes a payment by transferring assets to escrow
     /// @param _zkPayStorage The ZKPay storage
     /// @param params The payment parameters struct
-    /// @return transactionHash The hash of the authorized transaction
     function authorizePayment(ZKPay.ZKPayStorage storage _zkPayStorage, AuthorizePaymentParams memory params)
         internal
         _validateAsset(_zkPayStorage.assets, params.asset)
-        returns (bytes32 transactionHash)
+        returns (EscrowPayment.Transaction memory transaction, bytes32 transactionHash)
     {
-        uint248 actualAmountReceived =
+        uint248 receivedSourceAssetAmount =
             AssetManagement.transferAssetFromCaller(params.asset, params.amount, address(this));
-        uint248 amountInUSD = _zkPayStorage.assets.convertToUsd(params.asset, actualAmountReceived);
+        uint248 amountInUSD = _zkPayStorage.assets.convertToUsd(params.asset, receivedSourceAssetAmount);
 
-        if (actualAmountReceived == 0) {
+        if (receivedSourceAssetAmount == 0) {
             revert ZeroAmountReceived();
         }
 
         _validateItemPrice(_zkPayStorage.paywallLogicStorage, params.merchant, params.itemId, amountInUSD);
 
-        EscrowPayment.Transaction memory transaction = EscrowPayment.Transaction({
+        transaction = EscrowPayment.Transaction({
             asset: params.asset,
-            amount: actualAmountReceived,
+            amount: receivedSourceAssetAmount,
             from: msg.sender,
             to: params.merchant
         });

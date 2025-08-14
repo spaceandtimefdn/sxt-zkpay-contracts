@@ -142,13 +142,6 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         }
     }
 
-    function _validateItemPrice(address merchant, bytes32 itemId, uint248 amountInUSD) internal view {
-        uint248 itemPrice = _zkPayStorage.paywallLogicStorage.getItemPrice(merchant, itemId);
-        if (amountInUSD < itemPrice) {
-            revert InsufficientPayment();
-        }
-    }
-
     function _sendPayment(
         address asset,
         uint248 amount,
@@ -205,6 +198,23 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         SafeExecutor(_zkPayStorage.executorAddress).execute(callbackContractAddress, callbackData);
     }
 
+    function _authorize(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        bytes32 itemId
+    ) internal {
+        PaymentLogic.AuthorizePaymentParams memory params =
+            PaymentLogic.AuthorizePaymentParams({asset: asset, amount: amount, merchant: merchant, itemId: itemId});
+
+        (EscrowPayment.Transaction memory transaction, bytes32 transactionHash) =
+            PaymentLogic.authorizePayment(_zkPayStorage, params);
+
+        emit Authorized(transaction, transactionHash, onBehalfOf, memo, itemId);
+    }
+
     /// @inheritdoc IZKPay
     function authorize(
         address asset,
@@ -213,21 +223,26 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         address merchant,
         bytes calldata memo,
         bytes32 itemId
-    ) external nonReentrant returns (bytes32 transactionHash) {
-        (uint248 actualAmountReceived, uint248 amountInUSD) = _zkPayStorage.assets.escrowPayment(asset, amount);
+    ) external nonReentrant {
+        _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+    }
 
-        if (actualAmountReceived == 0) {
-            revert ZeroAmountReceived();
-        }
+    /// @inheritdoc IZKPay
+    function authorizeWithCallback(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        address callbackContractAddress,
+        bytes calldata callbackData
+    ) external nonReentrant {
+        bytes4 selector = bytes4(callbackData[:4]);
+        bytes32 itemId = keccak256(abi.encode(callbackContractAddress, selector));
 
-        _validateItemPrice(merchant, itemId, amountInUSD);
+        _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
 
-        EscrowPayment.Transaction memory transaction =
-            EscrowPayment.Transaction({asset: asset, amount: actualAmountReceived, from: msg.sender, to: merchant});
-
-        transactionHash = EscrowPayment.authorize(_zkPayStorage.escrowPaymentStorage, transaction);
-
-        emit Authorized(transaction, transactionHash, onBehalfOf, memo, itemId);
+        SafeExecutor(_zkPayStorage.executorAddress).execute(callbackContractAddress, callbackData);
     }
 
     /// @inheritdoc IZKPay

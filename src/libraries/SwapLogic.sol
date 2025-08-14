@@ -237,19 +237,19 @@ library SwapLogic {
     /// @notice Swaps source asset to merchant target asset using exact source amount, returns swap results without handling transfers
     /// @param _swapLogicStorage the storage of the swap logic
     /// @param sourceAsset the source asset to swap from
-    /// @param merchant the merchant address to get target asset path
+    /// @param recipient the recipient of the target asset
     /// @param targetAssetRecipient the recipient of the target asset
     /// @return receivedTargetAssetAmount the amount of received target asset tokens from the swapping router
     function swapExactSourceAssetAmount(
         SwapLogicStorage storage _swapLogicStorage,
         address sourceAsset,
-        address merchant,
+        address recipient,
         uint256 sourceAssetAmountIn,
         address targetAssetRecipient
     ) internal returns (uint256 receivedTargetAssetAmount) {
         bytes memory swapPath = _connect2Paths(
             _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset],
-            _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant]
+            _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[recipient]
         );
 
         receivedTargetAssetAmount = _swapExactAmountIn(

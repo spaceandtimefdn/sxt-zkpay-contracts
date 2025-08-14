@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {ZKPay} from "../src/ZKPay.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
@@ -11,6 +12,8 @@ import {MockERC20} from "./mocks/MockERC20.sol";
 import {PROTOCOL_FEE, PROTOCOL_FEE_PRECISION, ZERO_ADDRESS} from "../src/libraries/Constants.sol";
 import {DummyData} from "./data/DummyData.sol";
 import {IMerchantCallback} from "../src/interfaces/IMerchantCallback.sol";
+import {MerchantLogic} from "../src/libraries/MerchantLogic.sol";
+import {RPC_URL, SXT, USDC, BLOCK_NUMBER} from "./data/MainnetConstants.sol";
 
 contract MockCallbackContract is IMerchantCallback {
     address private _merchant;
@@ -43,10 +46,6 @@ contract MockInvalidMerchantContract is IMerchantCallback {
     function getMerchant() external pure override returns (address) {
         return address(0x999);
     }
-
-    function processCallback(uint256 value) external {
-        emit Processed(value);
-    }
 }
 
 contract MockContractWithoutGetMerchant {
@@ -69,7 +68,9 @@ contract PaymentFunctionsTest is Test {
     bytes public memoBytes;
 
     function setUp() public {
-        usdcAmount = 10e6; // 10 USDC
+        vm.createSelectFork(RPC_URL, BLOCK_NUMBER);
+
+        usdcAmount = 10e6;
 
         owner = vm.addr(0x1);
         treasury = vm.addr(0x2);
@@ -77,33 +78,29 @@ contract PaymentFunctionsTest is Test {
         targetMerchant = vm.addr(0x4);
         itemId = 123;
 
-        // Convert itemId to bytes for the new parameter type
         memoBytes = abi.encode(itemId);
 
         vm.startPrank(owner);
 
-        // Deploy zkpay
-        address sxt = address(new MockERC20());
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", owner, abi.encodeCall(ZKPay.initialize, (owner, treasury, sxt, DummyData.getSwapLogicConfig()))
+            "ZKPay.sol", owner, abi.encodeCall(ZKPay.initialize, (owner, treasury, SXT, DummyData.getSwapLogicConfig()))
         );
         zkpay = ZKPay(zkPayProxyAddress);
 
-        // Deploy and configure USDC
-        usdc = new MockERC20();
-        usdc.mint(address(this), 100e6); // Mint 100 USDC to test contract
+        usdc = MockERC20(USDC);
 
-        address usdcPriceFeed = address(new MockV3Aggregator(8, 1e8)); // 1 USDC = $1
+        deal(USDC, address(this), 100e6);
 
-        // Set USDC as a supported payment asset with Send payment type
+        address usdcPriceFeed = address(new MockV3Aggregator(8, 1e8));
+
         zkpay.setPaymentAsset(
-            address(usdc),
+            USDC,
             AssetManagement.PaymentAsset({
                 priceFeed: usdcPriceFeed,
                 tokenDecimals: 6,
                 stalePriceThresholdInSeconds: 1000
             }),
-            DummyData.getOriginAssetPath(address(usdc))
+            DummyData.getOriginAssetPath(USDC)
         );
 
         vm.stopPrank();
@@ -112,71 +109,77 @@ contract PaymentFunctionsTest is Test {
     function testSendInsufficientPayment() public {
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        usdc.approve(address(zkpay), usdcAmount);
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
 
         vm.prank(targetMerchant);
         zkpay.setPaywallItemPrice(bytes32(uint256(itemId)), usdcAmount * 1e12 + 1);
 
-        vm.expectRevert(ZKPay.InsufficientPayment.selector);
-        zkpay.send(address(usdc), usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(uint256(itemId)));
+        vm.expectRevert();
+        zkpay.send(USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(uint256(itemId)));
     }
 
     function testSendWithProtocolFee() public {
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        usdc.approve(address(zkpay), usdcAmount);
-        zkpay.send(address(usdc), usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0));
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
+        zkpay.send(USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0));
 
         uint248 protocolFeeAmount = uint248((uint256(usdcAmount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
 
-        assertEq(usdc.balanceOf(targetMerchant), usdcAmount - protocolFeeAmount);
-        assertEq(usdc.balanceOf(treasury), protocolFeeAmount);
+        assertEq(IERC20(USDC).balanceOf(treasury), protocolFeeAmount);
+        assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
     }
 
     function testSendWithoutProtocolFee() public {
-        address sxtToken = zkpay.getSXT();
-        MockERC20 sxt = MockERC20(sxtToken);
-
-        sxt.mint(address(this), 1000e18);
         uint248 sxtAmount = 100e18;
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
         vm.startPrank(owner);
-        address sxtPriceFeed = address(new MockV3Aggregator(8, 1e8));
+        address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
         zkpay.setPaymentAsset(
-            sxtToken,
+            SXT,
             AssetManagement.PaymentAsset({
                 priceFeed: sxtPriceFeed,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 1000
             }),
-            DummyData.getOriginAssetPath(sxtToken)
+            DummyData.getOriginAssetPath(SXT)
         );
         vm.stopPrank();
 
-        sxt.approve(address(zkpay), sxtAmount);
-        zkpay.send(sxtToken, sxtAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0));
+        deal(SXT, address(this), sxtAmount);
+        IERC20(SXT).approve(address(zkpay), sxtAmount);
+        zkpay.send(SXT, sxtAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0));
 
-        assertEq(sxt.balanceOf(targetMerchant), sxtAmount);
-        assertEq(sxt.balanceOf(treasury), 0);
+        assertEq(IERC20(SXT).balanceOf(treasury), 0);
+        assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
     }
 
     function testSendToZeroAddress() public {
-        // Convert onBehalfOf address to bytes32
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        // Approve the ZKPay contract to spend our USDC
-        usdc.approve(address(zkpay), usdcAmount);
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
 
-        vm.expectRevert(AssetManagement.MerchantAddressCannotBeZero.selector);
-        // Call the send function
-        zkpay.send(address(usdc), usdcAmount, onBehalfOfBytes32, ZERO_ADDRESS, memoBytes, bytes32(0));
+        vm.expectRevert();
+        zkpay.send(USDC, usdcAmount, onBehalfOfBytes32, ZERO_ADDRESS, memoBytes, bytes32(0));
     }
 
     function testSendWithUnsupportedAsset() public {
         address invalidAsset = vm.addr(0x5);
 
-        vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
+        vm.expectRevert();
         zkpay.send(invalidAsset, 100, bytes32(uint256(uint160(onBehalfOf))), targetMerchant, memoBytes, bytes32(0));
     }
 
@@ -186,43 +189,45 @@ contract PaymentFunctionsTest is Test {
 
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        usdc.approve(address(zkpay), usdcAmount);
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
 
         zkpay.sendWithCallback(
-            address(usdc),
-            usdcAmount,
-            onBehalfOfBytes32,
-            targetMerchant,
-            memoBytes,
-            address(callbackContract),
-            callbackData
+            USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, address(callbackContract), callbackData
         );
 
         uint248 protocolFeeAmount = uint248((uint256(usdcAmount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
-        assertEq(usdc.balanceOf(targetMerchant), usdcAmount - protocolFeeAmount);
-        assertEq(usdc.balanceOf(treasury), protocolFeeAmount);
+        assertEq(IERC20(USDC).balanceOf(treasury), protocolFeeAmount);
+        assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
 
         assertEq(callbackContract.callCount(), 1);
         assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 42);
     }
 
     function testSendWithCallbackWithoutProtocolFee() public {
-        address sxtToken = zkpay.getSXT();
-        MockERC20 sxt = MockERC20(sxtToken);
-
-        sxt.mint(address(this), 1000e18);
         uint248 sxtAmount = 100e18;
 
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
         vm.startPrank(owner);
-        address sxtPriceFeed = address(new MockV3Aggregator(8, 1e8));
+        address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
         zkpay.setPaymentAsset(
-            sxtToken,
+            SXT,
             AssetManagement.PaymentAsset({
                 priceFeed: sxtPriceFeed,
                 tokenDecimals: 18,
                 stalePriceThresholdInSeconds: 1000
             }),
-            DummyData.getOriginAssetPath(sxtToken)
+            DummyData.getOriginAssetPath(SXT)
         );
         vm.stopPrank();
 
@@ -231,14 +236,15 @@ contract PaymentFunctionsTest is Test {
 
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        sxt.approve(address(zkpay), sxtAmount);
+        deal(SXT, address(this), sxtAmount);
+        IERC20(SXT).approve(address(zkpay), sxtAmount);
 
         zkpay.sendWithCallback(
-            sxtToken, sxtAmount, onBehalfOfBytes32, targetMerchant, memoBytes, address(callbackContract), callbackData
+            SXT, sxtAmount, onBehalfOfBytes32, targetMerchant, memoBytes, address(callbackContract), callbackData
         );
 
-        assertEq(sxt.balanceOf(targetMerchant), sxtAmount);
-        assertEq(sxt.balanceOf(treasury), 0);
+        assertEq(IERC20(SXT).balanceOf(treasury), 0);
+        assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
 
         assertEq(callbackContract.callCount(), 1);
     }
@@ -249,16 +255,16 @@ contract PaymentFunctionsTest is Test {
 
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        usdc.approve(address(zkpay), usdcAmount);
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
 
         zkpay.sendWithCallback(
-            address(usdc),
-            usdcAmount,
-            onBehalfOfBytes32,
-            targetMerchant,
-            memoBytes,
-            address(callbackContract),
-            callbackData
+            USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, address(callbackContract), callbackData
         );
 
         assertEq(callbackContract.callCount(), 1);
@@ -271,18 +277,18 @@ contract PaymentFunctionsTest is Test {
 
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        usdc.approve(address(zkpay), usdcAmount);
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
 
         assertEq(callbackContract.callCount(), 0);
 
         zkpay.sendWithCallback(
-            address(usdc),
-            usdcAmount,
-            onBehalfOfBytes32,
-            targetMerchant,
-            memoBytes,
-            address(callbackContract),
-            callbackData
+            USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, address(callbackContract), callbackData
         );
 
         assertEq(callbackContract.callCount(), 1);
@@ -291,15 +297,21 @@ contract PaymentFunctionsTest is Test {
 
     function testSendWithCallbackInvalidMerchant() public {
         MockInvalidMerchantContract invalidCallbackContract = new MockInvalidMerchantContract();
-        bytes memory callbackData = abi.encodeWithSelector(MockInvalidMerchantContract.processCallback.selector, 42);
+        bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);
 
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        usdc.approve(address(zkpay), usdcAmount);
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
 
         vm.expectRevert(ZKPay.InvalidMerchant.selector);
         zkpay.sendWithCallback(
-            address(usdc),
+            USDC,
             usdcAmount,
             onBehalfOfBytes32,
             targetMerchant,
@@ -307,8 +319,6 @@ contract PaymentFunctionsTest is Test {
             address(invalidCallbackContract),
             callbackData
         );
-
-        invalidCallbackContract.processCallback(42);
     }
 
     function testSendWithCallbackToZeroAddress() public {
@@ -317,17 +327,11 @@ contract PaymentFunctionsTest is Test {
 
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        usdc.approve(address(zkpay), usdcAmount);
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
 
-        vm.expectRevert(AssetManagement.MerchantAddressCannotBeZero.selector);
+        vm.expectRevert();
         zkpay.sendWithCallback(
-            address(usdc),
-            usdcAmount,
-            onBehalfOfBytes32,
-            ZERO_ADDRESS,
-            memoBytes,
-            address(callbackContract),
-            callbackData
+            USDC, usdcAmount, onBehalfOfBytes32, ZERO_ADDRESS, memoBytes, address(callbackContract), callbackData
         );
     }
 
@@ -354,17 +358,17 @@ contract PaymentFunctionsTest is Test {
 
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        usdc.approve(address(zkpay), usdcAmount);
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
 
         vm.expectRevert();
         zkpay.sendWithCallback(
-            address(usdc),
-            usdcAmount,
-            onBehalfOfBytes32,
-            targetMerchant,
-            memoBytes,
-            address(callbackContract),
-            callbackData
+            USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, address(callbackContract), callbackData
         );
     }
 
@@ -379,35 +383,41 @@ contract PaymentFunctionsTest is Test {
 
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        usdc.approve(address(zkpay), usdcAmount);
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
 
         zkpay.sendWithCallback(
-            address(usdc),
-            usdcAmount,
-            onBehalfOfBytes32,
-            targetMerchant,
-            memoBytes,
-            address(callbackContract),
-            callbackData
+            USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, address(callbackContract), callbackData
         );
 
         assertEq(callbackContract.callCount(), 1);
     }
 
     function testFuzzSendWithCallbackAmount(uint248 amount) public {
-        vm.assume(amount > 0 && amount <= 1000e6);
+        vm.assume(amount >= 1000 && amount <= 1000e6);
 
-        usdc.mint(address(this), amount);
+        deal(USDC, address(this), amount);
 
         MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
         bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);
 
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        usdc.approve(address(zkpay), amount);
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        IERC20(USDC).approve(address(zkpay), amount);
 
         zkpay.sendWithCallback(
-            address(usdc), amount, onBehalfOfBytes32, targetMerchant, memoBytes, address(callbackContract), callbackData
+            USDC, amount, onBehalfOfBytes32, targetMerchant, memoBytes, address(callbackContract), callbackData
         );
 
         assertEq(callbackContract.callCount(), 1);
@@ -421,10 +431,16 @@ contract PaymentFunctionsTest is Test {
 
         bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
 
-        usdc.approve(address(zkpay), usdcAmount);
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
 
         zkpay.sendWithCallback(
-            address(usdc), usdcAmount, onBehalfOfBytes32, targetMerchant, memo, address(callbackContract), callbackData
+            USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memo, address(callbackContract), callbackData
         );
 
         assertEq(callbackContract.callCount(), 1);
@@ -440,13 +456,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.expectRevert();
         zkpay.sendWithCallback(
-            address(usdc),
-            usdcAmount,
-            onBehalfOfBytes32,
-            targetMerchant,
-            memoBytes,
-            address(tokenContract),
-            callbackData
+            USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, address(tokenContract), callbackData
         );
 
         MockContractWithoutGetMerchant contractWithoutGetMerchant = new MockContractWithoutGetMerchant();

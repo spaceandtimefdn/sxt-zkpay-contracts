@@ -5,7 +5,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
 import {Utils} from "./Utils.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ZERO_ADDRESS, PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "./Constants.sol";
+import {ZERO_ADDRESS} from "./Constants.sol";
 /// @title AssetManagement
 /// @notice Library for managing payment assets,
 /// @dev It allows for setting, removing and getting payment assets.
@@ -215,40 +215,6 @@ library AssetManagement {
 
         actualAmountReceived = uint248(afterBalance - beforeBalance);
         amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
-    }
-
-    /// @notice Sends a payment to a target address.
-    /// @param _assets The mapping of assets to their payment information.
-    /// @param asset The address of the asset to send the payment for.
-    /// @param amount The amount of the asset to send.
-    /// @param merchant The address of the merchant to send the payment to.
-    /// @param treasury The address of the treasury to send the protocol fee to.
-    /// @param sxt The address of the SXT token.
-    function send(
-        mapping(address asset => PaymentAsset) storage _assets,
-        address asset,
-        uint248 amount,
-        address merchant,
-        address treasury,
-        address sxt
-    ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD, uint248 protocolFeeAmount) {
-        if (merchant == ZERO_ADDRESS) {
-            revert MerchantAddressCannotBeZero();
-        }
-
-        if (!isSupported(_assets, asset)) {
-            revert AssetIsNotSupportedForThisMethod();
-        }
-
-        protocolFeeAmount = asset == sxt ? 0 : uint248((uint256(amount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
-
-        uint248 transferAmount = amount - protocolFeeAmount;
-
-        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, merchant, transferAmount);
-
-        if (protocolFeeAmount > 0) {
-            SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, treasury, protocolFeeAmount);
-        }
     }
 
     /// @notice Escrows a payment by transferring it from the sender to the contract

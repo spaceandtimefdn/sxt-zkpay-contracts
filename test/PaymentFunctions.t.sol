@@ -14,6 +14,8 @@ import {DummyData} from "./data/DummyData.sol";
 import {IMerchantCallback} from "../src/interfaces/IMerchantCallback.sol";
 import {MerchantLogic} from "../src/libraries/MerchantLogic.sol";
 import {RPC_URL, SXT, USDC, BLOCK_NUMBER} from "./data/MainnetConstants.sol";
+import {EscrowPayment} from "../src/libraries/EscrowPayment.sol";
+import {IZKPay} from "../src/interfaces/IZKPay.sol";
 
 contract MockCallbackContract is IMerchantCallback {
     address private _merchant;
@@ -461,5 +463,47 @@ contract PaymentFunctionsTest is Test {
 
         MockContractWithoutGetMerchant contractWithoutGetMerchant = new MockContractWithoutGetMerchant();
         contractWithoutGetMerchant.processCallback(42);
+    }
+
+    function testSettleAuthorizedPaymentHappyPath() public {
+        address client = address(this);
+        uint248 sxtAmount = 100 ether;
+        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        vm.startPrank(owner);
+        address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
+        zkpay.setPaymentAsset(
+            SXT,
+            AssetManagement.PaymentAsset({
+                priceFeed: sxtPriceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 1000
+            }),
+            DummyData.getOriginAssetPath(SXT)
+        );
+        vm.stopPrank();
+
+        deal(SXT, address(this), sxtAmount);
+        IERC20(SXT).approve(address(zkpay), sxtAmount);
+
+        zkpay.authorize(SXT, sxtAmount, onBehalfOfBytes32, targetMerchant, "test", bytes32(0));
+
+        bytes32 transactionHash = EscrowPayment.generateTransactionHash(
+            EscrowPayment.Transaction({asset: SXT, amount: sxtAmount, from: client, to: targetMerchant}), 1
+        );
+
+        // validate emitted event
+        vm.expectEmit(true, true, true, false);
+        emit IZKPay.AuthorizedPaymentSettled(SXT, sxtAmount, USDC, 0, 0, 0, client, targetMerchant, transactionHash);
+        zkpay.settleAuthorizedPayment(SXT, sxtAmount, client, targetMerchant, transactionHash, 5 ether);
+
+        assertLt(IERC20(SXT).balanceOf(client), sxtAmount);
+        assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
     }
 }

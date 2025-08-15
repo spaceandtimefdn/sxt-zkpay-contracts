@@ -7,6 +7,7 @@ import {ZKPay} from "../ZKPay.sol";
 import {SwapLogic} from "../libraries/SwapLogic.sol";
 import {AssetManagement} from "../libraries/AssetManagement.sol";
 import {EscrowPayment} from "../libraries/EscrowPayment.sol";
+import {MerchantLogic} from "../libraries/MerchantLogic.sol";
 
 /// @title PaymentLogic
 /// @notice Library for processing payments, authorizations, and settlements in the ZKPay protocol
@@ -16,6 +17,7 @@ library PaymentLogic {
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
+    using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
 
     error InsufficientPayment();
     error ZeroAmountReceived();
@@ -100,8 +102,9 @@ library PaymentLogic {
             AssetManagement.transferAssetFromCaller(params.asset, transferAmount, address(this));
 
         if (receivedTransferAmount > 0) {
+            MerchantLogic.MerchantConfig memory merchantConfig = _zkPayStorage.merchantConfigs[params.merchant];
             result.recievedPayoutAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
-                params.asset, params.merchant, receivedTransferAmount, params.merchant
+                params.asset, params.merchant, receivedTransferAmount, merchantConfig.payoutAddress
             );
         }
 
@@ -232,8 +235,9 @@ library PaymentLogic {
 
         // 1. pay merchant
         // slither-disable-next-line reentrancy-events
+        MerchantLogic.MerchantConfig memory merchantConfig = _zkPayStorage.merchantConfigs[params.merchant];
         result.receivedTargetAssetAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
-            params.sourceAsset, params.merchant, toBePaidInSourceToken, params.merchant
+            params.sourceAsset, params.merchant, toBePaidInSourceToken, merchantConfig.payoutAddress
         );
 
         // 2. refund client

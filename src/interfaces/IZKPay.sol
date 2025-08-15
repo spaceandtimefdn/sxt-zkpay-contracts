@@ -42,6 +42,28 @@ interface IZKPay {
         EscrowPayment.Transaction transaction, bytes32 transactionHash, bytes32 onBehalfOf, bytes memo, bytes32 itemId
     );
 
+    /// @notice Emitted when an authorized payment is settled
+    /// @param sourceAsset The source asset of the payment
+    /// @param sourceAssetAmount The amount of source asset that was authorized
+    /// @param payoutToken The token the merchant received
+    /// @param receivedTargetAssetAmount The amount received by the merchant in payout token
+    /// @param receivedRefundAmount The amount refunded to the client
+    /// @param receivedProtocolFeeAmount The protocol fee amount
+    /// @param from The address that made the original payment
+    /// @param merchant The merchant address
+    /// @param transactionHash The transaction hash of the authorized payment
+    event AuthorizedPaymentSettled(
+        address indexed sourceAsset,
+        uint248 sourceAssetAmount,
+        address indexed payoutToken,
+        uint256 receivedTargetAssetAmount,
+        uint248 receivedRefundAmount,
+        uint248 receivedProtocolFeeAmount,
+        address indexed from,
+        address merchant,
+        bytes32 transactionHash
+    );
+
     /// @notice Sets the treasury address
     /// @param treasury The new treasury address
     function setTreasury(address treasury) external;
@@ -170,4 +192,20 @@ interface IZKPay {
     /// @notice Gets the executor address
     /// @return executor The executor address
     function getExecutorAddress() external view returns (address executor);
+
+    /// @notice Settles an authorized payment
+    /// @param sourceAsset The source asset of the payment
+    /// @param sourceAssetAmount The amount of source asset that was authorized
+    /// @param from The address that made the original payment
+    /// @param merchant The merchant address
+    /// @param transactionHash The hash of the transaction to settle
+    /// @param maxUsdValueOfTargetToken Maximum USD value allowed for the target token
+    function settleAuthorizedPayment(
+        address sourceAsset,
+        uint248 sourceAssetAmount,
+        address from,
+        address merchant,
+        bytes32 transactionHash,
+        uint248 maxUsdValueOfTargetToken
+    ) external;
 }

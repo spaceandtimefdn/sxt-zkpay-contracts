@@ -265,4 +265,38 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
     function getPaywallItemPrice(bytes32 item, address merchant) external view returns (uint248 price) {
         return _zkPayStorage.paywallLogicStorage.getItemPrice(merchant, item);
     }
+
+    /// @inheritdoc IZKPay
+    function settleAuthorizedPayment(
+        address sourceAsset,
+        uint248 sourceAssetAmount,
+        address from,
+        address merchant,
+        bytes32 transactionHash,
+        uint248 maxUsdValueOfTargetToken
+    ) external nonReentrant {
+        PaymentLogic.ProcessSettlementResult memory result = PaymentLogic.processSettlement(
+            _zkPayStorage,
+            PaymentLogic.ProcessSettlementParams({
+                sourceAsset: sourceAsset,
+                sourceAssetAmount: sourceAssetAmount,
+                from: from,
+                merchant: merchant,
+                transactionHash: transactionHash,
+                maxUsdValueOfTargetToken: maxUsdValueOfTargetToken
+            })
+        );
+
+        emit AuthorizedPaymentSettled(
+            sourceAsset,
+            sourceAssetAmount,
+            result.payoutToken,
+            result.receivedTargetAssetAmount,
+            result.receivedRefundAmount,
+            result.receivedProtocolFeeAmount,
+            from,
+            merchant,
+            transactionHash
+        );
+    }
 }

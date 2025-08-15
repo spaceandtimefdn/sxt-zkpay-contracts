@@ -800,4 +800,28 @@ contract ZKPayTest is Test {
 
         assertEq(mockToken.balanceOf(address(zkpay)), amount);
     }
+
+    function testSettleAuthorizedPaymentRevertsTransactionNotAuthorized() public {
+        MockERC20 mockToken = new MockERC20();
+        uint248 amount = 100 ether;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(address(0x123))));
+        address merchant = address(0x456);
+        bytes memory memo = "test settlement";
+        bytes32 itemId = bytes32(uint256(789));
+
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(zkpay), amount);
+
+        vm.prank(_owner);
+        zkpay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        zkpay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
+
+        vm.expectRevert(EscrowPayment.TransactionNotAuthorized.selector);
+        zkpay.settleAuthorizedPayment(
+            address(mockToken), amount, address(this), merchant, keccak256("invalid"), 50 ether
+        );
+    }
 }

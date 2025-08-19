@@ -39,6 +39,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         address executorAddress;
         mapping(address asset => AssetManagement.PaymentAsset) assets;
         mapping(address merchantAddress => MerchantLogic.MerchantConfig merchantConfig) merchantConfigs;
+        mapping(bytes32 itemId => MerchantLogic.ItemIdCallbackConfig) itemIdCallbackConfigs;
         SwapLogic.SwapLogicStorage swapLogicStorage;
         PayWallLogic.PayWallLogicStorage paywallLogicStorage;
         EscrowPayment.EscrowPaymentStorage escrowPaymentStorage;
@@ -298,5 +299,17 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
             merchant,
             transactionHash
         );
+    }
+
+    function setItemIdCallbackConfig(bytes32 itemId, MerchantLogic.ItemIdCallbackConfig calldata config) external {
+        MerchantLogic.setItemIdCallback(_zkPayStorage.itemIdCallbackConfigs, itemId, config);
+    }
+
+    function getItemIdCallbackConfig(bytes32 itemId)
+        external
+        view
+        returns (MerchantLogic.ItemIdCallbackConfig memory config)
+    {
+        return MerchantLogic.getItemIdCallback(_zkPayStorage.itemIdCallbackConfigs, itemId);
     }
 }

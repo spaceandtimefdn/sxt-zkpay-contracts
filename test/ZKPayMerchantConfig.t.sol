@@ -69,4 +69,16 @@ contract ZKPayMerchantConfigTest is Test {
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
         _zkpay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
     }
+
+    function testSetAndGetItemIdCallbackConfig() public {
+        bytes32 itemId = bytes32(uint256(456));
+        MerchantLogic.ItemIdCallbackConfig memory config =
+            MerchantLogic.ItemIdCallbackConfig({contractAddress: address(2), funcSig: bytes4(0x87654321)});
+
+        _zkpay.setItemIdCallbackConfig(itemId, config);
+
+        MerchantLogic.ItemIdCallbackConfig memory result = _zkpay.getItemIdCallbackConfig(itemId);
+        assertEq(result.contractAddress, config.contractAddress);
+        assertEq(result.funcSig, config.funcSig);
+    }
 }

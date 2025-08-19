@@ -149,11 +149,18 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         bytes32 onBehalfOf,
         address merchant,
         bytes calldata memo,
-        bytes32 itemId
+        bytes32 itemId,
+        bytes memory customSourceAssetPath
     ) internal {
         PaymentLogic.ProcessPaymentResult memory result = PaymentLogic.processPayment(
             _zkPayStorage,
-            PaymentLogic.ProcessPaymentParams({asset: asset, amount: amount, merchant: merchant, itemId: itemId})
+            PaymentLogic.ProcessPaymentParams({
+                asset: asset,
+                amount: amount,
+                merchant: merchant,
+                itemId: itemId,
+                customSourceAssetPath: customSourceAssetPath
+            })
         );
 
         emit SendPayment(
@@ -178,7 +185,27 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         bytes calldata memo,
         bytes32 itemId
     ) external nonReentrant {
-        _sendPayment(asset, amount, onBehalfOf, merchant, memo, itemId);
+        _sendPayment(asset, amount, onBehalfOf, merchant, memo, itemId, "");
+    }
+
+    /// @inheritdoc IZKPay
+    function sendPathOverride(
+        bytes calldata customSourceAssetPath,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        bytes32 itemId
+    ) external nonReentrant {
+        _sendPayment(
+            SwapLogic.calldataExtractPathOriginAsset(customSourceAssetPath),
+            amount,
+            onBehalfOf,
+            merchant,
+            memo,
+            itemId,
+            customSourceAssetPath
+        );
     }
 
     /// @inheritdoc IZKPay
@@ -193,7 +220,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
     ) external nonReentrant {
         bytes4 selector = bytes4(callbackData[:4]);
         bytes32 itemId = keccak256(abi.encode(callbackContractAddress, selector));
-        _sendPayment(asset, amount, onBehalfOf, merchant, memo, itemId);
+        _sendPayment(asset, amount, onBehalfOf, merchant, memo, itemId, "");
         _validateMerchant(merchant, callbackContractAddress);
 
         SafeExecutor(_zkPayStorage.executorAddress).execute(callbackContractAddress, callbackData);

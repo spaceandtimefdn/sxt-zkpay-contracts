@@ -74,6 +74,7 @@ library PaymentLogic {
         uint248 amount;
         address merchant;
         bytes32 itemId;
+        bytes customSourceAssetPath;
     }
 
     struct ProcessPaymentResult {
@@ -104,7 +105,11 @@ library PaymentLogic {
         if (receivedTransferAmount > 0) {
             MerchantLogic.MerchantConfig memory merchantConfig = _zkPayStorage.merchantConfigs[params.merchant];
             result.recievedPayoutAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
-                params.asset, params.merchant, receivedTransferAmount, merchantConfig.payoutAddress
+                params.asset,
+                params.merchant,
+                receivedTransferAmount,
+                merchantConfig.payoutAddress,
+                params.customSourceAssetPath
             );
         }
 
@@ -237,7 +242,7 @@ library PaymentLogic {
         // slither-disable-next-line reentrancy-events
         MerchantLogic.MerchantConfig memory merchantConfig = _zkPayStorage.merchantConfigs[params.merchant];
         result.receivedTargetAssetAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
-            params.sourceAsset, params.merchant, toBePaidInSourceToken, merchantConfig.payoutAddress
+            params.sourceAsset, params.merchant, toBePaidInSourceToken, merchantConfig.payoutAddress, ""
         );
 
         // 2. refund client

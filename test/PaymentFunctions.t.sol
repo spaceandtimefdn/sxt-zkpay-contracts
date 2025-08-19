@@ -506,4 +506,54 @@ contract PaymentFunctionsTest is Test {
         assertLt(IERC20(SXT).balanceOf(client), sxtAmount);
         assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
     }
+
+    function testSendPathOverride() public {
+        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes memory customPath = DummyData.getOriginAssetPath(USDC);
+
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
+
+        zkpay.sendPathOverride(customPath, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0));
+
+        uint248 protocolFeeAmount = uint248((uint256(usdcAmount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
+
+        assertEq(IERC20(USDC).balanceOf(treasury), protocolFeeAmount);
+        assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
+    }
+
+    function testSendWithCallbackPathOverride() public {
+        MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
+        bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);
+        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes memory customPath = DummyData.getOriginAssetPath(USDC);
+
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
+
+        zkpay.sendWithCallbackPathOverride(
+            customPath,
+            usdcAmount,
+            onBehalfOfBytes32,
+            targetMerchant,
+            memoBytes,
+            address(callbackContract),
+            callbackData
+        );
+
+        assertEq(callbackContract.callCount(), 1);
+        uint248 protocolFeeAmount = uint248((uint256(usdcAmount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
+        assertEq(IERC20(USDC).balanceOf(treasury), protocolFeeAmount);
+        assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
+    }
 }

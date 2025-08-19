@@ -245,12 +245,20 @@ library SwapLogic {
         address sourceAsset,
         address merchant,
         uint256 sourceAssetAmountIn,
-        address targetAssetRecipient
+        address targetAssetRecipient,
+        bytes memory customSourceAssetPath
     ) internal returns (uint256 receivedTargetAssetAmount) {
-        bytes memory swapPath = _connect2Paths(
-            _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset],
-            _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant]
-        );
+        bytes memory swapPath;
+        if (customSourceAssetPath.length > 0) {
+            swapPath = _connect2Paths(
+                customSourceAssetPath, _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant]
+            );
+        } else {
+            swapPath = _connect2Paths(
+                _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset],
+                _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant]
+            );
+        }
 
         receivedTargetAssetAmount = _swapExactAmountIn(
             _swapLogicStorage.swapLogicConfig.router, swapPath, sourceAssetAmountIn, targetAssetRecipient

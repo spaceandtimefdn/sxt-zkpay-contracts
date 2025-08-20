@@ -39,38 +39,21 @@ contract MerchantLogicTest is Test {
     }
 
     function testSetAndGet() public {
-        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
-            payoutAddress: address(2),
-            fulfillerPercentage: 50 * MerchantLogic.PERCENTAGE_PRECISION
-        });
+        MerchantLogic.MerchantConfig memory merchantConfig =
+            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: address(2)});
 
         vm.expectEmit(true, true, true, true);
-        emit MerchantLogic.MerchantConfigSet(
-            address(this), merchantConfig.payoutToken, merchantConfig.payoutAddress, merchantConfig.fulfillerPercentage
-        );
+        emit MerchantLogic.MerchantConfigSet(address(this), merchantConfig.payoutToken, merchantConfig.payoutAddress);
         _wrapper.setConfig(address(this), merchantConfig);
 
         MerchantLogic.MerchantConfig memory result = _wrapper.getConfig(address(this));
         assertEq(result.payoutToken, merchantConfig.payoutToken);
         assertEq(result.payoutAddress, merchantConfig.payoutAddress);
-        assertEq(result.fulfillerPercentage, merchantConfig.fulfillerPercentage);
-    }
-
-    function testInvalidPercentage() public {
-        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
-            payoutAddress: address(2),
-            fulfillerPercentage: MerchantLogic.MAX_PERCENTAGE + 1
-        });
-
-        vm.expectRevert(MerchantLogic.InvalidFulfillerPercentage.selector);
-        _wrapper.setConfig(address(this), merchantConfig);
     }
 
     function testZeroPayoutAddress() public {
         MerchantLogic.MerchantConfig memory merchantConfig =
-            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: ZERO_ADDRESS, fulfillerPercentage: 1});
+            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: ZERO_ADDRESS});
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
         _wrapper.setConfig(address(this), merchantConfig);

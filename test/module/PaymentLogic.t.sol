@@ -232,12 +232,7 @@ contract PaymentLogicProcessPaymentWrapper {
         AssetManagement.set(zkPayStorage.assets, SXT, sxtAsset);
 
         zkPayStorage.merchantLogicStorage.setConfig(
-            MERCHANT,
-            MerchantLogic.MerchantConfig({
-                payoutToken: USDC,
-                payoutAddress: MERCHANT_PAYOUT_ADDRESS,
-                fulfillerPercentage: 0
-            })
+            MERCHANT, MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: MERCHANT_PAYOUT_ADDRESS})
         );
     }
 
@@ -380,12 +375,7 @@ contract PaymentLogicAuthorizePaymentWrapper {
         AssetManagement.set(zkPayStorage.assets, USDT, usdtAsset);
 
         zkPayStorage.merchantLogicStorage.setConfig(
-            MERCHANT,
-            MerchantLogic.MerchantConfig({
-                payoutToken: USDC,
-                payoutAddress: MERCHANT_PAYOUT_ADDRESS,
-                fulfillerPercentage: 0
-            })
+            MERCHANT, MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: MERCHANT_PAYOUT_ADDRESS})
         );
     }
 

@@ -85,7 +85,7 @@ contract PaymentFunctionsTest is Test {
     function _setupMerchantConfig() internal {
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
     }
@@ -172,7 +172,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
 
@@ -191,7 +191,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
 
@@ -255,7 +255,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
 
@@ -338,7 +338,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
 
@@ -426,7 +426,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
 
@@ -461,7 +461,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
 
@@ -494,7 +494,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
 
@@ -550,7 +550,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
 
@@ -591,7 +591,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
 
@@ -613,7 +613,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
 
@@ -646,7 +646,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
 
@@ -687,7 +687,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(targetMerchant);
         zkpay.setMerchantConfig(
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant}),
             DummyData.getDestinationAssetPath(USDC)
         );
 

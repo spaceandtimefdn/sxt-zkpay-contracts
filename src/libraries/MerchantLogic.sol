@@ -8,24 +8,14 @@ library MerchantLogic {
     /// @param merchant Address of the merchant
     /// @param payoutToken Target token address for payouts
     /// @param payoutAddress Address that will receive payouts
-    /// @param fulfillerPercentage Percentage of payout that goes to fulfiller in 6 decimals precision
-    event MerchantConfigSet(
-        address indexed merchant, address payoutToken, address payoutAddress, uint32 fulfillerPercentage
-    );
-
-    /// @notice Error thrown when fulfillerPercentage is greater than 100% (1e6 precision)
-    error InvalidFulfillerPercentage();
+    event MerchantConfigSet(address indexed merchant, address payoutToken, address payoutAddress);
 
     /// @notice Error thrown when payoutAddress is zero
     error PayoutAddressCannotBeZero();
 
-    uint32 public constant PERCENTAGE_PRECISION = 1e6;
-    uint32 public constant MAX_PERCENTAGE = 100 * PERCENTAGE_PRECISION;
-
     struct MerchantConfig {
         address payoutToken;
         address payoutAddress;
-        uint32 fulfillerPercentage;
     }
 
     struct MerchantLogicStorage {
@@ -44,16 +34,13 @@ library MerchantLogic {
         address merchant,
         MerchantConfig memory config
     ) internal {
-        if (config.fulfillerPercentage > MAX_PERCENTAGE) {
-            revert InvalidFulfillerPercentage();
-        }
         if (config.payoutAddress == ZERO_ADDRESS) {
             revert PayoutAddressCannotBeZero();
         }
 
         merchantLogicStorage.merchantConfigs[merchant] = config;
 
-        emit MerchantConfigSet(merchant, config.payoutToken, config.payoutAddress, config.fulfillerPercentage);
+        emit MerchantConfigSet(merchant, config.payoutToken, config.payoutAddress);
     }
 
     function getConfig(MerchantLogicStorage storage merchantLogicStorage, address merchant)

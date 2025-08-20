@@ -33,38 +33,21 @@ contract ZKPayMerchantConfigTest is Test {
     }
 
     function testSetAndGetMerchantConfig() public {
-        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
-            payoutAddress: address(3),
-            fulfillerPercentage: 5 * MerchantLogic.PERCENTAGE_PRECISION
-        });
+        MerchantLogic.MerchantConfig memory merchantConfig =
+            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: address(3)});
 
         vm.expectEmit(true, true, true, true);
-        emit MerchantLogic.MerchantConfigSet(
-            address(this), merchantConfig.payoutToken, merchantConfig.payoutAddress, merchantConfig.fulfillerPercentage
-        );
+        emit MerchantLogic.MerchantConfigSet(address(this), merchantConfig.payoutToken, merchantConfig.payoutAddress);
         _zkpay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
 
         MerchantLogic.MerchantConfig memory r = _zkpay.getMerchantConfig(address(this));
         assertEq(r.payoutToken, merchantConfig.payoutToken);
         assertEq(r.payoutAddress, merchantConfig.payoutAddress);
-        assertEq(r.fulfillerPercentage, merchantConfig.fulfillerPercentage);
-    }
-
-    function testSetMerchantConfigInvalidPercentage() public {
-        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
-            payoutAddress: address(3),
-            fulfillerPercentage: MerchantLogic.MAX_PERCENTAGE + 1
-        });
-
-        vm.expectRevert(MerchantLogic.InvalidFulfillerPercentage.selector);
-        _zkpay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
     }
 
     function testSetMerchantConfigZeroPayoutAddress() public {
         MerchantLogic.MerchantConfig memory merchantConfig =
-            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: ZERO_ADDRESS, fulfillerPercentage: 1});
+            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: ZERO_ADDRESS});
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
         _zkpay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));

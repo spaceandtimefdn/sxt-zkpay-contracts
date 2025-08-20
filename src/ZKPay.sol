@@ -31,14 +31,15 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
     error ExecutorAddressCannotBeZero();
     error InvalidMerchant();
     error ZeroAmountReceived();
+    error InvalidItemId();
+    error ItemIdCallbackNotConfigured();
 
     struct SendWithCallbackParams {
         address asset;
         uint248 amount;
         bytes32 onBehalfOf;
         address merchant;
-        address callbackContractAddress;
-        bytes4 selector;
+        bytes32 itemId;
         bytes callbackData;
         bytes customSourceAssetPath;
     }
@@ -220,14 +221,30 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
     }
 
     function _sendWithCallback(SendWithCallbackParams memory params, bytes calldata memo) internal {
-        bytes32 itemId = keccak256(abi.encode(params.callbackContractAddress, params.selector));
+        if (params.itemId == bytes32(0)) {
+            revert InvalidItemId();
+        }
+
+        MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
+            MerchantLogic.getItemIdCallback(_zkPayStorage.itemIdCallbackConfigs, params.merchant, params.itemId);
+
+        if (callbackConfig.contractAddress == address(0)) {
+            revert ItemIdCallbackNotConfigured();
+        }
 
         _sendPayment(
-            params.asset, params.amount, params.onBehalfOf, params.merchant, memo, itemId, params.customSourceAssetPath
+            params.asset,
+            params.amount,
+            params.onBehalfOf,
+            params.merchant,
+            memo,
+            params.itemId,
+            params.customSourceAssetPath
         );
-        _validateMerchant(params.merchant, params.callbackContractAddress);
+        _validateMerchant(params.merchant, callbackConfig.contractAddress);
 
-        SafeExecutor(_zkPayStorage.executorAddress).execute(params.callbackContractAddress, params.callbackData);
+        bytes memory fullCallbackData = abi.encodePacked(callbackConfig.funcSig, params.callbackData);
+        SafeExecutor(_zkPayStorage.executorAddress).execute(callbackConfig.contractAddress, fullCallbackData);
     }
 
     /// @inheritdoc IZKPay
@@ -237,7 +254,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         bytes32 onBehalfOf,
         address merchant,
         bytes calldata memo,
-        address callbackContractAddress,
+        bytes32 itemId,
         bytes calldata callbackData
     ) external nonReentrant {
         _sendWithCallback(
@@ -246,8 +263,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
                 amount: amount,
                 onBehalfOf: onBehalfOf,
                 merchant: merchant,
-                callbackContractAddress: callbackContractAddress,
-                selector: bytes4(callbackData[:4]),
+                itemId: itemId,
                 callbackData: callbackData,
                 customSourceAssetPath: customSourceAssetPath
             }),
@@ -262,7 +278,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         bytes32 onBehalfOf,
         address merchant,
         bytes calldata memo,
-        address callbackContractAddress,
+        bytes32 itemId,
         bytes calldata callbackData
     ) external nonReentrant {
         _sendWithCallback(
@@ -271,8 +287,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
                 amount: amount,
                 onBehalfOf: onBehalfOf,
                 merchant: merchant,
-                callbackContractAddress: callbackContractAddress,
-                selector: bytes4(callbackData[:4]),
+                itemId: itemId,
                 callbackData: callbackData,
                 customSourceAssetPath: ""
             }),

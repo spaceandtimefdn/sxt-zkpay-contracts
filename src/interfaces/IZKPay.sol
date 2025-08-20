@@ -133,7 +133,7 @@ interface IZKPay {
     /// @param onBehalfOf The identifier on whose behalf the payment is made
     /// @param merchant The merchant address
     /// @param memo Additional data or information about the payment
-    /// @param callbackContractAddress The address of the callback contract
+    /// @param itemId The item ID, this is used to identify the callback contract
     /// @param callbackData The data to send to the callback contract
     function sendWithCallbackPathOverride(
         bytes calldata customSourceAssetPath,
@@ -141,7 +141,7 @@ interface IZKPay {
         bytes32 onBehalfOf,
         address merchant,
         bytes calldata memo,
-        address callbackContractAddress,
+        bytes32 itemId,
         bytes calldata callbackData
     ) external;
 
@@ -151,7 +151,7 @@ interface IZKPay {
     /// @param onBehalfOf The identifier on whose behalf the payment is made
     /// @param merchant The merchant address
     /// @param memo Additional data or information about the payment
-    /// @param callbackContractAddress The address of the callback contract
+    /// @param itemId The item ID, this is used to identify the callback contract
     /// @param callbackData The data to send to the callback contract
     function sendWithCallback(
         address asset,
@@ -159,7 +159,7 @@ interface IZKPay {
         bytes32 onBehalfOf,
         address merchant,
         bytes calldata memo,
-        address callbackContractAddress,
+        bytes32 itemId,
         bytes calldata callbackData
     ) external;
 
@@ -242,4 +242,17 @@ interface IZKPay {
         bytes32 transactionHash,
         uint248 maxUsdValueOfTargetToken
     ) external;
+
+    /// @notice Sets callback configuration for an item ID
+    /// @param itemId The item ID
+    /// @param config The callback configuration
+    function setItemIdCallbackConfig(bytes32 itemId, MerchantLogic.ItemIdCallbackConfig calldata config) external;
+
+    /// @notice Gets callback configuration for an item ID
+    /// @param itemId The item ID
+    /// @return config The callback configuration
+    function getItemIdCallbackConfig(bytes32 itemId)
+        external
+        view
+        returns (MerchantLogic.ItemIdCallbackConfig memory config);
 }

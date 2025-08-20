@@ -59,17 +59,19 @@ library MerchantLogic {
     }
 
     function setItemIdCallback(
-        mapping(bytes32 itemId => ItemIdCallbackConfig) storage itemIdCallbackConfigs,
+        mapping(address merchant => mapping(bytes32 itemId => ItemIdCallbackConfig)) storage itemIdCallbackConfigs,
+        address merchant,
         bytes32 itemId,
         ItemIdCallbackConfig memory callbackConfig
     ) internal {
-        itemIdCallbackConfigs[itemId] = callbackConfig;
+        itemIdCallbackConfigs[merchant][itemId] = callbackConfig;
     }
 
     function getItemIdCallback(
-        mapping(bytes32 itemId => ItemIdCallbackConfig) storage itemIdCallbackConfigs,
+        mapping(address merchant => mapping(bytes32 itemId => ItemIdCallbackConfig)) storage itemIdCallbackConfigs,
+        address merchant,
         bytes32 itemId
     ) internal view returns (ItemIdCallbackConfig memory callbackConfig) {
-        callbackConfig = itemIdCallbackConfigs[itemId];
+        callbackConfig = itemIdCallbackConfigs[merchant][itemId];
     }
 }

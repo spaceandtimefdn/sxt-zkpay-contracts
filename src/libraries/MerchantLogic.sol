@@ -28,6 +28,11 @@ library MerchantLogic {
         uint32 fulfillerPercentage;
     }
 
+    struct ItemIdCallbackConfig {
+        address contractAddress;
+        bytes4 funcSig;
+    }
+
     function set(
         mapping(address merchant => MerchantConfig) storage merchantConfigs,
         address merchant,
@@ -51,5 +56,20 @@ library MerchantLogic {
         returns (MerchantConfig memory config)
     {
         config = merchantConfigs[merchant];
+    }
+
+    function setItemIdCallback(
+        mapping(bytes32 itemId => ItemIdCallbackConfig) storage itemIdCallbackConfigs,
+        bytes32 itemId,
+        ItemIdCallbackConfig memory callbackConfig
+    ) internal {
+        itemIdCallbackConfigs[itemId] = callbackConfig;
+    }
+
+    function getItemIdCallback(
+        mapping(bytes32 itemId => ItemIdCallbackConfig) storage itemIdCallbackConfigs,
+        bytes32 itemId
+    ) internal view returns (ItemIdCallbackConfig memory callbackConfig) {
+        callbackConfig = itemIdCallbackConfigs[itemId];
     }
 }

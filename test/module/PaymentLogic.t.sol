@@ -12,6 +12,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 import {EscrowPayment} from "../../src/libraries/EscrowPayment.sol";
 import {RPC_URL, ROUTER, USDT, SXT, USDC, BLOCK_NUMBER} from "../data/MainnetConstants.sol";
+import {MerchantLogic} from "../../src/libraries/MerchantLogic.sol";
 
 contract PaymentLogicTestWrapper {
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
@@ -202,11 +203,13 @@ contract PaymentLogicProcessPaymentWrapper {
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
+    using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
 
     ZKPay.ZKPayStorage internal zkPayStorage;
 
     address public constant TREASURY = address(0x9999);
     address public constant MERCHANT = address(0x8888);
+    address public constant MERCHANT_PAYOUT_ADDRESS = address(0x8001);
 
     constructor() {
         zkPayStorage.sxt = SXT;
@@ -227,6 +230,15 @@ contract PaymentLogicProcessPaymentWrapper {
             stalePriceThresholdInSeconds: 3600
         });
         AssetManagement.set(zkPayStorage.assets, SXT, sxtAsset);
+
+        zkPayStorage.merchantConfigs.set(
+            MERCHANT,
+            MerchantLogic.MerchantConfig({
+                payoutToken: USDC,
+                payoutAddress: MERCHANT_PAYOUT_ADDRESS,
+                fulfillerPercentage: 0
+            })
+        );
     }
 
     function processPayment(PaymentLogic.ProcessPaymentParams calldata params)
@@ -271,7 +283,7 @@ contract PaymentLogicProcessPaymentTest is Test {
             assertEq(result.receivedProtocolFeeAmount, 0);
             assertGt(result.amountInUSD, 0);
             assertGt(result.recievedPayoutAmount, 0);
-            assertEq(IERC20(USDC).balanceOf(MERCHANT), result.recievedPayoutAmount);
+            assertEq(IERC20(USDC).balanceOf(wrapper.MERCHANT_PAYOUT_ADDRESS()), result.recievedPayoutAmount);
         } catch (bytes memory reason) {
             emit log("Failed with reason:");
             emit log_bytes(reason);
@@ -320,11 +332,13 @@ contract PaymentLogicAuthorizePaymentWrapper {
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
     using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
+    using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
 
     ZKPay.ZKPayStorage internal zkPayStorage;
 
     address public constant TREASURY = address(0x9999);
     address public constant MERCHANT = address(0x8888);
+    address public constant MERCHANT_PAYOUT_ADDRESS = address(0x8001);
 
     constructor() {
         zkPayStorage.sxt = SXT;
@@ -353,6 +367,15 @@ contract PaymentLogicAuthorizePaymentWrapper {
             stalePriceThresholdInSeconds: 3600
         });
         AssetManagement.set(zkPayStorage.assets, USDT, usdtAsset);
+
+        zkPayStorage.merchantConfigs.set(
+            MERCHANT,
+            MerchantLogic.MerchantConfig({
+                payoutToken: USDC,
+                payoutAddress: MERCHANT_PAYOUT_ADDRESS,
+                fulfillerPercentage: 0
+            })
+        );
     }
 
     function authorizePayment(PaymentLogic.AuthorizePaymentParams calldata params)
@@ -616,5 +639,6 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         assertGt(result.receivedTargetAssetAmount, 0);
         assertGt(result.receivedRefundAmount, 0);
         assertGt(result.receivedProtocolFeeAmount, 0);
+        assertEq(IERC20(USDC).balanceOf(wrapper.MERCHANT_PAYOUT_ADDRESS()), result.receivedTargetAssetAmount);
     }
 }

@@ -33,6 +33,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
     error ZeroAmountReceived();
     error InvalidItemId();
     error ItemIdCallbackNotConfigured();
+    error InvalidCallbackContract();
 
     struct SendWithCallbackParams {
         address asset;
@@ -398,6 +399,12 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
     }
 
     function setItemIdCallbackConfig(bytes32 itemId, MerchantLogic.ItemIdCallbackConfig calldata config) external {
+        if (itemId == bytes32(0)) {
+            revert InvalidItemId();
+        }
+        if (config.contractAddress == address(0)) {
+            revert InvalidCallbackContract();
+        }
         MerchantLogic.setItemIdCallback(_zkPayStorage.itemIdCallbackConfigs, msg.sender, itemId, config);
     }
 

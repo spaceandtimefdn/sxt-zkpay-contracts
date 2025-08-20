@@ -275,8 +275,13 @@ contract PaymentLogicProcessPaymentTest is Test {
         deal(SXT, address(this), amount);
         IERC20(SXT).approve(address(wrapper), amount);
 
-        PaymentLogic.ProcessPaymentParams memory params =
-            PaymentLogic.ProcessPaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
+        PaymentLogic.ProcessPaymentParams memory params = PaymentLogic.ProcessPaymentParams({
+            asset: SXT,
+            amount: amount,
+            merchant: MERCHANT,
+            itemId: itemId,
+            customSourceAssetPath: ""
+        });
 
         try wrapper.processPayment(params) returns (PaymentLogic.ProcessPaymentResult memory result) {
             assertEq(result.payoutToken, USDC);
@@ -302,8 +307,13 @@ contract PaymentLogicProcessPaymentTest is Test {
         deal(SXT, address(this), amount);
         IERC20(SXT).approve(address(wrapper), amount);
 
-        PaymentLogic.ProcessPaymentParams memory params =
-            PaymentLogic.ProcessPaymentParams({asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId});
+        PaymentLogic.ProcessPaymentParams memory params = PaymentLogic.ProcessPaymentParams({
+            asset: SXT,
+            amount: amount,
+            merchant: MERCHANT,
+            itemId: itemId,
+            customSourceAssetPath: ""
+        });
 
         vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
         wrapper.processPayment(params);
@@ -318,7 +328,8 @@ contract PaymentLogicProcessPaymentTest is Test {
             asset: unsupportedAsset,
             amount: amount,
             merchant: MERCHANT,
-            itemId: itemId
+            itemId: itemId,
+            customSourceAssetPath: ""
         });
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);

@@ -111,6 +111,40 @@ interface IZKPay {
         bytes32 itemId
     ) external;
 
+    /// @notice Allows for sending ERC20 tokens with a custom swap path override
+    /// @param customSourceAssetPath The custom swap path to override the stored sourceAssetPaths mapping
+    /// @param amount The amount of tokens to send
+    /// @param onBehalfOf The identifier on whose behalf the payment is made
+    /// @param merchant The merchant address
+    /// @param memo Additional data or information about the payment
+    /// @param itemId The item ID
+    function sendPathOverride(
+        bytes calldata customSourceAssetPath,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        bytes32 itemId
+    ) external;
+
+    /// @notice Allows for sending ERC20 tokens with a custom swap path override and a callback contract
+    /// @param customSourceAssetPath The custom swap path to override the stored sourceAssetPaths mapping
+    /// @param amount The amount of tokens to send
+    /// @param onBehalfOf The identifier on whose behalf the payment is made
+    /// @param merchant The merchant address
+    /// @param memo Additional data or information about the payment
+    /// @param callbackContractAddress The address of the callback contract
+    /// @param callbackData The data to send to the callback contract
+    function sendWithCallbackPathOverride(
+        bytes calldata customSourceAssetPath,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        address callbackContractAddress,
+        bytes calldata callbackData
+    ) external;
+
     /// @notice Allows for sending ERC20 tokens to a target address with a callback contract
     /// @param asset The address of the ERC20 token to send
     /// @param amount The amount of tokens to send

@@ -314,7 +314,7 @@ contract SwapLogicWrapper {
         address targetAssetRecipient
     ) external returns (uint256 receivedTargetAssetAmount) {
         return SwapLogic.swapExactSourceAssetAmount(
-            _swapLogicStorage, sourceAsset, merchant, sourceAssetAmountIn, targetAssetRecipient
+            _swapLogicStorage, sourceAsset, merchant, sourceAssetAmountIn, targetAssetRecipient, ""
         );
     }
 }

@@ -32,6 +32,17 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
     error InvalidMerchant();
     error ZeroAmountReceived();
 
+    struct SendWithCallbackParams {
+        address asset;
+        uint248 amount;
+        bytes32 onBehalfOf;
+        address merchant;
+        address callbackContractAddress;
+        bytes4 selector;
+        bytes callbackData;
+        bytes customSourceAssetPath;
+    }
+
     // solhint-disable-next-line gas-struct-packing
     struct ZKPayStorage {
         address sxt;
@@ -149,11 +160,18 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         bytes32 onBehalfOf,
         address merchant,
         bytes calldata memo,
-        bytes32 itemId
+        bytes32 itemId,
+        bytes memory customSourceAssetPath
     ) internal {
         PaymentLogic.ProcessPaymentResult memory result = PaymentLogic.processPayment(
             _zkPayStorage,
-            PaymentLogic.ProcessPaymentParams({asset: asset, amount: amount, merchant: merchant, itemId: itemId})
+            PaymentLogic.ProcessPaymentParams({
+                asset: asset,
+                amount: amount,
+                merchant: merchant,
+                itemId: itemId,
+                customSourceAssetPath: customSourceAssetPath
+            })
         );
 
         emit SendPayment(
@@ -178,7 +196,63 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         bytes calldata memo,
         bytes32 itemId
     ) external nonReentrant {
-        _sendPayment(asset, amount, onBehalfOf, merchant, memo, itemId);
+        _sendPayment(asset, amount, onBehalfOf, merchant, memo, itemId, "");
+    }
+
+    /// @inheritdoc IZKPay
+    function sendPathOverride(
+        bytes calldata customSourceAssetPath,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        bytes32 itemId
+    ) external nonReentrant {
+        _sendPayment(
+            SwapLogic.calldataExtractPathOriginAsset(customSourceAssetPath),
+            amount,
+            onBehalfOf,
+            merchant,
+            memo,
+            itemId,
+            customSourceAssetPath
+        );
+    }
+
+    function _sendWithCallback(SendWithCallbackParams memory params, bytes calldata memo) internal {
+        bytes32 itemId = keccak256(abi.encode(params.callbackContractAddress, params.selector));
+
+        _sendPayment(
+            params.asset, params.amount, params.onBehalfOf, params.merchant, memo, itemId, params.customSourceAssetPath
+        );
+        _validateMerchant(params.merchant, params.callbackContractAddress);
+
+        SafeExecutor(_zkPayStorage.executorAddress).execute(params.callbackContractAddress, params.callbackData);
+    }
+
+    /// @inheritdoc IZKPay
+    function sendWithCallbackPathOverride(
+        bytes calldata customSourceAssetPath,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes calldata memo,
+        address callbackContractAddress,
+        bytes calldata callbackData
+    ) external nonReentrant {
+        _sendWithCallback(
+            SendWithCallbackParams({
+                asset: SwapLogic.calldataExtractPathOriginAsset(customSourceAssetPath),
+                amount: amount,
+                onBehalfOf: onBehalfOf,
+                merchant: merchant,
+                callbackContractAddress: callbackContractAddress,
+                selector: bytes4(callbackData[:4]),
+                callbackData: callbackData,
+                customSourceAssetPath: customSourceAssetPath
+            }),
+            memo
+        );
     }
 
     /// @inheritdoc IZKPay
@@ -191,12 +265,19 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         address callbackContractAddress,
         bytes calldata callbackData
     ) external nonReentrant {
-        bytes4 selector = bytes4(callbackData[:4]);
-        bytes32 itemId = keccak256(abi.encode(callbackContractAddress, selector));
-        _sendPayment(asset, amount, onBehalfOf, merchant, memo, itemId);
-        _validateMerchant(merchant, callbackContractAddress);
-
-        SafeExecutor(_zkPayStorage.executorAddress).execute(callbackContractAddress, callbackData);
+        _sendWithCallback(
+            SendWithCallbackParams({
+                asset: asset,
+                amount: amount,
+                onBehalfOf: onBehalfOf,
+                merchant: merchant,
+                callbackContractAddress: callbackContractAddress,
+                selector: bytes4(callbackData[:4]),
+                callbackData: callbackData,
+                customSourceAssetPath: ""
+            }),
+            memo
+        );
     }
 
     function _authorize(

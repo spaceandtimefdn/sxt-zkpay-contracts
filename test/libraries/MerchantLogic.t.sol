@@ -44,8 +44,8 @@ contract MerchantLogicTest is Test {
         addresses[1] = address(3);
 
         uint32[] memory percentages = new uint32[](2);
-        percentages[0] = 60;
-        percentages[1] = 40;
+        percentages[0] = 60 * MerchantLogic.PERCENTAGE_PRECISION;
+        percentages[1] = 40 * MerchantLogic.PERCENTAGE_PRECISION;
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
             payoutToken: address(1),
@@ -63,9 +63,9 @@ contract MerchantLogicTest is Test {
         assertEq(result.payoutToken, merchantConfig.payoutToken);
         assertEq(result.payoutAddresses.length, 2);
         assertEq(result.payoutAddresses[0], address(2));
-        assertEq(result.payoutPercentages[0], 60);
+        assertEq(result.payoutPercentages[0], 60 * MerchantLogic.PERCENTAGE_PRECISION);
         assertEq(result.payoutAddresses[1], address(3));
-        assertEq(result.payoutPercentages[1], 40);
+        assertEq(result.payoutPercentages[1], 40 * MerchantLogic.PERCENTAGE_PRECISION);
     }
 
     function testZeroPayoutAddress() public {
@@ -73,7 +73,7 @@ contract MerchantLogicTest is Test {
         addresses[0] = ZERO_ADDRESS;
 
         uint32[] memory percentages = new uint32[](1);
-        percentages[0] = 100;
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
             payoutToken: address(1),
@@ -108,8 +108,8 @@ contract MerchantLogicTest is Test {
         addresses[1] = address(3);
 
         uint32[] memory percentages = new uint32[](2);
-        percentages[0] = 50;
-        percentages[1] = 30;
+        percentages[0] = 50 * MerchantLogic.PERCENTAGE_PRECISION;
+        percentages[1] = 30 * MerchantLogic.PERCENTAGE_PRECISION; // Total is only 80%
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
             payoutToken: address(1),
@@ -162,9 +162,9 @@ contract MerchantLogicTest is Test {
         addresses[2] = address(4);
 
         uint32[] memory percentages = new uint32[](3);
-        percentages[0] = 50;
+        percentages[0] = 50 * MerchantLogic.PERCENTAGE_PRECISION;
         percentages[1] = 0;
-        percentages[2] = 50;
+        percentages[2] = 50 * MerchantLogic.PERCENTAGE_PRECISION;
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
             payoutToken: address(1),

@@ -37,8 +37,8 @@ contract ZKPayMerchantConfigTest is Test {
         addresses[0] = address(3);
         addresses[1] = address(4);
         uint32[] memory percentages = new uint32[](2);
-        percentages[0] = 70;
-        percentages[1] = 30;
+        percentages[0] = 70 * MerchantLogic.PERCENTAGE_PRECISION;
+        percentages[1] = 30 * MerchantLogic.PERCENTAGE_PRECISION;
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
             payoutToken: address(1),
             payoutAddresses: addresses,
@@ -55,16 +55,16 @@ contract ZKPayMerchantConfigTest is Test {
         assertEq(r.payoutToken, merchantConfig.payoutToken);
         assertEq(r.payoutAddresses.length, 2);
         assertEq(r.payoutAddresses[0], address(3));
-        assertEq(r.payoutPercentages[0], 70);
+        assertEq(r.payoutPercentages[0], 70 * MerchantLogic.PERCENTAGE_PRECISION);
         assertEq(r.payoutAddresses[1], address(4));
-        assertEq(r.payoutPercentages[1], 30);
+        assertEq(r.payoutPercentages[1], 30 * MerchantLogic.PERCENTAGE_PRECISION);
     }
 
     function testSetMerchantConfigZeroPayoutAddress() public {
         address[] memory addresses = new address[](1);
         addresses[0] = ZERO_ADDRESS;
         uint32[] memory percentages = new uint32[](1);
-        percentages[0] = 100;
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
             payoutToken: address(1),
             payoutAddresses: addresses,

@@ -219,7 +219,7 @@ contract PaymentLogicDistributePayoutsTest is Test {
         address[] memory addresses = new address[](1);
         addresses[0] = address(0x123);
         uint32[] memory percentages = new uint32[](1);
-        percentages[0] = 100;
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
 
         address payoutToken = USDC;
         uint256 totalAmount = 1000e6;
@@ -239,9 +239,9 @@ contract PaymentLogicDistributePayoutsTest is Test {
         addresses[1] = address(0x456);
         addresses[2] = address(0x789);
         uint32[] memory percentages = new uint32[](3);
-        percentages[0] = 50;
-        percentages[1] = 30;
-        percentages[2] = 20;
+        percentages[0] = 50 * MerchantLogic.PERCENTAGE_PRECISION;
+        percentages[1] = 30 * MerchantLogic.PERCENTAGE_PRECISION;
+        percentages[2] = 20 * MerchantLogic.PERCENTAGE_PRECISION;
 
         address payoutToken = USDC;
         uint256 totalAmount = 1000e6;
@@ -261,7 +261,7 @@ contract PaymentLogicDistributePayoutsTest is Test {
         address[] memory addresses = new address[](1);
         addresses[0] = address(0x123);
         uint32[] memory percentages = new uint32[](1);
-        percentages[0] = 100;
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
 
         address payoutToken = USDC;
         uint256 totalAmount = 0;
@@ -277,9 +277,9 @@ contract PaymentLogicDistributePayoutsTest is Test {
         addresses[1] = address(0x456);
         addresses[2] = address(0x789);
         uint32[] memory percentages = new uint32[](3);
-        percentages[0] = 33;
-        percentages[1] = 33;
-        percentages[2] = 34;
+        percentages[0] = 33333333; // ~33.333333%
+        percentages[1] = 33333333; // ~33.333333%
+        percentages[2] = 33333334; // ~33.333334% (to total 100%)
 
         address payoutToken = USDC;
         uint256 totalAmount = 100;
@@ -306,13 +306,13 @@ contract PaymentLogicDistributePayoutsTest is Test {
     function testFuzzDistributePayouts(uint256 totalAmount, uint32 percentage1, uint32 percentage2) public {
         vm.assume(totalAmount < 1e50);
 
-        percentage1 = percentage1 % 101;
-        percentage2 = percentage2 % 101;
-        vm.assume(percentage1 + percentage2 <= 100);
+        percentage1 = percentage1 % (MerchantLogic.TOTAL_PERCENTAGE + 1);
+        percentage2 = percentage2 % (MerchantLogic.TOTAL_PERCENTAGE + 1);
+        vm.assume(percentage1 + percentage2 <= MerchantLogic.TOTAL_PERCENTAGE);
         uint32[] memory percentages = new uint32[](3);
         percentages[0] = percentage1;
         percentages[1] = percentage2;
-        percentages[2] = 100 - (percentage1 + percentage2);
+        percentages[2] = MerchantLogic.TOTAL_PERCENTAGE - (percentage1 + percentage2);
 
         address[] memory addresses = new address[](3);
         addresses[0] = address(0x123);
@@ -333,8 +333,9 @@ contract PaymentLogicDistributePayoutsTest is Test {
         for (uint256 i = 0; i < 3; ++i) {
             amounts[i] = IERC20(payoutToken).balanceOf(addresses[i]) - amounts[i];
             assertTrue(
-                (totalAmount * percentages[i]) / 100 <= amounts[i]
-                    && amounts[i] <= (totalAmount * percentages[i] + 99) / 100
+                (totalAmount * percentages[i]) / MerchantLogic.TOTAL_PERCENTAGE <= amounts[i]
+                    && amounts[i]
+                        <= (totalAmount * percentages[i] + MerchantLogic.TOTAL_PERCENTAGE - 1) / MerchantLogic.TOTAL_PERCENTAGE
             );
         }
 
@@ -380,7 +381,7 @@ contract PaymentLogicProcessPaymentWrapper {
         address[] memory addresses = new address[](1);
         addresses[0] = MERCHANT_PAYOUT_ADDRESS;
         uint32[] memory percentages = new uint32[](1);
-        percentages[0] = 100;
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
         zkPayStorage.merchantLogicStorage.setConfig(
             MERCHANT,
             MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddresses: addresses, payoutPercentages: percentages})
@@ -528,7 +529,7 @@ contract PaymentLogicAuthorizePaymentWrapper {
         address[] memory addresses = new address[](1);
         addresses[0] = MERCHANT_PAYOUT_ADDRESS;
         uint32[] memory percentages = new uint32[](1);
-        percentages[0] = 100;
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
         zkPayStorage.merchantLogicStorage.setConfig(
             MERCHANT,
             MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddresses: addresses, payoutPercentages: percentages})

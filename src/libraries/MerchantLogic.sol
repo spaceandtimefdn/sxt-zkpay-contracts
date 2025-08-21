@@ -28,12 +28,13 @@ library MerchantLogic {
     /// @notice Error thrown when a payout percentage is zero
     error ZeroPayoutPercentage();
 
-    uint32 public constant TOTAL_PERCENTAGE = 100;
+    uint32 public constant PERCENTAGE_PRECISION = 1e6;
+    uint32 public constant TOTAL_PERCENTAGE = 100 * PERCENTAGE_PRECISION;
 
     struct MerchantConfig {
         address payoutToken;
         address[] payoutAddresses;
-        uint32[] payoutPercentages; // Percentages as simple integers (100 = 100%)
+        uint32[] payoutPercentages;
     }
 
     struct MerchantLogicStorage {

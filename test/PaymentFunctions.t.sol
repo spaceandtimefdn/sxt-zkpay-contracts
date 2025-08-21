@@ -163,7 +163,7 @@ contract PaymentFunctionsTest is Test {
         addresses[0] = payoutAddress;
 
         uint32[] memory percentages = new uint32[](1);
-        percentages[0] = 100;
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
 
         return MerchantLogic.MerchantConfig({
             payoutToken: payoutToken,

@@ -7,7 +7,8 @@ import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
 
 contract MerchantLogicWrapper {
     mapping(address merchant => MerchantLogic.MerchantConfig) internal _configs;
-    mapping(bytes32 itemId => MerchantLogic.ItemIdCallbackConfig) internal _itemIdCallbackConfigs;
+    mapping(address merchant => mapping(bytes32 itemId => MerchantLogic.ItemIdCallbackConfig)) internal
+        _itemIdCallbackConfigs;
 
     function set(address merchant, MerchantLogic.MerchantConfig calldata config) external {
         MerchantLogic.set(_configs, merchant, config);
@@ -17,16 +18,18 @@ contract MerchantLogicWrapper {
         return MerchantLogic.get(_configs, merchant);
     }
 
-    function setItemIdCallback(bytes32 itemId, MerchantLogic.ItemIdCallbackConfig calldata config) external {
-        MerchantLogic.setItemIdCallback(_itemIdCallbackConfigs, itemId, config);
+    function setItemIdCallback(address merchant, bytes32 itemId, MerchantLogic.ItemIdCallbackConfig calldata config)
+        external
+    {
+        MerchantLogic.setItemIdCallback(_itemIdCallbackConfigs, merchant, itemId, config);
     }
 
-    function getItemIdCallback(bytes32 itemId)
+    function getItemIdCallback(address merchant, bytes32 itemId)
         external
         view
         returns (MerchantLogic.ItemIdCallbackConfig memory config)
     {
-        return MerchantLogic.getItemIdCallback(_itemIdCallbackConfigs, itemId);
+        return MerchantLogic.getItemIdCallback(_itemIdCallbackConfigs, merchant, itemId);
     }
 }
 
@@ -76,13 +79,14 @@ contract MerchantLogicTest is Test {
     }
 
     function testSetAndGetItemIdCallback() public {
+        address merchant = address(this);
         bytes32 itemId = bytes32(uint256(123));
         MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
             MerchantLogic.ItemIdCallbackConfig({contractAddress: address(1), funcSig: bytes4(0x12345678)});
 
-        _wrapper.setItemIdCallback(itemId, callbackConfig);
+        _wrapper.setItemIdCallback(merchant, itemId, callbackConfig);
 
-        MerchantLogic.ItemIdCallbackConfig memory result = _wrapper.getItemIdCallback(itemId);
+        MerchantLogic.ItemIdCallbackConfig memory result = _wrapper.getItemIdCallback(merchant, itemId);
         assertEq(result.contractAddress, callbackConfig.contractAddress);
         assertEq(result.funcSig, callbackConfig.funcSig);
     }

@@ -81,4 +81,21 @@ contract ZKPayMerchantConfigTest is Test {
         assertEq(result.contractAddress, config.contractAddress);
         assertEq(result.funcSig, config.funcSig);
     }
+
+    function testSetItemIdCallbackConfigInvalidItemId() public {
+        MerchantLogic.ItemIdCallbackConfig memory config =
+            MerchantLogic.ItemIdCallbackConfig({contractAddress: address(2), funcSig: bytes4(0x87654321)});
+
+        vm.expectRevert(ZKPay.InvalidItemId.selector);
+        _zkpay.setItemIdCallbackConfig(bytes32(0), config);
+    }
+
+    function testSetItemIdCallbackConfigInvalidContract() public {
+        bytes32 itemId = bytes32(uint256(456));
+        MerchantLogic.ItemIdCallbackConfig memory config =
+            MerchantLogic.ItemIdCallbackConfig({contractAddress: address(0), funcSig: bytes4(0x87654321)});
+
+        vm.expectRevert(ZKPay.InvalidCallbackContract.selector);
+        _zkpay.setItemIdCallbackConfig(itemId, config);
+    }
 }

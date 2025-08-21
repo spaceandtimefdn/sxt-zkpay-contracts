@@ -81,7 +81,7 @@ library PaymentLogic {
         address payoutToken;
         uint248 receivedProtocolFeeAmount;
         uint248 amountInUSD;
-        uint256 recievedPayoutAmount;
+        uint256 receivedPayoutAmount;
     }
 
     /// @notice Processes a direct payment with asset swapping to merchant's preferred payout token
@@ -105,7 +105,7 @@ library PaymentLogic {
         if (receivedTransferAmount > 0) {
             MerchantLogic.MerchantConfig memory merchantConfig =
                 _zkPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
-            result.recievedPayoutAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
+            result.receivedPayoutAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
                 params.asset,
                 params.merchant,
                 receivedTransferAmount,

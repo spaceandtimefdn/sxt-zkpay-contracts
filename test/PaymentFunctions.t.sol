@@ -39,7 +39,7 @@ contract MockCallbackContract is IMerchantCallback {
         lastCallData = abi.encode(value);
     }
 
-    function processCallbackWithMetadata(uint256 value, ZKPay.PaymentMetadata calldata metadata) external {
+    function processCallbackWithMetadata(ZKPay.PaymentMetadata calldata metadata, uint256 value) external {
         ++callCount;
         lastCallData = abi.encode(value);
         lastPaymentMetadata = metadata;

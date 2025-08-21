@@ -257,13 +257,15 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         if (callbackConfig.includePaymentMetadata) {
             PaymentMetadata memory metadata = PaymentMetadata({
                 payoutToken: result.payoutToken,
-                payoutAmount: result.recievedPayoutAmount,
+                payoutAmount: result.receivedPayoutAmount,
                 amountInUSD: result.amountInUSD,
                 onBehalfOf: params.onBehalfOf,
                 sender: msg.sender,
                 itemId: params.itemId
             });
-            fullCallbackData = abi.encodePacked(callbackConfig.funcSig, params.callbackData, abi.encode(metadata));
+
+            // slither-disable-next-line encode-packed-collision
+            fullCallbackData = abi.encodePacked(callbackConfig.funcSig, abi.encode(metadata), params.callbackData);
         } else {
             fullCallbackData = abi.encodePacked(callbackConfig.funcSig, params.callbackData);
         }

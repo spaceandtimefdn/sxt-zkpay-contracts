@@ -34,6 +34,15 @@ contract PaymentLogicTestWrapper {
     function validateItemPrice(address merchant, bytes32 itemId, uint248 amountInUSD) external view {
         PaymentLogic._validateItemPrice(_paywallStorage, merchant, itemId, amountInUSD);
     }
+
+    function distributePayouts(
+        address[] calldata addresses,
+        uint32[] calldata percentages,
+        uint256 totalAmount,
+        address payoutToken
+    ) external {
+        PaymentLogic._distributePayouts(addresses, percentages, totalAmount, payoutToken);
+    }
 }
 
 contract PaymentLogicTest is Test {
@@ -195,6 +204,143 @@ contract PaymentLogicTest is Test {
 
         vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
         _wrapper.validateItemPrice(merchant2, itemId2, price2 - 1);
+    }
+}
+
+contract PaymentLogicDistributePayoutsTest is Test {
+    PaymentLogicTestWrapper internal _wrapper;
+
+    function setUp() public {
+        vm.createSelectFork(RPC_URL, BLOCK_NUMBER);
+        _wrapper = new PaymentLogicTestWrapper();
+    }
+
+    function testDistributePayoutsSingleRecipient() public {
+        address[] memory addresses = new address[](1);
+        addresses[0] = address(0x123);
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = 100;
+
+        address payoutToken = USDC;
+        uint256 totalAmount = 1000e6;
+
+        deal(payoutToken, address(_wrapper), totalAmount);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), totalAmount);
+
+        _wrapper.distributePayouts(addresses, percentages, totalAmount, payoutToken);
+
+        assertEq(IERC20(payoutToken).balanceOf(addresses[0]), totalAmount);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), 0);
+    }
+
+    function testDistributePayoutsMultipleRecipients() public {
+        address[] memory addresses = new address[](3);
+        addresses[0] = address(0x123);
+        addresses[1] = address(0x456);
+        addresses[2] = address(0x789);
+        uint32[] memory percentages = new uint32[](3);
+        percentages[0] = 50;
+        percentages[1] = 30;
+        percentages[2] = 20;
+
+        address payoutToken = USDC;
+        uint256 totalAmount = 1000e6;
+
+        deal(payoutToken, address(_wrapper), totalAmount);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), totalAmount);
+
+        _wrapper.distributePayouts(addresses, percentages, totalAmount, payoutToken);
+
+        assertEq(IERC20(payoutToken).balanceOf(addresses[0]), 500e6);
+        assertEq(IERC20(payoutToken).balanceOf(addresses[1]), 300e6);
+        assertEq(IERC20(payoutToken).balanceOf(addresses[2]), 200e6);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), 0);
+    }
+
+    function testDistributePayoutsZeroAmount() public {
+        address[] memory addresses = new address[](1);
+        addresses[0] = address(0x123);
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = 100;
+
+        address payoutToken = USDC;
+        uint256 totalAmount = 0;
+
+        _wrapper.distributePayouts(addresses, percentages, totalAmount, payoutToken);
+
+        assertEq(IERC20(payoutToken).balanceOf(addresses[0]), 0);
+    }
+
+    function testDistributePayoutsWithRounding() public {
+        address[] memory addresses = new address[](3);
+        addresses[0] = address(0x123);
+        addresses[1] = address(0x456);
+        addresses[2] = address(0x789);
+        uint32[] memory percentages = new uint32[](3);
+        percentages[0] = 33;
+        percentages[1] = 33;
+        percentages[2] = 34;
+
+        address payoutToken = USDC;
+        uint256 totalAmount = 100;
+
+        deal(payoutToken, address(_wrapper), totalAmount);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), totalAmount);
+
+        uint256[] memory amounts = new uint256[](3);
+        for (uint256 i = 0; i < 3; ++i) {
+            amounts[i] = IERC20(payoutToken).balanceOf(addresses[i]);
+        }
+
+        _wrapper.distributePayouts(addresses, percentages, totalAmount, payoutToken);
+
+        for (uint256 i = 0; i < 3; ++i) {
+            amounts[i] = IERC20(payoutToken).balanceOf(addresses[i]) - amounts[i];
+            assertTrue(amounts[i] >= 33 && amounts[i] <= 34);
+        }
+
+        assertEq(amounts[0] + amounts[1] + amounts[2], totalAmount);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), 0);
+    }
+
+    function testFuzzDistributePayouts(uint256 totalAmount, uint32 percentage1, uint32 percentage2) public {
+        vm.assume(totalAmount < 1e50);
+
+        percentage1 = percentage1 % 101;
+        percentage2 = percentage2 % 101;
+        vm.assume(percentage1 + percentage2 <= 100);
+        uint32[] memory percentages = new uint32[](3);
+        percentages[0] = percentage1;
+        percentages[1] = percentage2;
+        percentages[2] = 100 - (percentage1 + percentage2);
+
+        address[] memory addresses = new address[](3);
+        addresses[0] = address(0x123);
+        addresses[1] = address(0x456);
+        addresses[2] = address(0x789);
+
+        address payoutToken = USDC;
+        deal(payoutToken, address(_wrapper), totalAmount);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), totalAmount);
+
+        uint256[] memory amounts = new uint256[](3);
+        for (uint256 i = 0; i < 3; ++i) {
+            amounts[i] = IERC20(payoutToken).balanceOf(addresses[i]);
+        }
+
+        _wrapper.distributePayouts(addresses, percentages, totalAmount, payoutToken);
+
+        for (uint256 i = 0; i < 3; ++i) {
+            amounts[i] = IERC20(payoutToken).balanceOf(addresses[i]) - amounts[i];
+            assertTrue(
+                (totalAmount * percentages[i]) / 100 <= amounts[i]
+                    && amounts[i] <= (totalAmount * percentages[i] + 99) / 100
+            );
+        }
+
+        assertEq(amounts[0] + amounts[1] + amounts[2], totalAmount);
+
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), 0);
     }
 }
 

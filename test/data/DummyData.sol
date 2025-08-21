@@ -26,10 +26,6 @@ library DummyData {
     }
 
     function getSwapLogicConfig() internal pure returns (SwapLogic.SwapLogicConfig memory) {
-        return SwapLogic.SwapLogicConfig({
-            router: getRouterAddress(),
-            usdt: getUsdtAddress(),
-            defaultTargetAssetPath: getDestinationAssetPath(getSXTAddress())
-        });
+        return SwapLogic.SwapLogicConfig({router: getRouterAddress(), usdt: getUsdtAddress()});
     }
 }

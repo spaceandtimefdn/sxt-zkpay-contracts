@@ -30,7 +30,6 @@ contract Deploy is Script {
         address usdcTokenPriceFeed;
         address router;
         address usdt;
-        bytes defaultTargetAssetPath;
         bytes usdcToUsdtPath;
     }
     /* solhint-enable gas-struct-packing */
@@ -48,14 +47,7 @@ contract Deploy is Script {
             config.zkpayOwner,
             abi.encodeCall(
                 ZKPay.initialize,
-                (
-                    config.zkpayOwner,
-                    SwapLogic.SwapLogicConfig({
-                        router: config.router,
-                        usdt: config.usdt,
-                        defaultTargetAssetPath: config.defaultTargetAssetPath
-                    })
-                )
+                (config.zkpayOwner, SwapLogic.SwapLogicConfig({router: config.router, usdt: config.usdt}))
             )
         );
 
@@ -108,7 +100,6 @@ contract Deploy is Script {
         // swap logic section
         config.router = configJson.readAddress(".router");
         config.usdt = configJson.readAddress(".usdt");
-        config.defaultTargetAssetPath = configJson.readBytes(".defaultTargetAssetPath");
         config.usdcToUsdtPath = configJson.readBytes(".usdcToUsdtPath");
     }
 

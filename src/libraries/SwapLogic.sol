@@ -22,7 +22,6 @@ library SwapLogic {
     struct SwapLogicConfig {
         address router;
         address usdt;
-        bytes defaultTargetAssetPath;
     }
 
     struct AssetSwapPaths {

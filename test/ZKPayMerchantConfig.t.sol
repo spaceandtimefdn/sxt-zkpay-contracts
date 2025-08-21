@@ -33,21 +33,43 @@ contract ZKPayMerchantConfigTest is Test {
     }
 
     function testSetAndGetMerchantConfig() public {
-        MerchantLogic.MerchantConfig memory merchantConfig =
-            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: address(3)});
+        address[] memory addresses = new address[](2);
+        addresses[0] = address(3);
+        addresses[1] = address(4);
+        uint32[] memory percentages = new uint32[](2);
+        percentages[0] = 70;
+        percentages[1] = 30;
+        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
+            payoutToken: address(1),
+            payoutAddresses: addresses,
+            payoutPercentages: percentages
+        });
 
         vm.expectEmit(true, true, true, true);
-        emit MerchantLogic.MerchantConfigSet(address(this), merchantConfig.payoutToken, merchantConfig.payoutAddress);
+        emit MerchantLogic.MerchantConfigSet(
+            address(this), merchantConfig.payoutToken, merchantConfig.payoutAddresses, merchantConfig.payoutPercentages
+        );
         _zkpay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
 
         MerchantLogic.MerchantConfig memory r = _zkpay.getMerchantConfig(address(this));
         assertEq(r.payoutToken, merchantConfig.payoutToken);
-        assertEq(r.payoutAddress, merchantConfig.payoutAddress);
+        assertEq(r.payoutAddresses.length, 2);
+        assertEq(r.payoutAddresses[0], address(3));
+        assertEq(r.payoutPercentages[0], 70);
+        assertEq(r.payoutAddresses[1], address(4));
+        assertEq(r.payoutPercentages[1], 30);
     }
 
     function testSetMerchantConfigZeroPayoutAddress() public {
-        MerchantLogic.MerchantConfig memory merchantConfig =
-            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: ZERO_ADDRESS});
+        address[] memory addresses = new address[](1);
+        addresses[0] = ZERO_ADDRESS;
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = 100;
+        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
+            payoutToken: address(1),
+            payoutAddresses: addresses,
+            payoutPercentages: percentages
+        });
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
         _zkpay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));

@@ -39,21 +39,47 @@ contract MerchantLogicTest is Test {
     }
 
     function testSetAndGet() public {
-        MerchantLogic.MerchantConfig memory merchantConfig =
-            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: address(2)});
+        address[] memory addresses = new address[](2);
+        addresses[0] = address(2);
+        addresses[1] = address(3);
+
+        uint32[] memory percentages = new uint32[](2);
+        percentages[0] = 60;
+        percentages[1] = 40;
+
+        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
+            payoutToken: address(1),
+            payoutAddresses: addresses,
+            payoutPercentages: percentages
+        });
 
         vm.expectEmit(true, true, true, true);
-        emit MerchantLogic.MerchantConfigSet(address(this), merchantConfig.payoutToken, merchantConfig.payoutAddress);
+        emit MerchantLogic.MerchantConfigSet(
+            address(this), merchantConfig.payoutToken, merchantConfig.payoutAddresses, merchantConfig.payoutPercentages
+        );
         _wrapper.setConfig(address(this), merchantConfig);
 
         MerchantLogic.MerchantConfig memory result = _wrapper.getConfig(address(this));
         assertEq(result.payoutToken, merchantConfig.payoutToken);
-        assertEq(result.payoutAddress, merchantConfig.payoutAddress);
+        assertEq(result.payoutAddresses.length, 2);
+        assertEq(result.payoutAddresses[0], address(2));
+        assertEq(result.payoutPercentages[0], 60);
+        assertEq(result.payoutAddresses[1], address(3));
+        assertEq(result.payoutPercentages[1], 40);
     }
 
     function testZeroPayoutAddress() public {
-        MerchantLogic.MerchantConfig memory merchantConfig =
-            MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: ZERO_ADDRESS});
+        address[] memory addresses = new address[](1);
+        addresses[0] = ZERO_ADDRESS;
+
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = 100;
+
+        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
+            payoutToken: address(1),
+            payoutAddresses: addresses,
+            payoutPercentages: percentages
+        });
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
         _wrapper.setConfig(address(this), merchantConfig);

@@ -231,8 +231,13 @@ contract PaymentLogicProcessPaymentWrapper {
         });
         AssetManagement.set(zkPayStorage.assets, SXT, sxtAsset);
 
+        address[] memory addresses = new address[](1);
+        addresses[0] = MERCHANT_PAYOUT_ADDRESS;
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = 100;
         zkPayStorage.merchantLogicStorage.setConfig(
-            MERCHANT, MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: MERCHANT_PAYOUT_ADDRESS})
+            MERCHANT,
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddresses: addresses, payoutPercentages: percentages})
         );
     }
 
@@ -374,8 +379,13 @@ contract PaymentLogicAuthorizePaymentWrapper {
         });
         AssetManagement.set(zkPayStorage.assets, USDT, usdtAsset);
 
+        address[] memory addresses = new address[](1);
+        addresses[0] = MERCHANT_PAYOUT_ADDRESS;
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = 100;
         zkPayStorage.merchantLogicStorage.setConfig(
-            MERCHANT, MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: MERCHANT_PAYOUT_ADDRESS})
+            MERCHANT,
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddresses: addresses, payoutPercentages: percentages})
         );
     }
 

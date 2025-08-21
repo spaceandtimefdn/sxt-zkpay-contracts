@@ -8,7 +8,6 @@
   },
   "deploymentConfig": {
     "zkpayOwner": "0xd341df0d9335e55a095912f7f76ed5289e64e4c6",
-    "zkpayTreasury": "0xd341df0d9335e55a095912f7f76ed5289e64e4c6",
     "nativeTokenDecimals": 18,
     "nativeTokenStalePriceThresholdInSeconds": 3600,
     "posqlMerchantAddress": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6",

@@ -14,8 +14,6 @@ import {EscrowPayment} from "../../src/libraries/EscrowPayment.sol";
 contract ZKPayV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // solhint-disable-next-line gas-struct-packing
     struct ZKPayStorage {
-        address sxt;
-        address treasury;
         address executorAddress;
         mapping(address asset => AssetManagement.PaymentAsset) assets;
         MerchantLogic.MerchantLogicStorage merchantLogicStorage;

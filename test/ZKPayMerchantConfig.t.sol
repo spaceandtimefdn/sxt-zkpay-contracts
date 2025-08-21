@@ -13,21 +13,17 @@ import {ZERO_ADDRESS} from "../src/libraries/Constants.sol";
 contract ZKPayMerchantConfigTest is Test {
     ZKPay internal _zkpay;
     address internal _owner;
-    address internal _treasury;
     address internal _priceFeed;
     address internal _sxt;
 
     function setUp() public {
         _owner = vm.addr(0x1);
-        _treasury = vm.addr(0x2);
         _priceFeed = address(new MockV3Aggregator(8, 1000));
         _sxt = vm.addr(0x3);
 
         vm.prank(_owner);
         address proxy = Upgrades.deployTransparentProxy(
-            "ZKPay.sol",
-            _owner,
-            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _sxt, DummyData.getSwapLogicConfig()))
+            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, DummyData.getSwapLogicConfig()))
         );
         _zkpay = ZKPay(proxy);
     }

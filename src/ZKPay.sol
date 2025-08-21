@@ -35,6 +35,15 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
     error ItemIdCallbackNotConfigured();
     error InvalidCallbackContract();
 
+    struct PaymentMetadata {
+        address payoutToken;
+        uint256 payoutAmount;
+        uint248 amountInUSD;
+        bytes32 onBehalfOf;
+        address sender;
+        bytes32 itemId;
+    }
+
     struct SendWithCallbackParams {
         address asset;
         uint248 amount;
@@ -163,8 +172,8 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         bytes calldata memo,
         bytes32 itemId,
         bytes memory customSourceAssetPath
-    ) internal {
-        PaymentLogic.ProcessPaymentResult memory result = PaymentLogic.processPayment(
+    ) internal returns (PaymentLogic.ProcessPaymentResult memory result) {
+        result = PaymentLogic.processPayment(
             _zkPayStorage,
             PaymentLogic.ProcessPaymentParams({
                 asset: asset,
@@ -232,7 +241,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
             revert ItemIdCallbackNotConfigured();
         }
 
-        _sendPayment(
+        PaymentLogic.ProcessPaymentResult memory result = _sendPayment(
             params.asset,
             params.amount,
             params.onBehalfOf,
@@ -241,9 +250,24 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
             params.itemId,
             params.customSourceAssetPath
         );
+
         _validateMerchant(params.merchant, callbackConfig.contractAddress);
 
-        bytes memory fullCallbackData = abi.encodePacked(callbackConfig.funcSig, params.callbackData);
+        bytes memory fullCallbackData;
+        if (callbackConfig.includePaymentMetadata) {
+            PaymentMetadata memory metadata = PaymentMetadata({
+                payoutToken: result.payoutToken,
+                payoutAmount: result.recievedPayoutAmount,
+                amountInUSD: result.amountInUSD,
+                onBehalfOf: params.onBehalfOf,
+                sender: msg.sender,
+                itemId: params.itemId
+            });
+            fullCallbackData = abi.encodePacked(callbackConfig.funcSig, params.callbackData, abi.encode(metadata));
+        } else {
+            fullCallbackData = abi.encodePacked(callbackConfig.funcSig, params.callbackData);
+        }
+
         SafeExecutor(_zkPayStorage.executorAddress).execute(callbackConfig.contractAddress, fullCallbackData);
     }
 

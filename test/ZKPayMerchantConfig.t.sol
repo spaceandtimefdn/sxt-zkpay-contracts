@@ -72,19 +72,26 @@ contract ZKPayMerchantConfigTest is Test {
 
     function testSetAndGetItemIdCallbackConfig() public {
         bytes32 itemId = bytes32(uint256(456));
-        MerchantLogic.ItemIdCallbackConfig memory config =
-            MerchantLogic.ItemIdCallbackConfig({contractAddress: address(2), funcSig: bytes4(0x87654321)});
+        MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({
+            contractAddress: address(2),
+            funcSig: bytes4(0x87654321),
+            includePaymentMetadata: false
+        });
 
         _zkpay.setItemIdCallbackConfig(itemId, config);
 
         MerchantLogic.ItemIdCallbackConfig memory result = _zkpay.getItemIdCallbackConfig(address(this), itemId);
         assertEq(result.contractAddress, config.contractAddress);
         assertEq(result.funcSig, config.funcSig);
+        assertEq(result.includePaymentMetadata, config.includePaymentMetadata);
     }
 
     function testSetItemIdCallbackConfigInvalidItemId() public {
-        MerchantLogic.ItemIdCallbackConfig memory config =
-            MerchantLogic.ItemIdCallbackConfig({contractAddress: address(2), funcSig: bytes4(0x87654321)});
+        MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({
+            contractAddress: address(2),
+            funcSig: bytes4(0x87654321),
+            includePaymentMetadata: false
+        });
 
         vm.expectRevert(ZKPay.InvalidItemId.selector);
         _zkpay.setItemIdCallbackConfig(bytes32(0), config);
@@ -92,8 +99,11 @@ contract ZKPayMerchantConfigTest is Test {
 
     function testSetItemIdCallbackConfigInvalidContract() public {
         bytes32 itemId = bytes32(uint256(456));
-        MerchantLogic.ItemIdCallbackConfig memory config =
-            MerchantLogic.ItemIdCallbackConfig({contractAddress: address(0), funcSig: bytes4(0x87654321)});
+        MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({
+            contractAddress: address(0),
+            funcSig: bytes4(0x87654321),
+            includePaymentMetadata: false
+        });
 
         vm.expectRevert(ZKPay.InvalidCallbackContract.selector);
         _zkpay.setItemIdCallbackConfig(itemId, config);

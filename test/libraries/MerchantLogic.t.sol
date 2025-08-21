@@ -79,13 +79,17 @@ contract MerchantLogicTest is Test {
     function testSetAndGetItemIdCallback() public {
         address merchant = address(this);
         bytes32 itemId = bytes32(uint256(123));
-        MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
-            MerchantLogic.ItemIdCallbackConfig({contractAddress: address(1), funcSig: bytes4(0x12345678)});
+        MerchantLogic.ItemIdCallbackConfig memory callbackConfig = MerchantLogic.ItemIdCallbackConfig({
+            contractAddress: address(1),
+            funcSig: bytes4(0x12345678),
+            includePaymentMetadata: false
+        });
 
         _wrapper.setItemIdCallback(merchant, itemId, callbackConfig);
 
         MerchantLogic.ItemIdCallbackConfig memory result = _wrapper.getItemIdCallback(merchant, itemId);
         assertEq(result.contractAddress, callbackConfig.contractAddress);
         assertEq(result.funcSig, callbackConfig.funcSig);
+        assertEq(result.includePaymentMetadata, callbackConfig.includePaymentMetadata);
     }
 }

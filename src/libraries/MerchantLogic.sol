@@ -34,8 +34,9 @@ library MerchantLogic {
     }
 
     struct ItemIdCallbackConfig {
-        address contractAddress;
         bytes4 funcSig;
+        address contractAddress;
+        bool includePaymentMetadata;
     }
 
     function setConfig(

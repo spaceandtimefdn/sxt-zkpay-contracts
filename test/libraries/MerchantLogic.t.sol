@@ -101,4 +101,78 @@ contract MerchantLogicTest is Test {
         assertEq(result.funcSig, callbackConfig.funcSig);
         assertEq(result.includePaymentMetadata, callbackConfig.includePaymentMetadata);
     }
+
+    function testInvalidPercentageSum() public {
+        address[] memory addresses = new address[](2);
+        addresses[0] = address(2);
+        addresses[1] = address(3);
+
+        uint32[] memory percentages = new uint32[](2);
+        percentages[0] = 50;
+        percentages[1] = 30;
+
+        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
+            payoutToken: address(1),
+            payoutAddresses: addresses,
+            payoutPercentages: percentages
+        });
+
+        vm.expectRevert(MerchantLogic.InvalidPayoutPercentageSum.selector);
+        _wrapper.setConfig(address(this), merchantConfig);
+    }
+
+    function testNoPayoutRecipients() public {
+        address[] memory addresses = new address[](0);
+        uint32[] memory percentages = new uint32[](0);
+
+        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
+            payoutToken: address(1),
+            payoutAddresses: addresses,
+            payoutPercentages: percentages
+        });
+
+        vm.expectRevert(MerchantLogic.NoPayoutRecipients.selector);
+        _wrapper.setConfig(address(this), merchantConfig);
+    }
+
+    function testMismatchedArrayLengths() public {
+        address[] memory addresses = new address[](2);
+        addresses[0] = address(2);
+        addresses[1] = address(3);
+
+        uint32[] memory percentages = new uint32[](3);
+        percentages[0] = 50;
+        percentages[1] = 30;
+        percentages[2] = 20;
+
+        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
+            payoutToken: address(1),
+            payoutAddresses: addresses,
+            payoutPercentages: percentages
+        });
+
+        vm.expectRevert(MerchantLogic.PayoutArrayLengthMismatch.selector);
+        _wrapper.setConfig(address(this), merchantConfig);
+    }
+
+    function testZeroPercentage() public {
+        address[] memory addresses = new address[](3);
+        addresses[0] = address(2);
+        addresses[1] = address(3);
+        addresses[2] = address(4);
+
+        uint32[] memory percentages = new uint32[](3);
+        percentages[0] = 50;
+        percentages[1] = 0;
+        percentages[2] = 50;
+
+        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
+            payoutToken: address(1),
+            payoutAddresses: addresses,
+            payoutPercentages: percentages
+        });
+
+        vm.expectRevert(MerchantLogic.ZeroPayoutPercentage.selector);
+        _wrapper.setConfig(address(this), merchantConfig);
+    }
 }

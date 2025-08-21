@@ -2,7 +2,6 @@
 pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 
 import {ZKPay} from "../src/ZKPay.sol";
@@ -12,20 +11,17 @@ import {ZERO_ADDRESS} from "../src/libraries/Constants.sol";
 
 contract ZKPayMerchantConfigTest is Test {
     ZKPay internal _zkpay;
-    address internal _owner;
+    address internal _admin;
     address internal _priceFeed;
     address internal _sxt;
 
     function setUp() public {
-        _owner = vm.addr(0x1);
+        _admin = vm.addr(0x1);
         _priceFeed = address(new MockV3Aggregator(8, 1000));
         _sxt = vm.addr(0x3);
 
-        vm.prank(_owner);
-        address proxy = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, DummyData.getSwapLogicConfig()))
-        );
-        _zkpay = ZKPay(proxy);
+        vm.prank(_admin);
+        _zkpay = new ZKPay(_admin, DummyData.getSwapLogicConfig());
     }
 
     function testSetAndGetMerchantConfig() public {

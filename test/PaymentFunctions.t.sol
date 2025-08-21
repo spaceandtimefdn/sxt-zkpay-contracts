@@ -2,7 +2,6 @@
 pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -73,7 +72,7 @@ contract MockContractWithoutGetMerchant {
 
 contract PaymentFunctionsTest is Test {
     ZKPay public zkpay;
-    address public owner;
+    address public admin;
     MockERC20 public usdc;
     uint248 public usdcAmount;
     address public targetMerchant;
@@ -119,19 +118,16 @@ contract PaymentFunctionsTest is Test {
 
         usdcAmount = 10e6;
 
-        owner = vm.addr(0x1);
+        admin = vm.addr(0x1);
         onBehalfOf = vm.addr(0x3);
         targetMerchant = vm.addr(0x4);
         itemId = 123;
 
         memoBytes = abi.encode(itemId);
 
-        vm.startPrank(owner);
+        vm.startPrank(admin);
 
-        address zkPayProxyAddress = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", owner, abi.encodeCall(ZKPay.initialize, (owner, DummyData.getSwapLogicConfig()))
-        );
-        zkpay = ZKPay(zkPayProxyAddress);
+        zkpay = new ZKPay(admin, DummyData.getSwapLogicConfig());
 
         usdc = MockERC20(USDC);
 
@@ -237,7 +233,7 @@ contract PaymentFunctionsTest is Test {
             createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
         );
 
-        vm.startPrank(owner);
+        vm.startPrank(admin);
         address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
         zkpay.setPaymentAsset(
             SXT,
@@ -526,7 +522,7 @@ contract PaymentFunctionsTest is Test {
             createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
         );
 
-        vm.startPrank(owner);
+        vm.startPrank(admin);
         address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
         zkpay.setPaymentAsset(
             SXT,
@@ -695,7 +691,7 @@ contract PaymentFunctionsTest is Test {
             createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
         );
 
-        vm.startPrank(owner);
+        vm.startPrank(admin);
         address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
         zkpay.setPaymentAsset(
             SXT,

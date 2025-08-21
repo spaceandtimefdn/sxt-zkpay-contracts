@@ -5,7 +5,6 @@ pragma solidity 0.8.28;
 /* solhint-disable gas-small-strings */
 
 import {Script, console} from "forge-std/Script.sol";
-import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 
 import {ZKPay} from "../src/ZKPay.sol";
@@ -25,7 +24,7 @@ contract Deploy is Script {
         uint8 usdcTokenDecimals;
         uint64 usdcTokenStalePriceThresholdInSeconds;
         // Remaining slots: addresses (each takes a full slot)
-        address zkpayOwner;
+        address zkpayAdmin;
         address usdcTokenAddress;
         address usdcTokenPriceFeed;
         address router;
@@ -41,25 +40,13 @@ contract Deploy is Script {
         // Deploy contracts
         vm.startBroadcast();
 
-        // Deploy ZKPay proxy
-        address zkPayProxy = Upgrades.deployTransparentProxy(
-            "ZKPay.sol",
-            config.zkpayOwner,
-            abi.encodeCall(
-                ZKPay.initialize,
-                (config.zkpayOwner, SwapLogic.SwapLogicConfig({router: config.router, usdt: config.usdt}))
-            )
-        );
+        // Deploy ZKPay
+        ZKPay zkpay =
+            new ZKPay(config.zkpayAdmin, SwapLogic.SwapLogicConfig({router: config.router, usdt: config.usdt}));
 
-        address zkPayImpl = Upgrades.getImplementationAddress(zkPayProxy);
-        address zkPayAdmin = Upgrades.getAdminAddress(zkPayProxy);
-
-        console.log("ZKPay proxy deployed at:", zkPayProxy);
-        console.log("ZKPay implementation deployed at:", zkPayImpl);
-        console.log("ZKPay admin deployed at:", zkPayAdmin);
+        console.log("ZKPay deployed at:", address(zkpay));
 
         // Set USDC payment asset
-        ZKPay zkpay = ZKPay(zkPayProxy);
         AssetManagement.PaymentAsset memory usdcPaymentAsset = AssetManagement.PaymentAsset({
             priceFeed: config.usdcTokenPriceFeed,
             tokenDecimals: config.usdcTokenDecimals,
@@ -67,13 +54,10 @@ contract Deploy is Script {
         });
         zkpay.setPaymentAsset(config.usdcTokenAddress, usdcPaymentAsset, config.usdcToUsdtPath);
 
-        // set zkpay owner
-        zkpay.transferOwnership(config.zkpayOwner);
-
         vm.stopBroadcast();
 
         // Create output JSON with deployed contract addresses
-        string memory outputJson = _createFormattedOutputJson(zkPayProxy, zkPayImpl, zkPayAdmin, config);
+        string memory outputJson = _createFormattedOutputJson(address(zkpay), config);
 
         // Write output to file
         string memory outputPath = string.concat(vm.projectRoot(), "/script/output/output.json");
@@ -88,7 +72,7 @@ contract Deploy is Script {
         string memory configJson = vm.readFile(configPath);
 
         // zkpay section
-        config.zkpayOwner = configJson.readAddress(".zkpayOwner");
+        config.zkpayAdmin = configJson.readAddress(".zkpayAdmin");
 
         // usdc payment asset section
         config.usdcTokenAddress = configJson.readAddress(".usdcTokenAddress");
@@ -104,36 +88,24 @@ contract Deploy is Script {
     }
 
     /// @notice Create a formatted JSON output with deployed contract addresses and configuration
-    /// @param zkPayProxy Address of the deployed ZKPay proxy contract
-    /// @param zkPayImpl Address of the deployed ZKPay implementation contract
-    /// @param zkPayAdmin Address of the deployed ZKPay proxy admin
+    /// @param zkPayAddress Address of the deployed ZKPay contract
     /// @param config The configuration used for deployment
     /// @return formattedJson The formatted JSON string containing deployment information
-    function _createFormattedOutputJson(address zkPayProxy, address zkPayImpl, address zkPayAdmin, Config memory config)
+    function _createFormattedOutputJson(address zkPayAddress, Config memory config)
         internal
         pure
         returns (string memory formattedJson)
     {
         // Create the deployedContracts section
         string memory deployedContracts = string.concat(
-            "  \"deployedContracts\": {\n",
-            "    \"ZKPayProxy\": \"",
-            _addressToString(zkPayProxy),
-            "\",\n",
-            "    \"ZKPayImplementation\": \"",
-            _addressToString(zkPayImpl),
-            "\",\n",
-            "    \"ZKPayAdmin\": \"",
-            _addressToString(zkPayAdmin),
-            "\"\n",
-            "  }"
+            "  \"deployedContracts\": {\n", "    \"ZKPay\": \"", _addressToString(zkPayAddress), "\"\n", "  }"
         );
 
         // Create the config section
         string memory configSection = string.concat(
             "  \"config\": {\n",
-            "    \"zkpayOwner\": \"",
-            _addressToString(config.zkpayOwner),
+            "    \"zkpayAdmin\": \"",
+            _addressToString(config.zkpayAdmin),
             "\",\n",
             "    \"usdcTokenAddress\": \"",
             _addressToString(config.usdcTokenAddress),

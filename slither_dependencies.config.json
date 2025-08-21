@@ -1,0 +1,4 @@
+{
+    "fail_on": "medium",
+    "detectors_to_exclude": "incorrect-exponentiation,divide-before-multiply"
+}

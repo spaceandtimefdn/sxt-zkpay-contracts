@@ -45,13 +45,13 @@ library SwapLogic {
     /// @notice Error thrown when the paths do not connect
     error PathsDoNotConnect();
 
-    /// @notice Emitted when a source asset path is set by owner
+    /// @notice Emitted when a source asset path is set by admin
     event SourceAssetPathSet(address indexed asset, bytes path);
     /// @notice Emitted when a merchant target asset path is set by merchant
     event MerchantTargetAssetPathSet(address indexed merchant, bytes path);
 
     /// @notice set the essential config for swaps
-    function setConfig(SwapLogicStorage storage _swapLogicStorage, SwapLogicConfig calldata newConfig) internal {
+    function setConfig(SwapLogicStorage storage _swapLogicStorage, SwapLogicConfig memory newConfig) internal {
         if (newConfig.router == ZERO_ADDRESS || newConfig.usdt == ZERO_ADDRESS) {
             revert ZeroAddress();
         }

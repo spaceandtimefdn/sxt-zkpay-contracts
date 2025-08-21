@@ -1,5 +1,5 @@
 {
-  "zkpayOwner": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6",
+  "zkpayAdmin": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6",
   "posqlMerchantAddress": "0xd341DF0d9335e55a095912f7f76Ed5289e64e4C6",
   "Usdc payment asset Section": "----------------------------------",
   "usdcTokenAddress": "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238",

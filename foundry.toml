@@ -16,15 +16,12 @@ no_match_coverage = "test/mocks/**|script/**"
 
 remappings = [
     "@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.2.0/",
-    "@openzeppelin/contracts-upgradeable/=dependencies/@openzeppelin-contracts-upgradeable-5.2.0/",
     "@chainlink/contracts/=dependencies/@chainlink-contracts-0.8.0/",
 ]
 
 [dependencies]
 forge-std = "1.9.6"
 "@openzeppelin-contracts" = "5.2.0"
-"@openzeppelin-contracts-upgradeable" = "5.2.0"
-openzeppelin-foundry-upgrades = "0.4.0"
 "@chainlink-contracts" = "0.8.0"
 
 [fuzz]

@@ -158,6 +158,7 @@ library PaymentLogic {
 
     // solhint-disable-next-line gas-struct-packing
     struct ProcessSettlementParams {
+        bytes customSourceAssetPath;
         address sourceAsset;
         uint248 sourceAssetAmount;
         address from;
@@ -203,7 +204,7 @@ library PaymentLogic {
         MerchantLogic.MerchantConfig memory merchantConfig =
             _zkPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
         uint256 swappedAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
-            params.sourceAsset, params.merchant, toBePaidInSourceToken, address(this), ""
+            params.sourceAsset, params.merchant, toBePaidInSourceToken, address(this), params.customSourceAssetPath
         );
 
         result.receivedTargetAssetAmount = _distributePayouts(

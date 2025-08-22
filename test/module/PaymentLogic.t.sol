@@ -691,6 +691,7 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         vm.stopPrank();
 
         PaymentLogic.ProcessSettlementParams memory params = PaymentLogic.ProcessSettlementParams({
+            customSourceAssetPath: "",
             sourceAsset: SXT,
             sourceAssetAmount: amount,
             from: USER,

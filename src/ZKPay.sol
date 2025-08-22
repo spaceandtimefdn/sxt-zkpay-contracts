@@ -331,18 +331,19 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         return _zkPayStorage.paywallLogicStorage.getItemPrice(merchant, item);
     }
 
-    /// @inheritdoc IZKPay
-    function settleAuthorizedPayment(
+    function _settleAuthorizedPayment(
+        bytes memory customSourceAssetPath,
         address sourceAsset,
         uint248 sourceAssetAmount,
         address from,
         address merchant,
         bytes32 transactionHash,
         uint248 maxUsdValueOfTargetToken
-    ) external nonReentrant {
+    ) internal {
         PaymentLogic.ProcessSettlementResult memory result = PaymentLogic.processSettlement(
             _zkPayStorage,
             PaymentLogic.ProcessSettlementParams({
+                customSourceAssetPath: customSourceAssetPath,
                 sourceAsset: sourceAsset,
                 sourceAssetAmount: sourceAssetAmount,
                 from: from,
@@ -361,6 +362,42 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
             from,
             merchant,
             transactionHash
+        );
+    }
+
+    /// @inheritdoc IZKPay
+    function settleAuthorizedPayment(
+        address sourceAsset,
+        uint248 sourceAssetAmount,
+        address from,
+        address merchant,
+        bytes32 transactionHash,
+        uint248 maxUsdValueOfTargetToken
+    ) external nonReentrant {
+        _settleAuthorizedPayment(
+            "", sourceAsset, sourceAssetAmount, from, merchant, transactionHash, maxUsdValueOfTargetToken
+        );
+    }
+
+    /// @inheritdoc IZKPay
+    function settleAuthorizedPaymentPathOverride(
+        bytes calldata customSourceAssetPath,
+        uint248 sourceAssetAmount,
+        address from,
+        address merchant,
+        bytes32 transactionHash,
+        uint248 maxUsdValueOfTargetToken
+    ) external nonReentrant {
+        address sourceAsset = SwapLogic.calldataExtractPathOriginAsset(customSourceAssetPath);
+
+        _settleAuthorizedPayment(
+            customSourceAssetPath,
+            sourceAsset,
+            sourceAssetAmount,
+            from,
+            merchant,
+            transactionHash,
+            maxUsdValueOfTargetToken
         );
     }
 

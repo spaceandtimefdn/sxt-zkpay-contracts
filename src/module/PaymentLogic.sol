@@ -83,15 +83,12 @@ library PaymentLogic {
         if (receivedTransferAmount > 0) {
             MerchantLogic.MerchantConfig memory merchantConfig =
                 _zkPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
-            result.receivedPayoutAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
+            uint256 swappedAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
                 params.asset, params.merchant, receivedTransferAmount, address(this), params.customSourceAssetPath
             );
 
-            _distributePayouts(
-                merchantConfig.payoutAddresses,
-                merchantConfig.payoutPercentages,
-                result.receivedPayoutAmount,
-                result.payoutToken
+            result.receivedPayoutAmount = _distributePayouts(
+                merchantConfig.payoutAddresses, merchantConfig.payoutPercentages, swappedAmount, result.payoutToken
             );
         }
 
@@ -205,15 +202,12 @@ library PaymentLogic {
         // slither-disable-next-line reentrancy-events
         MerchantLogic.MerchantConfig memory merchantConfig =
             _zkPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
-        result.receivedTargetAssetAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
+        uint256 swappedAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
             params.sourceAsset, params.merchant, toBePaidInSourceToken, address(this), ""
         );
 
-        _distributePayouts(
-            merchantConfig.payoutAddresses,
-            merchantConfig.payoutPercentages,
-            result.receivedTargetAssetAmount,
-            result.payoutToken
+        result.receivedTargetAssetAmount = _distributePayouts(
+            merchantConfig.payoutAddresses, merchantConfig.payoutPercentages, swappedAmount, result.payoutToken
         );
 
         // 2. refund client
@@ -226,12 +220,13 @@ library PaymentLogic {
     /// @param percentages Array of payout percentages corresponding to addresses
     /// @param totalAmount Total amount to distribute
     /// @param payoutToken The token being distributed
+    /// @return totalReceivedPayoutAmount Total amount actually transferred to all recipients
     function _distributePayouts(
         address[] memory addresses,
         uint32[] memory percentages,
         uint256 totalAmount,
         address payoutToken
-    ) internal {
+    ) internal returns (uint256 totalReceivedPayoutAmount) {
         uint256 base = totalAmount / MerchantLogic.TOTAL_PERCENTAGE;
         uint256 residualTotal = totalAmount % MerchantLogic.TOTAL_PERCENTAGE;
 
@@ -246,8 +241,8 @@ library PaymentLogic {
             uint256 amountToTransfer = base * percentage + (residualAccumulator / MerchantLogic.TOTAL_PERCENTAGE);
             residualAccumulator %= MerchantLogic.TOTAL_PERCENTAGE;
 
-            // slither-disable-next-line unused-return
-            AssetManagement.transferAsset(payoutToken, uint248(amountToTransfer), addresses[i]);
+            uint248 receivedAmount = AssetManagement.transferAsset(payoutToken, uint248(amountToTransfer), addresses[i]);
+            totalReceivedPayoutAmount += receivedAmount;
         }
     }
 }

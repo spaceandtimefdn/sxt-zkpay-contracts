@@ -38,9 +38,11 @@ library MerchantLogic {
         bytes4 funcSig;
     }
 
-    function set(MerchantLogicStorage storage merchantLogicStorage, address merchant, MerchantConfig memory config)
-        internal
-    {
+    function setConfig(
+        MerchantLogicStorage storage merchantLogicStorage,
+        address merchant,
+        MerchantConfig memory config
+    ) internal {
         if (config.fulfillerPercentage > MAX_PERCENTAGE) {
             revert InvalidFulfillerPercentage();
         }
@@ -53,7 +55,7 @@ library MerchantLogic {
         emit MerchantConfigSet(merchant, config.payoutToken, config.payoutAddress, config.fulfillerPercentage);
     }
 
-    function get(MerchantLogicStorage storage merchantLogicStorage, address merchant)
+    function getConfig(MerchantLogicStorage storage merchantLogicStorage, address merchant)
         internal
         view
         returns (MerchantConfig memory config)

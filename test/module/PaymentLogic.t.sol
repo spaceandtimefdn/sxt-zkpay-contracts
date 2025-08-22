@@ -231,7 +231,7 @@ contract PaymentLogicProcessPaymentWrapper {
         });
         AssetManagement.set(zkPayStorage.assets, SXT, sxtAsset);
 
-        zkPayStorage.merchantLogicStorage.set(
+        zkPayStorage.merchantLogicStorage.setConfig(
             MERCHANT,
             MerchantLogic.MerchantConfig({
                 payoutToken: USDC,
@@ -379,7 +379,7 @@ contract PaymentLogicAuthorizePaymentWrapper {
         });
         AssetManagement.set(zkPayStorage.assets, USDT, usdtAsset);
 
-        zkPayStorage.merchantLogicStorage.set(
+        zkPayStorage.merchantLogicStorage.setConfig(
             MERCHANT,
             MerchantLogic.MerchantConfig({
                 payoutToken: USDC,

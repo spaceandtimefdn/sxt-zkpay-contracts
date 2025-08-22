@@ -226,7 +226,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         }
 
         MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
-            MerchantLogic.getItemIdCallback(_zkPayStorage.merchantLogicStorage, params.merchant, params.itemId);
+            _zkPayStorage.merchantLogicStorage.getItemIdCallback(params.merchant, params.itemId);
 
         if (callbackConfig.contractAddress == address(0)) {
             revert ItemIdCallbackNotConfigured();
@@ -344,13 +344,13 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
 
     /// @inheritdoc IZKPay
     function setMerchantConfig(MerchantLogic.MerchantConfig calldata config, bytes calldata path) external {
-        _zkPayStorage.merchantLogicStorage.set(msg.sender, config);
+        _zkPayStorage.merchantLogicStorage.setConfig(msg.sender, config);
         _zkPayStorage.swapLogicStorage.setMerchantTargetAssetPath(msg.sender, path);
     }
 
     /// @inheritdoc IZKPay
     function getMerchantConfig(address merchant) external view returns (MerchantLogic.MerchantConfig memory config) {
-        return _zkPayStorage.merchantLogicStorage.get(merchant);
+        return _zkPayStorage.merchantLogicStorage.getConfig(merchant);
     }
 
     /// @inheritdoc IZKPay
@@ -404,7 +404,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         if (config.contractAddress == address(0)) {
             revert InvalidCallbackContract();
         }
-        MerchantLogic.setItemIdCallback(_zkPayStorage.merchantLogicStorage, msg.sender, itemId, config);
+        _zkPayStorage.merchantLogicStorage.setItemIdCallback(msg.sender, itemId, config);
     }
 
     function getItemIdCallbackConfig(bytes32 itemId)
@@ -412,6 +412,6 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         view
         returns (MerchantLogic.ItemIdCallbackConfig memory config)
     {
-        return MerchantLogic.getItemIdCallback(_zkPayStorage.merchantLogicStorage, msg.sender, itemId);
+        return _zkPayStorage.merchantLogicStorage.getItemIdCallback(msg.sender, itemId);
     }
 }

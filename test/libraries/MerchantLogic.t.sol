@@ -8,12 +8,12 @@ import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
 contract MerchantLogicWrapper {
     MerchantLogic.MerchantLogicStorage internal _merchantLogicStorage;
 
-    function set(address merchant, MerchantLogic.MerchantConfig calldata config) external {
-        MerchantLogic.set(_merchantLogicStorage, merchant, config);
+    function setConfig(address merchant, MerchantLogic.MerchantConfig calldata config) external {
+        MerchantLogic.setConfig(_merchantLogicStorage, merchant, config);
     }
 
-    function get(address merchant) external view returns (MerchantLogic.MerchantConfig memory config) {
-        return MerchantLogic.get(_merchantLogicStorage, merchant);
+    function getConfig(address merchant) external view returns (MerchantLogic.MerchantConfig memory config) {
+        return MerchantLogic.getConfig(_merchantLogicStorage, merchant);
     }
 
     function setItemIdCallback(address merchant, bytes32 itemId, MerchantLogic.ItemIdCallbackConfig calldata config)
@@ -49,9 +49,9 @@ contract MerchantLogicTest is Test {
         emit MerchantLogic.MerchantConfigSet(
             address(this), merchantConfig.payoutToken, merchantConfig.payoutAddress, merchantConfig.fulfillerPercentage
         );
-        _wrapper.set(address(this), merchantConfig);
+        _wrapper.setConfig(address(this), merchantConfig);
 
-        MerchantLogic.MerchantConfig memory result = _wrapper.get(address(this));
+        MerchantLogic.MerchantConfig memory result = _wrapper.getConfig(address(this));
         assertEq(result.payoutToken, merchantConfig.payoutToken);
         assertEq(result.payoutAddress, merchantConfig.payoutAddress);
         assertEq(result.fulfillerPercentage, merchantConfig.fulfillerPercentage);
@@ -65,7 +65,7 @@ contract MerchantLogicTest is Test {
         });
 
         vm.expectRevert(MerchantLogic.InvalidFulfillerPercentage.selector);
-        _wrapper.set(address(this), merchantConfig);
+        _wrapper.setConfig(address(this), merchantConfig);
     }
 
     function testZeroPayoutAddress() public {
@@ -73,7 +73,7 @@ contract MerchantLogicTest is Test {
             MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: ZERO_ADDRESS, fulfillerPercentage: 1});
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
-        _wrapper.set(address(this), merchantConfig);
+        _wrapper.setConfig(address(this), merchantConfig);
     }
 
     function testSetAndGetItemIdCallback() public {

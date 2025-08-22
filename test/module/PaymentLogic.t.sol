@@ -203,7 +203,7 @@ contract PaymentLogicProcessPaymentWrapper {
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
-    using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
+    using MerchantLogic for MerchantLogic.MerchantLogicStorage;
 
     ZKPay.ZKPayStorage internal zkPayStorage;
 
@@ -231,7 +231,7 @@ contract PaymentLogicProcessPaymentWrapper {
         });
         AssetManagement.set(zkPayStorage.assets, SXT, sxtAsset);
 
-        zkPayStorage.merchantConfigs.set(
+        zkPayStorage.merchantLogicStorage.set(
             MERCHANT,
             MerchantLogic.MerchantConfig({
                 payoutToken: USDC,
@@ -343,7 +343,7 @@ contract PaymentLogicAuthorizePaymentWrapper {
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
     using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
-    using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
+    using MerchantLogic for MerchantLogic.MerchantLogicStorage;
 
     ZKPay.ZKPayStorage internal zkPayStorage;
 
@@ -379,7 +379,7 @@ contract PaymentLogicAuthorizePaymentWrapper {
         });
         AssetManagement.set(zkPayStorage.assets, USDT, usdtAsset);
 
-        zkPayStorage.merchantConfigs.set(
+        zkPayStorage.merchantLogicStorage.set(
             MERCHANT,
             MerchantLogic.MerchantConfig({
                 payoutToken: USDC,

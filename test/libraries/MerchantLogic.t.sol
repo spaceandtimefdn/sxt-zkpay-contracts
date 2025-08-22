@@ -6,22 +6,20 @@ import {MerchantLogic} from "../../src/libraries/MerchantLogic.sol";
 import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
 
 contract MerchantLogicWrapper {
-    mapping(address merchant => MerchantLogic.MerchantConfig) internal _configs;
-    mapping(address merchant => mapping(bytes32 itemId => MerchantLogic.ItemIdCallbackConfig)) internal
-        _itemIdCallbackConfigs;
+    MerchantLogic.MerchantLogicStorage internal _merchantLogicStorage;
 
     function set(address merchant, MerchantLogic.MerchantConfig calldata config) external {
-        MerchantLogic.set(_configs, merchant, config);
+        MerchantLogic.set(_merchantLogicStorage, merchant, config);
     }
 
     function get(address merchant) external view returns (MerchantLogic.MerchantConfig memory config) {
-        return MerchantLogic.get(_configs, merchant);
+        return MerchantLogic.get(_merchantLogicStorage, merchant);
     }
 
     function setItemIdCallback(address merchant, bytes32 itemId, MerchantLogic.ItemIdCallbackConfig calldata config)
         external
     {
-        MerchantLogic.setItemIdCallback(_itemIdCallbackConfigs, merchant, itemId, config);
+        MerchantLogic.setItemIdCallback(_merchantLogicStorage, merchant, itemId, config);
     }
 
     function getItemIdCallback(address merchant, bytes32 itemId)
@@ -29,7 +27,7 @@ contract MerchantLogicWrapper {
         view
         returns (MerchantLogic.ItemIdCallbackConfig memory config)
     {
-        return MerchantLogic.getItemIdCallback(_itemIdCallbackConfigs, merchant, itemId);
+        return MerchantLogic.getItemIdCallback(_merchantLogicStorage, merchant, itemId);
     }
 }
 

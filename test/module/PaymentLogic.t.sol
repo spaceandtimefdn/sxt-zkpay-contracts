@@ -4,7 +4,6 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {PaymentLogic} from "../../src/module/PaymentLogic.sol";
 import {PayWallLogic} from "../../src/libraries/PayWallLogic.sol";
-import {PROTOCOL_FEE, PROTOCOL_FEE_PRECISION} from "../../src/libraries/Constants.sol";
 import {ZKPay} from "../../src/ZKPay.sol";
 import {AssetManagement} from "../../src/libraries/AssetManagement.sol";
 import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
@@ -19,20 +18,21 @@ contract PaymentLogicTestWrapper {
 
     PayWallLogic.PayWallLogicStorage internal _paywallStorage;
 
-    function calculateProtocolFee(address asset, uint248 amount, address sxt)
-        external
-        pure
-        returns (uint248 protocolFeeAmount, uint248 remainingAmount)
-    {
-        return PaymentLogic._calculateProtocolFee(asset, amount, sxt);
-    }
-
     function setItemPrice(address merchant, bytes32 itemId, uint248 price) external {
         _paywallStorage.setItemPrice(merchant, itemId, price);
     }
 
     function validateItemPrice(address merchant, bytes32 itemId, uint248 amountInUSD) external view {
         PaymentLogic._validateItemPrice(_paywallStorage, merchant, itemId, amountInUSD);
+    }
+
+    function distributePayouts(
+        address[] calldata addresses,
+        uint32[] calldata percentages,
+        uint256 totalAmount,
+        address payoutToken
+    ) external {
+        PaymentLogic._distributePayouts(addresses, percentages, totalAmount, payoutToken);
     }
 }
 
@@ -45,78 +45,6 @@ contract PaymentLogicTest is Test {
 
     function setUp() public {
         _wrapper = new PaymentLogicTestWrapper();
-    }
-
-    function testCalculateProtocolFeeWithSXTToken() public view {
-        uint248 amount = 1000 ether;
-
-        (uint248 protocolFeeAmount, uint248 remainingAmount) =
-            _wrapper.calculateProtocolFee(SXT_TOKEN, amount, SXT_TOKEN);
-
-        assertEq(protocolFeeAmount, 0);
-        assertEq(remainingAmount, amount);
-    }
-
-    function testCalculateProtocolFeeWithOtherToken() public view {
-        uint248 amount = 1000 ether;
-        uint248 expectedProtocolFee = uint248((uint256(amount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
-        uint248 expectedRemainingAmount = amount - expectedProtocolFee;
-
-        (uint248 protocolFeeAmount, uint248 remainingAmount) =
-            _wrapper.calculateProtocolFee(OTHER_TOKEN, amount, SXT_TOKEN);
-
-        assertEq(protocolFeeAmount, expectedProtocolFee);
-        assertEq(remainingAmount, expectedRemainingAmount);
-    }
-
-    function testCalculateProtocolFeeZeroAmount() public view {
-        uint248 amount = 0;
-
-        (uint248 protocolFeeAmount, uint248 remainingAmount) =
-            _wrapper.calculateProtocolFee(OTHER_TOKEN, amount, SXT_TOKEN);
-
-        assertEq(protocolFeeAmount, 0);
-        assertEq(remainingAmount, 0);
-    }
-
-    function testFuzzCalculateProtocolFee(address asset, uint248 amount) public view {
-        (uint248 protocolFeeAmount, uint248 remainingAmount) = _wrapper.calculateProtocolFee(asset, amount, SXT_TOKEN);
-
-        if (asset == SXT_TOKEN) {
-            assertEq(protocolFeeAmount, 0);
-            assertEq(remainingAmount, amount);
-        } else {
-            uint248 expectedProtocolFee = uint248((uint256(amount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
-            assertEq(protocolFeeAmount, expectedProtocolFee);
-            assertEq(remainingAmount, amount - expectedProtocolFee);
-        }
-
-        assertEq(protocolFeeAmount + remainingAmount, amount);
-    }
-
-    function testCalculateProtocolFeeWithSpecificValues() public view {
-        uint248[] memory testAmounts = new uint248[](8);
-        testAmounts[0] = 1 ether;
-        testAmounts[1] = 100 ether;
-        testAmounts[2] = 10000 ether;
-        testAmounts[3] = 1000000 ether;
-        testAmounts[4] = 1;
-        testAmounts[5] = 1e3;
-        testAmounts[6] = 1e6;
-        testAmounts[7] = 1e9;
-
-        uint256 length = testAmounts.length;
-        for (uint256 i = 0; i < length; ++i) {
-            uint248 amount = testAmounts[i];
-            uint248 expectedProtocolFee = uint248((uint256(amount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
-
-            (uint248 protocolFeeAmount, uint248 remainingAmount) =
-                _wrapper.calculateProtocolFee(OTHER_TOKEN, amount, SXT_TOKEN);
-
-            assertEq(protocolFeeAmount, expectedProtocolFee);
-            assertEq(remainingAmount, amount - expectedProtocolFee);
-            assertEq(protocolFeeAmount + remainingAmount, amount);
-        }
     }
 
     function testValidateItemPriceSuccess() public {
@@ -198,6 +126,144 @@ contract PaymentLogicTest is Test {
     }
 }
 
+contract PaymentLogicDistributePayoutsTest is Test {
+    PaymentLogicTestWrapper internal _wrapper;
+
+    function setUp() public {
+        vm.createSelectFork(RPC_URL, BLOCK_NUMBER);
+        _wrapper = new PaymentLogicTestWrapper();
+    }
+
+    function testDistributePayoutsSingleRecipient() public {
+        address[] memory addresses = new address[](1);
+        addresses[0] = address(0x123);
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
+
+        address payoutToken = USDC;
+        uint256 totalAmount = 1000e6;
+
+        deal(payoutToken, address(_wrapper), totalAmount);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), totalAmount);
+
+        _wrapper.distributePayouts(addresses, percentages, totalAmount, payoutToken);
+
+        assertEq(IERC20(payoutToken).balanceOf(addresses[0]), totalAmount);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), 0);
+    }
+
+    function testDistributePayoutsMultipleRecipients() public {
+        address[] memory addresses = new address[](3);
+        addresses[0] = address(0x123);
+        addresses[1] = address(0x456);
+        addresses[2] = address(0x789);
+        uint32[] memory percentages = new uint32[](3);
+        percentages[0] = 50 * MerchantLogic.PERCENTAGE_PRECISION;
+        percentages[1] = 30 * MerchantLogic.PERCENTAGE_PRECISION;
+        percentages[2] = 20 * MerchantLogic.PERCENTAGE_PRECISION;
+
+        address payoutToken = USDC;
+        uint256 totalAmount = 1000e6;
+
+        deal(payoutToken, address(_wrapper), totalAmount);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), totalAmount);
+
+        _wrapper.distributePayouts(addresses, percentages, totalAmount, payoutToken);
+
+        assertEq(IERC20(payoutToken).balanceOf(addresses[0]), 500e6);
+        assertEq(IERC20(payoutToken).balanceOf(addresses[1]), 300e6);
+        assertEq(IERC20(payoutToken).balanceOf(addresses[2]), 200e6);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), 0);
+    }
+
+    function testDistributePayoutsZeroAmount() public {
+        address[] memory addresses = new address[](1);
+        addresses[0] = address(0x123);
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
+
+        address payoutToken = USDC;
+        uint256 totalAmount = 0;
+
+        _wrapper.distributePayouts(addresses, percentages, totalAmount, payoutToken);
+
+        assertEq(IERC20(payoutToken).balanceOf(addresses[0]), 0);
+    }
+
+    function testDistributePayoutsWithRounding() public {
+        address[] memory addresses = new address[](3);
+        addresses[0] = address(0x123);
+        addresses[1] = address(0x456);
+        addresses[2] = address(0x789);
+        uint32[] memory percentages = new uint32[](3);
+        percentages[0] = 33333333; // ~33.333333%
+        percentages[1] = 33333333; // ~33.333333%
+        percentages[2] = 33333334; // ~33.333334% (to total 100%)
+
+        address payoutToken = USDC;
+        uint256 totalAmount = 100;
+
+        deal(payoutToken, address(_wrapper), totalAmount);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), totalAmount);
+
+        uint256[] memory amounts = new uint256[](3);
+        for (uint256 i = 0; i < 3; ++i) {
+            amounts[i] = IERC20(payoutToken).balanceOf(addresses[i]);
+        }
+
+        _wrapper.distributePayouts(addresses, percentages, totalAmount, payoutToken);
+
+        for (uint256 i = 0; i < 3; ++i) {
+            amounts[i] = IERC20(payoutToken).balanceOf(addresses[i]) - amounts[i];
+            assertTrue(amounts[i] >= 33 && amounts[i] <= 34);
+        }
+
+        assertEq(amounts[0] + amounts[1] + amounts[2], totalAmount);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), 0);
+    }
+
+    function testFuzzDistributePayouts(uint256 totalAmount, uint32 percentage1, uint32 percentage2) public {
+        vm.assume(totalAmount < 1e50);
+
+        percentage1 = percentage1 % (MerchantLogic.TOTAL_PERCENTAGE + 1);
+        percentage2 = percentage2 % (MerchantLogic.TOTAL_PERCENTAGE + 1);
+        vm.assume(percentage1 + percentage2 <= MerchantLogic.TOTAL_PERCENTAGE);
+        uint32[] memory percentages = new uint32[](3);
+        percentages[0] = percentage1;
+        percentages[1] = percentage2;
+        percentages[2] = MerchantLogic.TOTAL_PERCENTAGE - (percentage1 + percentage2);
+
+        address[] memory addresses = new address[](3);
+        addresses[0] = address(0x123);
+        addresses[1] = address(0x456);
+        addresses[2] = address(0x789);
+
+        address payoutToken = USDC;
+        deal(payoutToken, address(_wrapper), totalAmount);
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), totalAmount);
+
+        uint256[] memory amounts = new uint256[](3);
+        for (uint256 i = 0; i < 3; ++i) {
+            amounts[i] = IERC20(payoutToken).balanceOf(addresses[i]);
+        }
+
+        _wrapper.distributePayouts(addresses, percentages, totalAmount, payoutToken);
+
+        for (uint256 i = 0; i < 3; ++i) {
+            amounts[i] = IERC20(payoutToken).balanceOf(addresses[i]) - amounts[i];
+            assertTrue(
+                (totalAmount * percentages[i]) / MerchantLogic.TOTAL_PERCENTAGE <= amounts[i]
+                    && amounts[i]
+                        <= (totalAmount * percentages[i] + MerchantLogic.TOTAL_PERCENTAGE - 1) / MerchantLogic.TOTAL_PERCENTAGE
+            );
+        }
+
+        assertEq(amounts[0] + amounts[1] + amounts[2], totalAmount);
+
+        assertEq(IERC20(payoutToken).balanceOf(address(_wrapper)), 0);
+    }
+}
+
 contract PaymentLogicProcessPaymentWrapper {
     using PaymentLogic for ZKPay.ZKPayStorage;
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
@@ -207,14 +273,10 @@ contract PaymentLogicProcessPaymentWrapper {
 
     ZKPay.ZKPayStorage internal zkPayStorage;
 
-    address public constant TREASURY = address(0x9999);
     address public constant MERCHANT = address(0x8888);
     address public constant MERCHANT_PAYOUT_ADDRESS = address(0x8001);
 
     constructor() {
-        zkPayStorage.sxt = SXT;
-        zkPayStorage.treasury = TREASURY;
-
         zkPayStorage.swapLogicStorage.swapLogicConfig =
             SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT, defaultTargetAssetPath: abi.encodePacked(USDT)});
 
@@ -231,13 +293,13 @@ contract PaymentLogicProcessPaymentWrapper {
         });
         AssetManagement.set(zkPayStorage.assets, SXT, sxtAsset);
 
+        address[] memory addresses = new address[](1);
+        addresses[0] = MERCHANT_PAYOUT_ADDRESS;
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
         zkPayStorage.merchantLogicStorage.setConfig(
             MERCHANT,
-            MerchantLogic.MerchantConfig({
-                payoutToken: USDC,
-                payoutAddress: MERCHANT_PAYOUT_ADDRESS,
-                fulfillerPercentage: 0
-            })
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddresses: addresses, payoutPercentages: percentages})
         );
     }
 
@@ -260,7 +322,6 @@ contract PaymentLogicProcessPaymentTest is Test {
 
     PaymentLogicProcessPaymentWrapper internal wrapper;
 
-    address public constant TREASURY = address(0x9999);
     address public constant MERCHANT = address(0x8888);
 
     function setUp() public {
@@ -285,7 +346,6 @@ contract PaymentLogicProcessPaymentTest is Test {
 
         try wrapper.processPayment(params) returns (PaymentLogic.ProcessPaymentResult memory result) {
             assertEq(result.payoutToken, USDC);
-            assertEq(result.receivedProtocolFeeAmount, 0);
             assertGt(result.amountInUSD, 0);
             assertGt(result.receivedPayoutAmount, 0);
             assertEq(IERC20(USDC).balanceOf(wrapper.MERCHANT_PAYOUT_ADDRESS()), result.receivedPayoutAmount);
@@ -347,14 +407,10 @@ contract PaymentLogicAuthorizePaymentWrapper {
 
     ZKPay.ZKPayStorage internal zkPayStorage;
 
-    address public constant TREASURY = address(0x9999);
     address public constant MERCHANT = address(0x8888);
     address public constant MERCHANT_PAYOUT_ADDRESS = address(0x8001);
 
     constructor() {
-        zkPayStorage.sxt = SXT;
-        zkPayStorage.treasury = TREASURY;
-
         zkPayStorage.swapLogicStorage.swapLogicConfig =
             SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT, defaultTargetAssetPath: abi.encodePacked(USDT)});
 
@@ -379,13 +435,13 @@ contract PaymentLogicAuthorizePaymentWrapper {
         });
         AssetManagement.set(zkPayStorage.assets, USDT, usdtAsset);
 
+        address[] memory addresses = new address[](1);
+        addresses[0] = MERCHANT_PAYOUT_ADDRESS;
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
         zkPayStorage.merchantLogicStorage.setConfig(
             MERCHANT,
-            MerchantLogic.MerchantConfig({
-                payoutToken: USDC,
-                payoutAddress: MERCHANT_PAYOUT_ADDRESS,
-                fulfillerPercentage: 0
-            })
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddresses: addresses, payoutPercentages: percentages})
         );
     }
 
@@ -418,7 +474,6 @@ contract PaymentLogicAuthorizePaymentTest is Test {
 
     PaymentLogicAuthorizePaymentWrapper internal wrapper;
 
-    address public constant TREASURY = address(0x9999);
     address public constant MERCHANT = address(0x8888);
     address public constant USER = address(0x7777);
 
@@ -649,7 +704,6 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         assertEq(result.payoutToken, USDC);
         assertGt(result.receivedTargetAssetAmount, 0);
         assertGt(result.receivedRefundAmount, 0);
-        assertGt(result.receivedProtocolFeeAmount, 0);
         assertEq(IERC20(USDC).balanceOf(wrapper.MERCHANT_PAYOUT_ADDRESS()), result.receivedTargetAssetAmount);
     }
 }

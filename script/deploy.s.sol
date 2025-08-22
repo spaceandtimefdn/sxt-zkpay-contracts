@@ -26,8 +26,6 @@ contract Deploy is Script {
         uint64 usdcTokenStalePriceThresholdInSeconds;
         // Remaining slots: addresses (each takes a full slot)
         address zkpayOwner;
-        address zkpayTreasury;
-        address sxtTokenAddress;
         address usdcTokenAddress;
         address usdcTokenPriceFeed;
         address router;
@@ -47,13 +45,11 @@ contract Deploy is Script {
         // Deploy ZKPay proxy
         address zkPayProxy = Upgrades.deployTransparentProxy(
             "ZKPay.sol",
-            config.zkpayTreasury,
+            config.zkpayOwner,
             abi.encodeCall(
                 ZKPay.initialize,
                 (
-                    config.zkpayTreasury,
-                    config.zkpayTreasury,
-                    config.sxtTokenAddress,
+                    config.zkpayOwner,
                     SwapLogic.SwapLogicConfig({
                         router: config.router,
                         usdt: config.usdt,
@@ -101,9 +97,6 @@ contract Deploy is Script {
 
         // zkpay section
         config.zkpayOwner = configJson.readAddress(".zkpayOwner");
-        config.zkpayTreasury = configJson.readAddress(".zkpayTreasury");
-
-        config.sxtTokenAddress = configJson.readAddress(".SXT");
 
         // usdc payment asset section
         config.usdcTokenAddress = configJson.readAddress(".usdcTokenAddress");
@@ -150,12 +143,6 @@ contract Deploy is Script {
             "  \"config\": {\n",
             "    \"zkpayOwner\": \"",
             _addressToString(config.zkpayOwner),
-            "\",\n",
-            "    \"zkpayTreasury\": \"",
-            _addressToString(config.zkpayTreasury),
-            "\",\n",
-            "    \"sxtTokenAddress\": \"",
-            _addressToString(config.sxtTokenAddress),
             "\",\n",
             "    \"usdcTokenAddress\": \"",
             _addressToString(config.usdcTokenAddress),

@@ -6,14 +6,9 @@ import {MerchantLogic} from "../libraries/MerchantLogic.sol";
 import {EscrowPayment} from "../libraries/EscrowPayment.sol";
 
 interface IZKPay {
-    /// @notice Emitted when the treasury address is set
-    /// @param treasury The new treasury address
-    event TreasurySet(address indexed treasury);
-
     /// @notice Emitted when a payment is made
     /// @param asset The asset used for payment
     /// @param amount The amount of tokens used for payment
-    /// @param protocolFeeAmount The amount of protocol fee in source token.
     /// @param onBehalfOf The identifier on whose behalf the payment was made
     /// @param merchant The merchant address
     /// @param memo Additional data or information about the payment
@@ -23,7 +18,6 @@ interface IZKPay {
     event SendPayment(
         address indexed asset,
         uint248 amount,
-        uint248 protocolFeeAmount,
         bytes32 onBehalfOf,
         address indexed merchant,
         bytes memo,
@@ -48,7 +42,6 @@ interface IZKPay {
     /// @param payoutToken The token the merchant received
     /// @param receivedTargetAssetAmount The amount received by the merchant in payout token
     /// @param receivedRefundAmount The amount refunded to the client
-    /// @param receivedProtocolFeeAmount The protocol fee amount
     /// @param from The address that made the original payment
     /// @param merchant The merchant address
     /// @param transactionHash The transaction hash of the authorized payment
@@ -58,23 +51,10 @@ interface IZKPay {
         address indexed payoutToken,
         uint256 receivedTargetAssetAmount,
         uint248 receivedRefundAmount,
-        uint248 receivedProtocolFeeAmount,
         address indexed from,
         address merchant,
         bytes32 transactionHash
     );
-
-    /// @notice Sets the treasury address
-    /// @param treasury The new treasury address
-    function setTreasury(address treasury) external;
-
-    /// @notice Gets the treasury address
-    /// @return treasury The treasury address
-    function getTreasury() external view returns (address treasury);
-
-    /// @notice Gets the SXT token address
-    /// @return sxt The SXT token address
-    function getSXT() external view returns (address sxt);
 
     /// @notice Sets the payment asset
     /// @param assetAddress The asset to set

@@ -3,7 +3,6 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {ZKPay} from "../src/ZKPay.sol";
 import {ZKPayV2} from "./mocks/ZKPayV2.sol";
@@ -50,7 +49,6 @@ contract MockInvalidAuthorizeCallbackContract {
 contract ZKPayTest is Test {
     ZKPay public zkpay;
     address public _owner;
-    address public _treasury;
     address public _priceFeed;
     AssetManagement.PaymentAsset public paymentAssetInstance;
     address public _sxt;
@@ -58,52 +56,19 @@ contract ZKPayTest is Test {
 
     function setUp() public {
         _owner = vm.addr(0x1);
-        _treasury = vm.addr(0x2);
         _tokenPrice = 1000;
 
         _priceFeed = address(new MockV3Aggregator(8, _tokenPrice));
         _sxt = address(new MockERC20());
         vm.prank(_owner);
         address zkPayProxyAddress = Upgrades.deployTransparentProxy(
-            "ZKPay.sol",
-            _owner,
-            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, _sxt, DummyData.getSwapLogicConfig()))
+            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, DummyData.getSwapLogicConfig()))
         );
 
         zkpay = ZKPay(zkPayProxyAddress);
 
         paymentAssetInstance =
             AssetManagement.PaymentAsset({priceFeed: _priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 1000});
-    }
-
-    function testInitiateTreasuryAddress() public view {
-        assertEq(zkpay.getTreasury(), _treasury);
-    }
-
-    function testGetSXT() public view {
-        assertEq(zkpay.getSXT(), _sxt);
-    }
-
-    function testFuzzSetTreasury(address treasury) public {
-        vm.prank(_owner);
-
-        if (treasury == ZERO_ADDRESS) {
-            vm.expectRevert();
-        } else if (treasury == _treasury) {
-            vm.expectRevert();
-        }
-
-        zkpay.setTreasury(treasury);
-
-        if (treasury != ZERO_ADDRESS && treasury != _treasury) {
-            assertEq(zkpay.getTreasury(), treasury);
-        }
-    }
-
-    function testSetTreasuryCanNotBeZeroAddress() public {
-        vm.prank(_owner);
-        vm.expectRevert(ZKPay.TreasuryAddressCannotBeZero.selector);
-        zkpay.setTreasury(ZERO_ADDRESS);
     }
 
     function testOwnershipTransfer() public {
@@ -119,18 +84,9 @@ contract ZKPayTest is Test {
         zkpay.transferOwnership(address(0x6));
     }
 
-    function testTreasuryAddressCanNotBeSameAsCurrent() public {
-        vm.prank(_owner);
-        vm.expectRevert(ZKPay.TreasuryAddressSameAsCurrent.selector);
-        zkpay.setTreasury(_treasury);
-    }
-
     function testTransparentUpgrade() public {
-        address sxt = address(new MockERC20());
         address proxy = Upgrades.deployTransparentProxy(
-            "ZKPay.sol",
-            msg.sender,
-            abi.encodeCall(ZKPay.initialize, (msg.sender, _treasury, sxt, DummyData.getSwapLogicConfig()))
+            "ZKPay.sol", msg.sender, abi.encodeCall(ZKPay.initialize, (msg.sender, DummyData.getSwapLogicConfig()))
         );
         address implAddressV1 = Upgrades.getImplementationAddress(proxy);
         address adminAddress = Upgrades.getAdminAddress(proxy);
@@ -145,21 +101,6 @@ contract ZKPayTest is Test {
         assertFalse(implAddressV2 == implAddressV1);
 
         assertEq(ZKPayV2(implAddressV2).getVersion(), 2);
-    }
-
-    function testOnlyOwnerCanSetTreasury() public {
-        vm.prank(address(0x3));
-        vm.expectRevert();
-        zkpay.setTreasury(address(0x3));
-    }
-
-    function testFuzzOnlyOwnerCanSetTreasury(address caller) public {
-        vm.prank(caller);
-
-        if (caller != _owner) {
-            vm.expectRevert();
-        }
-        zkpay.setTreasury(caller);
     }
 
     function testFuzzSetPaymentAsset(address asset, uint8 tokenDecimals, uint64 stalePriceThresholdInSeconds) public {
@@ -239,16 +180,6 @@ contract ZKPayTest is Test {
         );
 
         return mockToken;
-    }
-
-    function testInitializeWithZeroSXTAddressReverts() public {
-        address implementation = address(new ZKPay());
-
-        bytes memory initData =
-            abi.encodeCall(ZKPay.initialize, (_owner, _treasury, ZERO_ADDRESS, DummyData.getSwapLogicConfig()));
-
-        vm.expectRevert(ZKPay.SXTAddressCannotBeZero.selector);
-        new TransparentUpgradeableProxy(implementation, _owner, initData);
     }
 
     function testSetAndGetPaywallItemPrice() public {

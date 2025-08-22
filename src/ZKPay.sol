@@ -8,7 +8,6 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/ut
 import {IZKPay} from "./interfaces/IZKPay.sol";
 import {AssetManagement} from "./libraries/AssetManagement.sol";
 import {MerchantLogic} from "./libraries/MerchantLogic.sol";
-import {ZERO_ADDRESS} from "./libraries/Constants.sol";
 import {SwapLogic} from "./libraries/SwapLogic.sol";
 import {PayWallLogic} from "./libraries/PayWallLogic.sol";
 import {SafeExecutor} from "./SafeExecutor.sol";
@@ -24,9 +23,6 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
     using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
 
-    error TreasuryAddressCannotBeZero();
-    error TreasuryAddressSameAsCurrent();
-    error SXTAddressCannotBeZero();
     error InsufficientPayment();
     error ExecutorAddressCannotBeZero();
     error InvalidMerchant();
@@ -56,8 +52,6 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
 
     // solhint-disable-next-line gas-struct-packing
     struct ZKPayStorage {
-        address sxt;
-        address treasury;
         address executorAddress;
         mapping(address asset => AssetManagement.PaymentAsset) assets;
         MerchantLogic.MerchantLogicStorage merchantLogicStorage;
@@ -73,16 +67,9 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         _disableInitializers();
     }
 
-    function initialize(
-        address owner,
-        address treasury,
-        address sxt,
-        SwapLogic.SwapLogicConfig calldata swapLogicConfig
-    ) external initializer {
+    function initialize(address owner, SwapLogic.SwapLogicConfig calldata swapLogicConfig) external initializer {
         __Ownable_init(owner);
         __ReentrancyGuard_init();
-        _setTreasury(treasury);
-        _setSXT(sxt);
         _deployExecutor();
 
         _zkPayStorage.swapLogicStorage.setConfig(swapLogicConfig);
@@ -90,41 +77,6 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
 
     function _deployExecutor() internal {
         _zkPayStorage.executorAddress = address(new SafeExecutor());
-    }
-
-    function _setSXT(address sxt) internal {
-        if (sxt == ZERO_ADDRESS) {
-            revert SXTAddressCannotBeZero();
-        }
-        _zkPayStorage.sxt = sxt;
-    }
-
-    function _setTreasury(address treasury) internal {
-        if (treasury == ZERO_ADDRESS) {
-            revert TreasuryAddressCannotBeZero();
-        }
-
-        if (treasury == _zkPayStorage.treasury) {
-            revert TreasuryAddressSameAsCurrent();
-        }
-
-        _zkPayStorage.treasury = treasury;
-        emit TreasurySet(treasury);
-    }
-
-    /// @inheritdoc IZKPay
-    function setTreasury(address treasury) external onlyOwner {
-        _setTreasury(treasury);
-    }
-
-    /// @inheritdoc IZKPay
-    function getTreasury() external view returns (address treasury) {
-        return _zkPayStorage.treasury;
-    }
-
-    /// @inheritdoc IZKPay
-    function getSXT() external view returns (address sxt) {
-        return _zkPayStorage.sxt;
     }
 
     /// @inheritdoc IZKPay
@@ -184,17 +136,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
             })
         );
 
-        emit SendPayment(
-            asset,
-            amount,
-            result.receivedProtocolFeeAmount,
-            onBehalfOf,
-            merchant,
-            memo,
-            result.amountInUSD,
-            msg.sender,
-            itemId
-        );
+        emit SendPayment(asset, amount, onBehalfOf, merchant, memo, result.amountInUSD, msg.sender, itemId);
     }
 
     /// @inheritdoc IZKPay
@@ -416,7 +358,6 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
             result.payoutToken,
             result.receivedTargetAssetAmount,
             result.receivedRefundAmount,
-            result.receivedProtocolFeeAmount,
             from,
             merchant,
             transactionHash

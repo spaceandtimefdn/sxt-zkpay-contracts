@@ -77,7 +77,7 @@ contract ZKPayMerchantConfigTest is Test {
 
         _zkpay.setItemIdCallbackConfig(itemId, config);
 
-        MerchantLogic.ItemIdCallbackConfig memory result = _zkpay.getItemIdCallbackConfig(itemId);
+        MerchantLogic.ItemIdCallbackConfig memory result = _zkpay.getItemIdCallbackConfig(address(this), itemId);
         assertEq(result.contractAddress, config.contractAddress);
         assertEq(result.funcSig, config.funcSig);
     }

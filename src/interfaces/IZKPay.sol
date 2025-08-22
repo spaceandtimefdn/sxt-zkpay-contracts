@@ -249,9 +249,10 @@ interface IZKPay {
     function setItemIdCallbackConfig(bytes32 itemId, MerchantLogic.ItemIdCallbackConfig calldata config) external;
 
     /// @notice Gets callback configuration for an item ID
+    /// @param merchant The merchant address
     /// @param itemId The item ID
     /// @return config The callback configuration
-    function getItemIdCallbackConfig(bytes32 itemId)
+    function getItemIdCallbackConfig(address merchant, bytes32 itemId)
         external
         view
         returns (MerchantLogic.ItemIdCallbackConfig memory config);

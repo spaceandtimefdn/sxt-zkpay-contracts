@@ -407,11 +407,11 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         _zkPayStorage.merchantLogicStorage.setItemIdCallback(msg.sender, itemId, config);
     }
 
-    function getItemIdCallbackConfig(bytes32 itemId)
+    function getItemIdCallbackConfig(address merchant, bytes32 itemId)
         external
         view
         returns (MerchantLogic.ItemIdCallbackConfig memory config)
     {
-        return _zkPayStorage.merchantLogicStorage.getItemIdCallback(msg.sender, itemId);
+        return _zkPayStorage.merchantLogicStorage.getItemIdCallback(merchant, itemId);
     }
 }

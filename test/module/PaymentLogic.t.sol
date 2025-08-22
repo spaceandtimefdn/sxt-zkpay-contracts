@@ -287,8 +287,8 @@ contract PaymentLogicProcessPaymentTest is Test {
             assertEq(result.payoutToken, USDC);
             assertEq(result.receivedProtocolFeeAmount, 0);
             assertGt(result.amountInUSD, 0);
-            assertGt(result.recievedPayoutAmount, 0);
-            assertEq(IERC20(USDC).balanceOf(wrapper.MERCHANT_PAYOUT_ADDRESS()), result.recievedPayoutAmount);
+            assertGt(result.receivedPayoutAmount, 0);
+            assertEq(IERC20(USDC).balanceOf(wrapper.MERCHANT_PAYOUT_ADDRESS()), result.receivedPayoutAmount);
         } catch (bytes memory reason) {
             emit log("Failed with reason:");
             emit log_bytes(reason);

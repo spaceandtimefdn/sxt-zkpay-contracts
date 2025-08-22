@@ -21,6 +21,8 @@ contract MockCallbackContract is IMerchantCallback {
     address private _merchant;
     uint256 public callCount;
     bytes public lastCallData;
+    ZKPay.PaymentMetadata public lastPaymentMetadata;
+    bool public receivedMetadata;
 
     error CallbackFailed();
 
@@ -35,6 +37,17 @@ contract MockCallbackContract is IMerchantCallback {
     function processCallback(uint256 value) external {
         ++callCount;
         lastCallData = abi.encode(value);
+    }
+
+    function processCallbackWithMetadata(ZKPay.PaymentMetadata calldata metadata, uint256 value) external {
+        ++callCount;
+        lastCallData = abi.encode(value);
+        lastPaymentMetadata = metadata;
+        receivedMetadata = true;
+    }
+
+    function getLastPaymentMetadata() external view returns (ZKPay.PaymentMetadata memory) {
+        return lastPaymentMetadata;
     }
 
     function failingCallback() external pure {
@@ -81,7 +94,11 @@ contract PaymentFunctionsTest is Test {
         vm.prank(targetMerchant);
         zkpay.setItemIdCallbackConfig(
             bytes32(uint256(itemId)),
-            MerchantLogic.ItemIdCallbackConfig({contractAddress: contractAddress, funcSig: funcSig})
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: contractAddress,
+                funcSig: funcSig,
+                includePaymentMetadata: false
+            })
         );
     }
 
@@ -265,7 +282,8 @@ contract PaymentFunctionsTest is Test {
             bytes32(uint256(itemId)),
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
-                funcSig: MockCallbackContract.processCallback.selector
+                funcSig: MockCallbackContract.processCallback.selector,
+                includePaymentMetadata: false
             })
         );
 
@@ -329,7 +347,8 @@ contract PaymentFunctionsTest is Test {
             bytes32(uint256(itemId)),
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(invalidCallbackContract),
-                funcSig: MockCallbackContract.processCallback.selector
+                funcSig: MockCallbackContract.processCallback.selector,
+                includePaymentMetadata: false
             })
         );
 
@@ -365,7 +384,8 @@ contract PaymentFunctionsTest is Test {
             bytes32(uint256(itemId)),
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
-                funcSig: MockCallbackContract.processCallback.selector
+                funcSig: MockCallbackContract.processCallback.selector,
+                includePaymentMetadata: false
             })
         );
 
@@ -415,7 +435,8 @@ contract PaymentFunctionsTest is Test {
             bytes32(uint256(itemId)),
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
-                funcSig: MockCallbackContract.processCallback.selector
+                funcSig: MockCallbackContract.processCallback.selector,
+                includePaymentMetadata: false
             })
         );
 
@@ -449,7 +470,8 @@ contract PaymentFunctionsTest is Test {
             bytes32(uint256(itemId)),
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
-                funcSig: MockCallbackContract.processCallback.selector
+                funcSig: MockCallbackContract.processCallback.selector,
+                includePaymentMetadata: false
             })
         );
 
@@ -481,7 +503,8 @@ contract PaymentFunctionsTest is Test {
             bytes32(uint256(itemId)),
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
-                funcSig: MockCallbackContract.processCallback.selector
+                funcSig: MockCallbackContract.processCallback.selector,
+                includePaymentMetadata: false
             })
         );
 
@@ -599,7 +622,8 @@ contract PaymentFunctionsTest is Test {
             bytes32(uint256(itemId)),
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
-                funcSig: MockCallbackContract.processCallback.selector
+                funcSig: MockCallbackContract.processCallback.selector,
+                includePaymentMetadata: false
             })
         );
 
@@ -613,5 +637,86 @@ contract PaymentFunctionsTest is Test {
         uint248 protocolFeeAmount = uint248((uint256(usdcAmount) * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION);
         assertEq(IERC20(USDC).balanceOf(treasury), protocolFeeAmount);
         assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
+    }
+
+    function testSendWithCallbackWithPaymentMetadata() public {
+        MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
+        bytes memory callbackData = abi.encode(999);
+        bytes32 onBehalfOfBytes32 = _getOnBehalfOfBytes32();
+
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        vm.prank(targetMerchant);
+        zkpay.setItemIdCallbackConfig(
+            bytes32(uint256(itemId)),
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockCallbackContract.processCallbackWithMetadata.selector,
+                includePaymentMetadata: true
+            })
+        );
+
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
+
+        zkpay.sendWithCallback(
+            USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
+        );
+
+        assertEq(callbackContract.callCount(), 1);
+        assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 999);
+        assertTrue(callbackContract.receivedMetadata());
+
+        ZKPay.PaymentMetadata memory metadata = callbackContract.getLastPaymentMetadata();
+        assertEq(metadata.payoutToken, USDC);
+        assertGt(metadata.payoutAmount, 0);
+        assertGt(metadata.amountInUSD, 0);
+        assertEq(metadata.onBehalfOf, onBehalfOfBytes32);
+        assertEq(metadata.sender, address(this));
+        assertEq(metadata.itemId, bytes32(uint256(itemId)));
+    }
+
+    function testSendWithCallbackPathOverrideWithPaymentMetadata() public {
+        MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
+        bytes memory callbackData = abi.encode(777);
+        bytes32 onBehalfOfBytes32 = _getOnBehalfOfBytes32();
+        bytes memory customPath = DummyData.getOriginAssetPath(USDC);
+
+        vm.prank(targetMerchant);
+        zkpay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddress: targetMerchant, fulfillerPercentage: 0}),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        vm.prank(targetMerchant);
+        zkpay.setItemIdCallbackConfig(
+            bytes32(uint256(itemId)),
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockCallbackContract.processCallbackWithMetadata.selector,
+                includePaymentMetadata: true
+            })
+        );
+
+        IERC20(USDC).approve(address(zkpay), usdcAmount);
+
+        zkpay.sendWithCallbackPathOverride(
+            customPath, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
+        );
+
+        assertEq(callbackContract.callCount(), 1);
+        assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 777);
+        assertTrue(callbackContract.receivedMetadata());
+
+        ZKPay.PaymentMetadata memory metadata = callbackContract.getLastPaymentMetadata();
+        assertEq(metadata.payoutToken, USDC);
+        assertGt(metadata.payoutAmount, 0);
+        assertGt(metadata.amountInUSD, 0);
+        assertEq(metadata.onBehalfOf, onBehalfOfBytes32);
+        assertEq(metadata.sender, address(this));
+        assertEq(metadata.itemId, bytes32(uint256(itemId)));
     }
 }

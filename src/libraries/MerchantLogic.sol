@@ -30,7 +30,7 @@ library MerchantLogic {
 
     struct MerchantLogicStorage {
         mapping(address merchantAddress => MerchantLogic.MerchantConfig merchantConfig) merchantConfigs;
-        mapping(address merchant => mapping(bytes32 itemId => MerchantLogic.ItemIdCallbackConfig)) itemIdCallbackConfigs;
+        mapping(bytes32 => MerchantLogic.ItemIdCallbackConfig) itemIdCallbackConfigs;
     }
 
     struct ItemIdCallbackConfig {
@@ -69,7 +69,7 @@ library MerchantLogic {
         bytes32 itemId,
         ItemIdCallbackConfig memory callbackConfig
     ) internal {
-        merchantLogicStorage.itemIdCallbackConfigs[merchant][itemId] = callbackConfig;
+        merchantLogicStorage.itemIdCallbackConfigs[keccak256(abi.encodePacked(merchant, itemId))] = callbackConfig;
     }
 
     function getItemIdCallback(MerchantLogicStorage storage merchantLogicStorage, address merchant, bytes32 itemId)
@@ -77,6 +77,6 @@ library MerchantLogic {
         view
         returns (ItemIdCallbackConfig memory callbackConfig)
     {
-        callbackConfig = merchantLogicStorage.itemIdCallbackConfigs[merchant][itemId];
+        callbackConfig = merchantLogicStorage.itemIdCallbackConfigs[keccak256(abi.encodePacked(merchant, itemId))];
     }
 }

@@ -18,8 +18,7 @@ contract ZKPayV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeabl
         address treasury;
         address executorAddress;
         mapping(address asset => AssetManagement.PaymentAsset) assets;
-        mapping(address merchantAddress => MerchantLogic.MerchantConfig merchantConfig) merchantConfigs;
-        mapping(address merchant => mapping(bytes32 itemId => MerchantLogic.ItemIdCallbackConfig)) itemIdCallbackConfigs;
+        MerchantLogic.MerchantLogicStorage merchantLogicStorage;
         SwapLogic.SwapLogicStorage swapLogicStorage;
         PayWallLogic.PayWallLogicStorage paywallLogicStorage;
         EscrowPayment.EscrowPaymentStorage escrowPaymentStorage;

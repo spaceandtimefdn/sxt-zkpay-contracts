@@ -103,7 +103,8 @@ library PaymentLogic {
             AssetManagement.transferAssetFromCaller(params.asset, transferAmount, address(this));
 
         if (receivedTransferAmount > 0) {
-            MerchantLogic.MerchantConfig memory merchantConfig = _zkPayStorage.merchantConfigs[params.merchant];
+            MerchantLogic.MerchantConfig memory merchantConfig =
+                _zkPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
             result.recievedPayoutAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
                 params.asset,
                 params.merchant,
@@ -240,7 +241,8 @@ library PaymentLogic {
 
         // 1. pay merchant
         // slither-disable-next-line reentrancy-events
-        MerchantLogic.MerchantConfig memory merchantConfig = _zkPayStorage.merchantConfigs[params.merchant];
+        MerchantLogic.MerchantConfig memory merchantConfig =
+            _zkPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
         result.receivedTargetAssetAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
             params.sourceAsset, params.merchant, toBePaidInSourceToken, merchantConfig.payoutAddress, ""
         );

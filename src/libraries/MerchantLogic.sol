@@ -28,13 +28,18 @@ library MerchantLogic {
         uint32 fulfillerPercentage;
     }
 
+    struct MerchantLogicStorage {
+        mapping(address merchantAddress => MerchantLogic.MerchantConfig merchantConfig) merchantConfigs;
+        mapping(bytes32 => MerchantLogic.ItemIdCallbackConfig) itemIdCallbackConfigs;
+    }
+
     struct ItemIdCallbackConfig {
         address contractAddress;
         bytes4 funcSig;
     }
 
-    function set(
-        mapping(address merchant => MerchantConfig) storage merchantConfigs,
+    function setConfig(
+        MerchantLogicStorage storage merchantLogicStorage,
         address merchant,
         MerchantConfig memory config
     ) internal {
@@ -45,33 +50,33 @@ library MerchantLogic {
             revert PayoutAddressCannotBeZero();
         }
 
-        merchantConfigs[merchant] = config;
+        merchantLogicStorage.merchantConfigs[merchant] = config;
 
         emit MerchantConfigSet(merchant, config.payoutToken, config.payoutAddress, config.fulfillerPercentage);
     }
 
-    function get(mapping(address merchant => MerchantConfig) storage merchantConfigs, address merchant)
+    function getConfig(MerchantLogicStorage storage merchantLogicStorage, address merchant)
         internal
         view
         returns (MerchantConfig memory config)
     {
-        config = merchantConfigs[merchant];
+        config = merchantLogicStorage.merchantConfigs[merchant];
     }
 
     function setItemIdCallback(
-        mapping(address merchant => mapping(bytes32 itemId => ItemIdCallbackConfig)) storage itemIdCallbackConfigs,
+        MerchantLogicStorage storage merchantLogicStorage,
         address merchant,
         bytes32 itemId,
         ItemIdCallbackConfig memory callbackConfig
     ) internal {
-        itemIdCallbackConfigs[merchant][itemId] = callbackConfig;
+        merchantLogicStorage.itemIdCallbackConfigs[keccak256(abi.encodePacked(merchant, itemId))] = callbackConfig;
     }
 
-    function getItemIdCallback(
-        mapping(address merchant => mapping(bytes32 itemId => ItemIdCallbackConfig)) storage itemIdCallbackConfigs,
-        address merchant,
-        bytes32 itemId
-    ) internal view returns (ItemIdCallbackConfig memory callbackConfig) {
-        callbackConfig = itemIdCallbackConfigs[merchant][itemId];
+    function getItemIdCallback(MerchantLogicStorage storage merchantLogicStorage, address merchant, bytes32 itemId)
+        internal
+        view
+        returns (ItemIdCallbackConfig memory callbackConfig)
+    {
+        callbackConfig = merchantLogicStorage.itemIdCallbackConfigs[keccak256(abi.encodePacked(merchant, itemId))];
     }
 }

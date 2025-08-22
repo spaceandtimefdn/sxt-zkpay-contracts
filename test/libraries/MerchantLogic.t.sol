@@ -6,22 +6,20 @@ import {MerchantLogic} from "../../src/libraries/MerchantLogic.sol";
 import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
 
 contract MerchantLogicWrapper {
-    mapping(address merchant => MerchantLogic.MerchantConfig) internal _configs;
-    mapping(address merchant => mapping(bytes32 itemId => MerchantLogic.ItemIdCallbackConfig)) internal
-        _itemIdCallbackConfigs;
+    MerchantLogic.MerchantLogicStorage internal _merchantLogicStorage;
 
-    function set(address merchant, MerchantLogic.MerchantConfig calldata config) external {
-        MerchantLogic.set(_configs, merchant, config);
+    function setConfig(address merchant, MerchantLogic.MerchantConfig calldata config) external {
+        MerchantLogic.setConfig(_merchantLogicStorage, merchant, config);
     }
 
-    function get(address merchant) external view returns (MerchantLogic.MerchantConfig memory config) {
-        return MerchantLogic.get(_configs, merchant);
+    function getConfig(address merchant) external view returns (MerchantLogic.MerchantConfig memory config) {
+        return MerchantLogic.getConfig(_merchantLogicStorage, merchant);
     }
 
     function setItemIdCallback(address merchant, bytes32 itemId, MerchantLogic.ItemIdCallbackConfig calldata config)
         external
     {
-        MerchantLogic.setItemIdCallback(_itemIdCallbackConfigs, merchant, itemId, config);
+        MerchantLogic.setItemIdCallback(_merchantLogicStorage, merchant, itemId, config);
     }
 
     function getItemIdCallback(address merchant, bytes32 itemId)
@@ -29,7 +27,7 @@ contract MerchantLogicWrapper {
         view
         returns (MerchantLogic.ItemIdCallbackConfig memory config)
     {
-        return MerchantLogic.getItemIdCallback(_itemIdCallbackConfigs, merchant, itemId);
+        return MerchantLogic.getItemIdCallback(_merchantLogicStorage, merchant, itemId);
     }
 }
 
@@ -51,9 +49,9 @@ contract MerchantLogicTest is Test {
         emit MerchantLogic.MerchantConfigSet(
             address(this), merchantConfig.payoutToken, merchantConfig.payoutAddress, merchantConfig.fulfillerPercentage
         );
-        _wrapper.set(address(this), merchantConfig);
+        _wrapper.setConfig(address(this), merchantConfig);
 
-        MerchantLogic.MerchantConfig memory result = _wrapper.get(address(this));
+        MerchantLogic.MerchantConfig memory result = _wrapper.getConfig(address(this));
         assertEq(result.payoutToken, merchantConfig.payoutToken);
         assertEq(result.payoutAddress, merchantConfig.payoutAddress);
         assertEq(result.fulfillerPercentage, merchantConfig.fulfillerPercentage);
@@ -67,7 +65,7 @@ contract MerchantLogicTest is Test {
         });
 
         vm.expectRevert(MerchantLogic.InvalidFulfillerPercentage.selector);
-        _wrapper.set(address(this), merchantConfig);
+        _wrapper.setConfig(address(this), merchantConfig);
     }
 
     function testZeroPayoutAddress() public {
@@ -75,7 +73,7 @@ contract MerchantLogicTest is Test {
             MerchantLogic.MerchantConfig({payoutToken: address(1), payoutAddress: ZERO_ADDRESS, fulfillerPercentage: 1});
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
-        _wrapper.set(address(this), merchantConfig);
+        _wrapper.setConfig(address(this), merchantConfig);
     }
 
     function testSetAndGetItemIdCallback() public {

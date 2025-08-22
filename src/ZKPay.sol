@@ -19,7 +19,7 @@ import {PaymentLogic} from "./module/PaymentLogic.sol";
 // slither-disable-next-line locked-ether
 contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
-    using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
+    using MerchantLogic for MerchantLogic.MerchantLogicStorage;
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
     using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
@@ -51,8 +51,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         address treasury;
         address executorAddress;
         mapping(address asset => AssetManagement.PaymentAsset) assets;
-        mapping(address merchantAddress => MerchantLogic.MerchantConfig merchantConfig) merchantConfigs;
-        mapping(address merchant => mapping(bytes32 itemId => MerchantLogic.ItemIdCallbackConfig)) itemIdCallbackConfigs;
+        MerchantLogic.MerchantLogicStorage merchantLogicStorage;
         SwapLogic.SwapLogicStorage swapLogicStorage;
         PayWallLogic.PayWallLogicStorage paywallLogicStorage;
         EscrowPayment.EscrowPaymentStorage escrowPaymentStorage;
@@ -227,7 +226,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         }
 
         MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
-            MerchantLogic.getItemIdCallback(_zkPayStorage.itemIdCallbackConfigs, params.merchant, params.itemId);
+            _zkPayStorage.merchantLogicStorage.getItemIdCallback(params.merchant, params.itemId);
 
         if (callbackConfig.contractAddress == address(0)) {
             revert ItemIdCallbackNotConfigured();
@@ -345,13 +344,13 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
 
     /// @inheritdoc IZKPay
     function setMerchantConfig(MerchantLogic.MerchantConfig calldata config, bytes calldata path) external {
-        _zkPayStorage.merchantConfigs.set(msg.sender, config);
+        _zkPayStorage.merchantLogicStorage.setConfig(msg.sender, config);
         _zkPayStorage.swapLogicStorage.setMerchantTargetAssetPath(msg.sender, path);
     }
 
     /// @inheritdoc IZKPay
     function getMerchantConfig(address merchant) external view returns (MerchantLogic.MerchantConfig memory config) {
-        return _zkPayStorage.merchantConfigs.get(merchant);
+        return _zkPayStorage.merchantLogicStorage.getConfig(merchant);
     }
 
     /// @inheritdoc IZKPay
@@ -405,7 +404,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         if (config.contractAddress == address(0)) {
             revert InvalidCallbackContract();
         }
-        MerchantLogic.setItemIdCallback(_zkPayStorage.itemIdCallbackConfigs, msg.sender, itemId, config);
+        _zkPayStorage.merchantLogicStorage.setItemIdCallback(msg.sender, itemId, config);
     }
 
     function getItemIdCallbackConfig(bytes32 itemId)
@@ -413,6 +412,6 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         view
         returns (MerchantLogic.ItemIdCallbackConfig memory config)
     {
-        return MerchantLogic.getItemIdCallback(_zkPayStorage.itemIdCallbackConfigs, msg.sender, itemId);
+        return _zkPayStorage.merchantLogicStorage.getItemIdCallback(msg.sender, itemId);
     }
 }

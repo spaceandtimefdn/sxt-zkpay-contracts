@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {PaymentLogic} from "../../src/module/PaymentLogic.sol";
 import {PayWallLogic} from "../../src/libraries/PayWallLogic.sol";
-import {ZKPay} from "../../src/ZKPay.sol";
+import {DSPay} from "../../src/DSPay.sol";
 import {AssetManagement} from "../../src/libraries/AssetManagement.sol";
 import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -265,23 +265,23 @@ contract PaymentLogicDistributePayoutsTest is Test {
 }
 
 contract PaymentLogicProcessPaymentWrapper {
-    using PaymentLogic for ZKPay.ZKPayStorage;
+    using PaymentLogic for DSPay.DSPayStorage;
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
     using MerchantLogic for MerchantLogic.MerchantLogicStorage;
 
-    ZKPay.ZKPayStorage internal zkPayStorage;
+    DSPay.DSPayStorage internal dsPayStorage;
 
     address public constant MERCHANT = address(0x8888);
     address public constant MERCHANT_PAYOUT_ADDRESS = address(0x8001);
 
     constructor() {
-        zkPayStorage.swapLogicStorage.swapLogicConfig = SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT});
+        dsPayStorage.swapLogicStorage.swapLogicConfig = SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT});
 
-        zkPayStorage.swapLogicStorage.assetSwapPaths.sourceAssetPaths[SXT] =
+        dsPayStorage.swapLogicStorage.assetSwapPaths.sourceAssetPaths[SXT] =
             abi.encodePacked(SXT, bytes3(uint24(3000)), USDT);
-        zkPayStorage.swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[MERCHANT] =
+        dsPayStorage.swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[MERCHANT] =
             abi.encodePacked(USDT, bytes3(uint24(3000)), USDC);
 
         MockV3Aggregator sxtPriceFeed = new MockV3Aggregator(8, 1000000000);
@@ -290,13 +290,13 @@ contract PaymentLogicProcessPaymentWrapper {
             tokenDecimals: 18,
             stalePriceThresholdInSeconds: 3600
         });
-        AssetManagement.set(zkPayStorage.assets, SXT, sxtAsset);
+        AssetManagement.set(dsPayStorage.assets, SXT, sxtAsset);
 
         address[] memory addresses = new address[](1);
         addresses[0] = MERCHANT_PAYOUT_ADDRESS;
         uint32[] memory percentages = new uint32[](1);
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
-        zkPayStorage.merchantLogicStorage.setConfig(
+        dsPayStorage.merchantLogicStorage.setConfig(
             MERCHANT,
             MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddresses: addresses, payoutPercentages: percentages})
         );
@@ -306,16 +306,16 @@ contract PaymentLogicProcessPaymentWrapper {
         external
         returns (PaymentLogic.ProcessPaymentResult memory result)
     {
-        return PaymentLogic.processPayment(zkPayStorage, params);
+        return PaymentLogic.processPayment(dsPayStorage, params);
     }
 
     function setItemPrice(address merchant, bytes32 itemId, uint248 price) external {
-        zkPayStorage.paywallLogicStorage.setItemPrice(merchant, itemId, price);
+        dsPayStorage.paywallLogicStorage.setItemPrice(merchant, itemId, price);
     }
 }
 
 contract PaymentLogicProcessPaymentTest is Test {
-    using PaymentLogic for ZKPay.ZKPayStorage;
+    using PaymentLogic for DSPay.DSPayStorage;
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using SwapLogic for SwapLogic.SwapLogicStorage;
 
@@ -397,24 +397,24 @@ contract PaymentLogicProcessPaymentTest is Test {
 }
 
 contract PaymentLogicAuthorizePaymentWrapper {
-    using PaymentLogic for ZKPay.ZKPayStorage;
+    using PaymentLogic for DSPay.DSPayStorage;
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
     using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
     using MerchantLogic for MerchantLogic.MerchantLogicStorage;
 
-    ZKPay.ZKPayStorage internal zkPayStorage;
+    DSPay.DSPayStorage internal dsPayStorage;
 
     address public constant MERCHANT = address(0x8888);
     address public constant MERCHANT_PAYOUT_ADDRESS = address(0x8001);
 
     constructor() {
-        zkPayStorage.swapLogicStorage.swapLogicConfig = SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT});
+        dsPayStorage.swapLogicStorage.swapLogicConfig = SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT});
 
-        zkPayStorage.swapLogicStorage.assetSwapPaths.sourceAssetPaths[SXT] =
+        dsPayStorage.swapLogicStorage.assetSwapPaths.sourceAssetPaths[SXT] =
             abi.encodePacked(SXT, bytes3(uint24(3000)), USDT);
-        zkPayStorage.swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[MERCHANT] =
+        dsPayStorage.swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[MERCHANT] =
             abi.encodePacked(USDT, bytes3(uint24(3000)), USDC);
 
         MockV3Aggregator sxtPriceFeed = new MockV3Aggregator(8, 1000000000);
@@ -423,7 +423,7 @@ contract PaymentLogicAuthorizePaymentWrapper {
             tokenDecimals: 18,
             stalePriceThresholdInSeconds: 3600
         });
-        AssetManagement.set(zkPayStorage.assets, SXT, sxtAsset);
+        AssetManagement.set(dsPayStorage.assets, SXT, sxtAsset);
 
         MockV3Aggregator usdtPriceFeed = new MockV3Aggregator(8, 100000000);
         AssetManagement.PaymentAsset memory usdtAsset = AssetManagement.PaymentAsset({
@@ -431,13 +431,13 @@ contract PaymentLogicAuthorizePaymentWrapper {
             tokenDecimals: 6,
             stalePriceThresholdInSeconds: 3600
         });
-        AssetManagement.set(zkPayStorage.assets, USDT, usdtAsset);
+        AssetManagement.set(dsPayStorage.assets, USDT, usdtAsset);
 
         address[] memory addresses = new address[](1);
         addresses[0] = MERCHANT_PAYOUT_ADDRESS;
         uint32[] memory percentages = new uint32[](1);
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
-        zkPayStorage.merchantLogicStorage.setConfig(
+        dsPayStorage.merchantLogicStorage.setConfig(
             MERCHANT,
             MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddresses: addresses, payoutPercentages: percentages})
         );
@@ -447,27 +447,27 @@ contract PaymentLogicAuthorizePaymentWrapper {
         external
         returns (EscrowPayment.Transaction memory transaction, bytes32 transactionHash)
     {
-        return PaymentLogic.authorizePayment(zkPayStorage, params);
+        return PaymentLogic.authorizePayment(dsPayStorage, params);
     }
 
     function setItemPrice(address merchant, bytes32 itemId, uint248 price) external {
-        zkPayStorage.paywallLogicStorage.setItemPrice(merchant, itemId, price);
+        dsPayStorage.paywallLogicStorage.setItemPrice(merchant, itemId, price);
     }
 
     function isTransactionAuthorized(bytes32 transactionHash) external view returns (bool) {
-        return zkPayStorage.escrowPaymentStorage.transactionNonces[transactionHash] > 0;
+        return dsPayStorage.escrowPaymentStorage.transactionNonces[transactionHash] > 0;
     }
 
     function processSettlement(PaymentLogic.ProcessSettlementParams calldata params)
         external
         returns (PaymentLogic.ProcessSettlementResult memory result)
     {
-        return PaymentLogic.processSettlement(zkPayStorage, params);
+        return PaymentLogic.processSettlement(dsPayStorage, params);
     }
 }
 
 contract PaymentLogicAuthorizePaymentTest is Test {
-    using PaymentLogic for ZKPay.ZKPayStorage;
+    using PaymentLogic for DSPay.DSPayStorage;
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
 
     PaymentLogicAuthorizePaymentWrapper internal wrapper;

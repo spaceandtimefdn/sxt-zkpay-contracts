@@ -7,13 +7,13 @@ pragma solidity 0.8.28;
 import {Script, console} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 
-import {ZKPay} from "../src/ZKPay.sol";
+import {DSPay} from "../src/DSPay.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
 import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 
 /// @title Deploy
-/// @notice Deploy the ZKPay contract
-/// @dev This script is used to deploy the ZKPay contract
+/// @notice Deploy the DSPay contract
+/// @dev This script is used to deploy the DSPay contract
 /// @dev It also sets the USDC payment asset
 contract Deploy is Script {
     using stdJson for string;
@@ -24,7 +24,7 @@ contract Deploy is Script {
         uint8 usdcTokenDecimals;
         uint64 usdcTokenStalePriceThresholdInSeconds;
         // Remaining slots: addresses (each takes a full slot)
-        address zkpayAdmin;
+        address dspayAdmin;
         address usdcTokenAddress;
         address usdcTokenPriceFeed;
         address router;
@@ -40,11 +40,11 @@ contract Deploy is Script {
         // Deploy contracts
         vm.startBroadcast();
 
-        // Deploy ZKPay
-        ZKPay zkpay =
-            new ZKPay(config.zkpayAdmin, SwapLogic.SwapLogicConfig({router: config.router, usdt: config.usdt}));
+        // Deploy DSPay
+        DSPay dspay =
+            new DSPay(config.dspayAdmin, SwapLogic.SwapLogicConfig({router: config.router, usdt: config.usdt}));
 
-        console.log("ZKPay deployed at:", address(zkpay));
+        console.log("DSPay deployed at:", address(dspay));
 
         // Set USDC payment asset
         AssetManagement.PaymentAsset memory usdcPaymentAsset = AssetManagement.PaymentAsset({
@@ -52,12 +52,12 @@ contract Deploy is Script {
             tokenDecimals: config.usdcTokenDecimals,
             stalePriceThresholdInSeconds: config.usdcTokenStalePriceThresholdInSeconds
         });
-        zkpay.setPaymentAsset(config.usdcTokenAddress, usdcPaymentAsset, config.usdcToUsdtPath);
+        dspay.setPaymentAsset(config.usdcTokenAddress, usdcPaymentAsset, config.usdcToUsdtPath);
 
         vm.stopBroadcast();
 
         // Create output JSON with deployed contract addresses
-        string memory outputJson = _createFormattedOutputJson(address(zkpay), config);
+        string memory outputJson = _createFormattedOutputJson(address(dspay), config);
 
         // Write output to file
         string memory outputPath = string.concat(vm.projectRoot(), "/script/output/output.json");
@@ -71,8 +71,8 @@ contract Deploy is Script {
         string memory configPath = string.concat(vm.projectRoot(), "/script/config.json");
         string memory configJson = vm.readFile(configPath);
 
-        // zkpay section
-        config.zkpayAdmin = configJson.readAddress(".zkpayAdmin");
+        // dspay section
+        config.dspayAdmin = configJson.readAddress(".dspayAdmin");
 
         // usdc payment asset section
         config.usdcTokenAddress = configJson.readAddress(".usdcTokenAddress");
@@ -88,24 +88,24 @@ contract Deploy is Script {
     }
 
     /// @notice Create a formatted JSON output with deployed contract addresses and configuration
-    /// @param zkPayAddress Address of the deployed ZKPay contract
+    /// @param dsPayAddress Address of the deployed DSPay contract
     /// @param config The configuration used for deployment
     /// @return formattedJson The formatted JSON string containing deployment information
-    function _createFormattedOutputJson(address zkPayAddress, Config memory config)
+    function _createFormattedOutputJson(address dsPayAddress, Config memory config)
         internal
         pure
         returns (string memory formattedJson)
     {
         // Create the deployedContracts section
         string memory deployedContracts = string.concat(
-            "  \"deployedContracts\": {\n", "    \"ZKPay\": \"", _addressToString(zkPayAddress), "\"\n", "  }"
+            "  \"deployedContracts\": {\n", "    \"DSPay\": \"", _addressToString(dsPayAddress), "\"\n", "  }"
         );
 
         // Create the config section
         string memory configSection = string.concat(
             "  \"config\": {\n",
-            "    \"zkpayAdmin\": \"",
-            _addressToString(config.zkpayAdmin),
+            "    \"dspayAdmin\": \"",
+            _addressToString(config.dspayAdmin),
             "\",\n",
             "    \"usdcTokenAddress\": \"",
             _addressToString(config.usdcTokenAddress),

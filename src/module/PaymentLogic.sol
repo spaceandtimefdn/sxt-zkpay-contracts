@@ -2,14 +2,14 @@
 pragma solidity 0.8.28;
 
 import {PayWallLogic} from "../libraries/PayWallLogic.sol";
-import {ZKPay} from "../ZKPay.sol";
+import {DSPay} from "../DSPay.sol";
 import {SwapLogic} from "../libraries/SwapLogic.sol";
 import {AssetManagement} from "../libraries/AssetManagement.sol";
 import {EscrowPayment} from "../libraries/EscrowPayment.sol";
 import {MerchantLogic} from "../libraries/MerchantLogic.sol";
 
 /// @title PaymentLogic
-/// @notice Library for processing payments, authorizations, and settlements in the ZKPay protocol
+/// @notice Library for processing payments, authorizations, and settlements in the DSPay protocol
 /// @dev Orchestrates interactions between asset management, swap logic, paywall, and escrow systems
 library PaymentLogic {
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
@@ -68,22 +68,22 @@ library PaymentLogic {
     }
 
     /// @notice Processes a direct payment with asset swapping to merchant's preferred payout token
-    /// @param _zkPayStorage The ZKPay storage
+    /// @param _dsPayStorage The DSPay storage
     /// @param params The payment parameters struct
-    function processPayment(ZKPay.ZKPayStorage storage _zkPayStorage, ProcessPaymentParams memory params)
+    function processPayment(DSPay.DSPayStorage storage _dsPayStorage, ProcessPaymentParams memory params)
         internal
-        _validateAsset(_zkPayStorage.assets, params.asset)
+        _validateAsset(_dsPayStorage.assets, params.asset)
         returns (ProcessPaymentResult memory result)
     {
-        result.payoutToken = _zkPayStorage.swapLogicStorage.getMerchantPayoutAsset(params.merchant);
+        result.payoutToken = _dsPayStorage.swapLogicStorage.getMerchantPayoutAsset(params.merchant);
 
         uint248 receivedTransferAmount =
             AssetManagement.transferAssetFromCaller(params.asset, params.amount, address(this));
 
         if (receivedTransferAmount > 0) {
             MerchantLogic.MerchantConfig memory merchantConfig =
-                _zkPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
-            uint256 swappedAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
+                _dsPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
+            uint256 swappedAmount = _dsPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
                 params.asset, params.merchant, receivedTransferAmount, address(this), params.customSourceAssetPath
             );
 
@@ -92,9 +92,9 @@ library PaymentLogic {
             );
         }
 
-        result.amountInUSD = _zkPayStorage.assets.convertToUsd(params.asset, receivedTransferAmount);
+        result.amountInUSD = _dsPayStorage.assets.convertToUsd(params.asset, receivedTransferAmount);
 
-        _validateItemPrice(_zkPayStorage.paywallLogicStorage, params.merchant, params.itemId, result.amountInUSD);
+        _validateItemPrice(_dsPayStorage.paywallLogicStorage, params.merchant, params.itemId, result.amountInUSD);
     }
 
     struct AuthorizePaymentParams {
@@ -105,22 +105,22 @@ library PaymentLogic {
     }
 
     /// @notice Authorizes a payment by transferring assets to escrow
-    /// @param _zkPayStorage The ZKPay storage
+    /// @param _dsPayStorage The DSPay storage
     /// @param params The payment parameters struct
-    function authorizePayment(ZKPay.ZKPayStorage storage _zkPayStorage, AuthorizePaymentParams memory params)
+    function authorizePayment(DSPay.DSPayStorage storage _dsPayStorage, AuthorizePaymentParams memory params)
         internal
-        _validateAsset(_zkPayStorage.assets, params.asset)
+        _validateAsset(_dsPayStorage.assets, params.asset)
         returns (EscrowPayment.Transaction memory transaction, bytes32 transactionHash)
     {
         uint248 receivedSourceAssetAmount =
             AssetManagement.transferAssetFromCaller(params.asset, params.amount, address(this));
-        uint248 amountInUSD = _zkPayStorage.assets.convertToUsd(params.asset, receivedSourceAssetAmount);
+        uint248 amountInUSD = _dsPayStorage.assets.convertToUsd(params.asset, receivedSourceAssetAmount);
 
         if (receivedSourceAssetAmount == 0) {
             revert ZeroAmountReceived();
         }
 
-        _validateItemPrice(_zkPayStorage.paywallLogicStorage, params.merchant, params.itemId, amountInUSD);
+        _validateItemPrice(_dsPayStorage.paywallLogicStorage, params.merchant, params.itemId, amountInUSD);
 
         transaction = EscrowPayment.Transaction({
             asset: params.asset,
@@ -129,7 +129,7 @@ library PaymentLogic {
             to: params.merchant
         });
 
-        transactionHash = EscrowPayment.authorize(_zkPayStorage.escrowPaymentStorage, transaction);
+        transactionHash = EscrowPayment.authorize(_dsPayStorage.escrowPaymentStorage, transaction);
     }
 
     /// @notice Computes the breakdown of amounts for settlement (payment, refund)
@@ -178,13 +178,13 @@ library PaymentLogic {
     /// - computing the settlement breakdown
     /// - paying the merchant
     /// - refunding the client
-    /// @param _zkPayStorage The ZKPay storage
+    /// @param _dsPayStorage The DSPay storage
     /// @param params The settlement parameters struct
-    function processSettlement(ZKPay.ZKPayStorage storage _zkPayStorage, ProcessSettlementParams memory params)
+    function processSettlement(DSPay.DSPayStorage storage _dsPayStorage, ProcessSettlementParams memory params)
         internal
         returns (ProcessSettlementResult memory result)
     {
-        _zkPayStorage.escrowPaymentStorage.completeAuthorizedTransaction(
+        _dsPayStorage.escrowPaymentStorage.completeAuthorizedTransaction(
             EscrowPayment.Transaction({
                 asset: params.sourceAsset,
                 amount: params.sourceAssetAmount,
@@ -194,16 +194,16 @@ library PaymentLogic {
             params.transactionHash
         );
 
-        result.payoutToken = _zkPayStorage.swapLogicStorage.getMerchantPayoutAsset(params.merchant);
+        result.payoutToken = _dsPayStorage.swapLogicStorage.getMerchantPayoutAsset(params.merchant);
         (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken) = _computeSettlementBreakdown(
-            _zkPayStorage.assets, params.sourceAsset, params.sourceAssetAmount, params.maxUsdValueOfTargetToken
+            _dsPayStorage.assets, params.sourceAsset, params.sourceAssetAmount, params.maxUsdValueOfTargetToken
         );
 
         // 1. pay merchant
         // slither-disable-next-line reentrancy-events
         MerchantLogic.MerchantConfig memory merchantConfig =
-            _zkPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
-        uint256 swappedAmount = _zkPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
+            _dsPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
+        uint256 swappedAmount = _dsPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
             params.sourceAsset, params.merchant, toBePaidInSourceToken, address(this), params.customSourceAssetPath
         );
 

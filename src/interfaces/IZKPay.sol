@@ -223,6 +223,22 @@ interface IZKPay {
         uint248 maxUsdValueOfTargetToken
     ) external;
 
+    /// @notice Settles an authorized payment
+    /// @param customSourceAssetPath The custom swap path to override the stored sourceAssetPaths mapping
+    /// @param sourceAssetAmount The amount of source asset that was authorized
+    /// @param from The address that made the original payment
+    /// @param merchant The merchant address
+    /// @param transactionHash The hash of the transaction to settle
+    /// @param maxUsdValueOfTargetToken Maximum USD value allowed for the target token
+    function settleAuthorizedPaymentPathOverride(
+        bytes calldata customSourceAssetPath,
+        uint248 sourceAssetAmount,
+        address from,
+        address merchant,
+        bytes32 transactionHash,
+        uint248 maxUsdValueOfTargetToken
+    ) external;
+
     /// @notice Sets callback configuration for an item ID
     /// @param itemId The item ID
     /// @param config The callback configuration

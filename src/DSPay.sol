@@ -5,7 +5,7 @@ import {AccessControlDefaultAdminRules} from
     "@openzeppelin/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-import {IZKPay} from "./interfaces/IZKPay.sol";
+import {IDSPay} from "./interfaces/IDSPay.sol";
 import {AssetManagement} from "./libraries/AssetManagement.sol";
 import {MerchantLogic} from "./libraries/MerchantLogic.sol";
 import {SwapLogic} from "./libraries/SwapLogic.sol";
@@ -16,7 +16,7 @@ import {EscrowPayment} from "./libraries/EscrowPayment.sol";
 import {PaymentLogic} from "./module/PaymentLogic.sol";
 
 // slither-disable-next-line locked-ether
-contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
+contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using MerchantLogic for MerchantLogic.MerchantLogicStorage;
     using SwapLogic for SwapLogic.SwapLogicStorage;
@@ -51,7 +51,7 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     }
 
     // solhint-disable-next-line gas-struct-packing
-    struct ZKPayStorage {
+    struct DSPayStorage {
         address executorAddress;
         mapping(address asset => AssetManagement.PaymentAsset) assets;
         MerchantLogic.MerchantLogicStorage merchantLogicStorage;
@@ -60,25 +60,25 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         EscrowPayment.EscrowPaymentStorage escrowPaymentStorage;
     }
 
-    ZKPayStorage internal _zkPayStorage;
+    DSPayStorage internal _dsPayStorage;
 
     constructor(address admin, SwapLogic.SwapLogicConfig memory swapLogicConfig)
         AccessControlDefaultAdminRules(0, admin)
     {
         _deployExecutor();
-        _zkPayStorage.swapLogicStorage.setConfig(swapLogicConfig);
+        _dsPayStorage.swapLogicStorage.setConfig(swapLogicConfig);
     }
 
     function _deployExecutor() internal {
-        _zkPayStorage.executorAddress = address(new SafeExecutor());
+        _dsPayStorage.executorAddress = address(new SafeExecutor());
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function getExecutorAddress() external view returns (address executor) {
-        return _zkPayStorage.executorAddress;
+        return _dsPayStorage.executorAddress;
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function setPaymentAsset(
         address assetAddress,
         AssetManagement.PaymentAsset calldata paymentAsset,
@@ -89,18 +89,18 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
             revert SwapLogic.InvalidPath();
         }
 
-        AssetManagement.set(_zkPayStorage.assets, assetAddress, paymentAsset);
-        _zkPayStorage.swapLogicStorage.setSourceAssetPath(path);
+        AssetManagement.set(_dsPayStorage.assets, assetAddress, paymentAsset);
+        _dsPayStorage.swapLogicStorage.setSourceAssetPath(path);
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function removePaymentAsset(address asset) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        AssetManagement.remove(_zkPayStorage.assets, asset);
+        AssetManagement.remove(_dsPayStorage.assets, asset);
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function getPaymentAsset(address asset) external view returns (AssetManagement.PaymentAsset memory paymentAsset) {
-        return AssetManagement.get(_zkPayStorage.assets, asset);
+        return AssetManagement.get(_dsPayStorage.assets, asset);
     }
 
     function _validateMerchant(address merchant, address callbackContractAddress) internal view {
@@ -120,7 +120,7 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         bytes memory customSourceAssetPath
     ) internal returns (PaymentLogic.ProcessPaymentResult memory result) {
         result = PaymentLogic.processPayment(
-            _zkPayStorage,
+            _dsPayStorage,
             PaymentLogic.ProcessPaymentParams({
                 asset: asset,
                 amount: amount,
@@ -133,7 +133,7 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         emit SendPayment(asset, amount, onBehalfOf, merchant, memo, result.amountInUSD, msg.sender, itemId);
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function send(
         address asset,
         uint248 amount,
@@ -145,7 +145,7 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         _sendPayment(asset, amount, onBehalfOf, merchant, memo, itemId, "");
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function sendPathOverride(
         bytes calldata customSourceAssetPath,
         uint248 amount,
@@ -171,7 +171,7 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         }
 
         MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
-            _zkPayStorage.merchantLogicStorage.getItemIdCallback(params.merchant, params.itemId);
+            _dsPayStorage.merchantLogicStorage.getItemIdCallback(params.merchant, params.itemId);
 
         if (callbackConfig.contractAddress == address(0)) {
             revert ItemIdCallbackNotConfigured();
@@ -206,10 +206,10 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
             fullCallbackData = abi.encodePacked(callbackConfig.funcSig, params.callbackData);
         }
 
-        SafeExecutor(_zkPayStorage.executorAddress).execute(callbackConfig.contractAddress, fullCallbackData);
+        SafeExecutor(_dsPayStorage.executorAddress).execute(callbackConfig.contractAddress, fullCallbackData);
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function sendWithCallbackPathOverride(
         bytes calldata customSourceAssetPath,
         uint248 amount,
@@ -233,7 +233,7 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         );
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function sendWithCallback(
         address asset,
         uint248 amount,
@@ -269,12 +269,12 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
             PaymentLogic.AuthorizePaymentParams({asset: asset, amount: amount, merchant: merchant, itemId: itemId});
 
         (EscrowPayment.Transaction memory transaction, bytes32 transactionHash) =
-            PaymentLogic.authorizePayment(_zkPayStorage, params);
+            PaymentLogic.authorizePayment(_dsPayStorage, params);
 
         emit Authorized(transaction, transactionHash, onBehalfOf, memo, itemId);
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function authorize(
         address asset,
         uint248 amount,
@@ -286,7 +286,7 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function authorizeWithCallback(
         address asset,
         uint248 amount,
@@ -301,28 +301,28 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
 
         _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
 
-        SafeExecutor(_zkPayStorage.executorAddress).execute(callbackContractAddress, callbackData);
+        SafeExecutor(_dsPayStorage.executorAddress).execute(callbackContractAddress, callbackData);
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function setMerchantConfig(MerchantLogic.MerchantConfig calldata config, bytes calldata path) external {
-        _zkPayStorage.merchantLogicStorage.setConfig(msg.sender, config);
-        _zkPayStorage.swapLogicStorage.setMerchantTargetAssetPath(msg.sender, path);
+        _dsPayStorage.merchantLogicStorage.setConfig(msg.sender, config);
+        _dsPayStorage.swapLogicStorage.setMerchantTargetAssetPath(msg.sender, path);
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function getMerchantConfig(address merchant) external view returns (MerchantLogic.MerchantConfig memory config) {
-        return _zkPayStorage.merchantLogicStorage.getConfig(merchant);
+        return _dsPayStorage.merchantLogicStorage.getConfig(merchant);
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function setPaywallItemPrice(bytes32 item, uint248 price) external {
-        _zkPayStorage.paywallLogicStorage.setItemPrice(msg.sender, item, price);
+        _dsPayStorage.paywallLogicStorage.setItemPrice(msg.sender, item, price);
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function getPaywallItemPrice(bytes32 item, address merchant) external view returns (uint248 price) {
-        return _zkPayStorage.paywallLogicStorage.getItemPrice(merchant, item);
+        return _dsPayStorage.paywallLogicStorage.getItemPrice(merchant, item);
     }
 
     function _settleAuthorizedPayment(
@@ -335,7 +335,7 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         uint248 maxUsdValueOfTargetToken
     ) internal {
         PaymentLogic.ProcessSettlementResult memory result = PaymentLogic.processSettlement(
-            _zkPayStorage,
+            _dsPayStorage,
             PaymentLogic.ProcessSettlementParams({
                 customSourceAssetPath: customSourceAssetPath,
                 sourceAsset: sourceAsset,
@@ -359,7 +359,7 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         );
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function settleAuthorizedPayment(
         address sourceAsset,
         uint248 sourceAssetAmount,
@@ -373,7 +373,7 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         );
     }
 
-    /// @inheritdoc IZKPay
+    /// @inheritdoc IDSPay
     function settleAuthorizedPaymentPathOverride(
         bytes calldata customSourceAssetPath,
         uint248 sourceAssetAmount,
@@ -402,7 +402,7 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         if (config.contractAddress == address(0)) {
             revert InvalidCallbackContract();
         }
-        _zkPayStorage.merchantLogicStorage.setItemIdCallback(msg.sender, itemId, config);
+        _dsPayStorage.merchantLogicStorage.setItemIdCallback(msg.sender, itemId, config);
     }
 
     function getItemIdCallbackConfig(address merchant, bytes32 itemId)
@@ -410,6 +410,6 @@ contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         view
         returns (MerchantLogic.ItemIdCallbackConfig memory config)
     {
-        return _zkPayStorage.merchantLogicStorage.getItemIdCallback(merchant, itemId);
+        return _dsPayStorage.merchantLogicStorage.getItemIdCallback(merchant, itemId);
     }
 }

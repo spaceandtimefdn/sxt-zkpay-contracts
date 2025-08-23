@@ -4,13 +4,13 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 
-import {ZKPay} from "../src/ZKPay.sol";
+import {DSPay} from "../src/DSPay.sol";
 import {MerchantLogic} from "../src/libraries/MerchantLogic.sol";
 import {DummyData} from "./data/DummyData.sol";
 import {ZERO_ADDRESS} from "../src/libraries/Constants.sol";
 
-contract ZKPayMerchantConfigTest is Test {
-    ZKPay internal _zkpay;
+contract DSPayMerchantConfigTest is Test {
+    DSPay internal _dspay;
     address internal _admin;
     address internal _priceFeed;
     address internal _sxt;
@@ -21,7 +21,7 @@ contract ZKPayMerchantConfigTest is Test {
         _sxt = vm.addr(0x3);
 
         vm.prank(_admin);
-        _zkpay = new ZKPay(_admin, DummyData.getSwapLogicConfig());
+        _dspay = new DSPay(_admin, DummyData.getSwapLogicConfig());
     }
 
     function testSetAndGetMerchantConfig() public {
@@ -41,9 +41,9 @@ contract ZKPayMerchantConfigTest is Test {
         emit MerchantLogic.MerchantConfigSet(
             address(this), merchantConfig.payoutToken, merchantConfig.payoutAddresses, merchantConfig.payoutPercentages
         );
-        _zkpay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
+        _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
 
-        MerchantLogic.MerchantConfig memory r = _zkpay.getMerchantConfig(address(this));
+        MerchantLogic.MerchantConfig memory r = _dspay.getMerchantConfig(address(this));
         assertEq(r.payoutToken, merchantConfig.payoutToken);
         assertEq(r.payoutAddresses.length, 2);
         assertEq(r.payoutAddresses[0], address(3));
@@ -64,7 +64,7 @@ contract ZKPayMerchantConfigTest is Test {
         });
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
-        _zkpay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
+        _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
     }
 
     function testSetAndGetItemIdCallbackConfig() public {
@@ -75,9 +75,9 @@ contract ZKPayMerchantConfigTest is Test {
             includePaymentMetadata: false
         });
 
-        _zkpay.setItemIdCallbackConfig(itemId, config);
+        _dspay.setItemIdCallbackConfig(itemId, config);
 
-        MerchantLogic.ItemIdCallbackConfig memory result = _zkpay.getItemIdCallbackConfig(address(this), itemId);
+        MerchantLogic.ItemIdCallbackConfig memory result = _dspay.getItemIdCallbackConfig(address(this), itemId);
         assertEq(result.contractAddress, config.contractAddress);
         assertEq(result.funcSig, config.funcSig);
         assertEq(result.includePaymentMetadata, config.includePaymentMetadata);
@@ -90,8 +90,8 @@ contract ZKPayMerchantConfigTest is Test {
             includePaymentMetadata: false
         });
 
-        vm.expectRevert(ZKPay.InvalidItemId.selector);
-        _zkpay.setItemIdCallbackConfig(bytes32(0), config);
+        vm.expectRevert(DSPay.InvalidItemId.selector);
+        _dspay.setItemIdCallbackConfig(bytes32(0), config);
     }
 
     function testSetItemIdCallbackConfigInvalidContract() public {
@@ -102,7 +102,7 @@ contract ZKPayMerchantConfigTest is Test {
             includePaymentMetadata: false
         });
 
-        vm.expectRevert(ZKPay.InvalidCallbackContract.selector);
-        _zkpay.setItemIdCallbackConfig(itemId, config);
+        vm.expectRevert(DSPay.InvalidCallbackContract.selector);
+        _dspay.setItemIdCallbackConfig(itemId, config);
     }
 }

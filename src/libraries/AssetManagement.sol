@@ -40,7 +40,7 @@ library AssetManagement {
     event AssetRemoved(address asset);
 
     /**
-     * @notice Defines payment asset configuration within the ZKpay protocol.
+     * @notice Defines payment asset configuration within the DSpay protocol.
      */
     struct PaymentAsset {
         /// @notice  Price oracle

@@ -1,4 +1,4 @@
-# Space and Time | ZKPay Smart Contracts
+# Space and Time | DSPay Smart Contracts
 
 ## Git Hooks
 

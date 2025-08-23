@@ -19,7 +19,6 @@ contract SwapLogicTest is Test {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ROUTER;
         cfg.usdt = USDT;
-        cfg.defaultTargetAssetPath = abi.encodePacked(USDT);
         this._setConfig(cfg);
         wrapper = new SwapLogicWrapper();
     }
@@ -40,14 +39,12 @@ contract SwapLogicTest is Test {
         SwapLogic.SwapLogicConfig memory cfg = SwapLogic.getConfig(_swapLogicStorage);
         assertEq(cfg.router, ROUTER, "router addr mismatch");
         assertEq(cfg.usdt, USDT, "usdt addr mismatch");
-        assertEq(keccak256(cfg.defaultTargetAssetPath), keccak256(abi.encodePacked(USDT)), "default path mismatch");
     }
 
     function testSetConfigRouterZeroAddressReverts() public {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ZERO_ADDRESS;
         cfg.usdt = USDT;
-        cfg.defaultTargetAssetPath = abi.encodePacked(USDT);
         vm.expectRevert(SwapLogic.ZeroAddress.selector);
         this._setConfig(cfg);
     }
@@ -56,7 +53,6 @@ contract SwapLogicTest is Test {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ROUTER;
         cfg.usdt = ZERO_ADDRESS;
-        cfg.defaultTargetAssetPath = abi.encodePacked(USDT);
         vm.expectRevert(SwapLogic.ZeroAddress.selector);
         this._setConfig(cfg);
     }
@@ -130,7 +126,6 @@ contract SwapLogicTest is Test {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ROUTER;
         cfg.usdt = address(0x1234);
-        cfg.defaultTargetAssetPath = bytes("");
         this._setConfig(cfg);
 
         bytes memory zeroPath = abi.encodePacked(ZERO_ADDRESS);
@@ -164,7 +159,6 @@ contract SwapLogicTest is Test {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ROUTER;
         cfg.usdt = address(0x1234);
-        cfg.defaultTargetAssetPath = bytes("");
         this._setConfig(cfg);
 
         bytes memory zeroPath = abi.encodePacked(ZERO_ADDRESS);
@@ -278,10 +272,7 @@ contract SwapLogicWrapper {
         _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[USDT] =
             abi.encodePacked(USDT, bytes3(uint24(3000)), USDC);
 
-        bytes memory defaultTargetAssetPath = _swapLogicStorage.assetSwapPaths.sourceAssetPaths[SXT];
-
-        _swapLogicStorage.swapLogicConfig =
-            SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT, defaultTargetAssetPath: defaultTargetAssetPath});
+        _swapLogicStorage.swapLogicConfig = SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT});
     }
 
     function _swapExactAmountIn(bytes memory path, uint256 amountIn, address recipient)

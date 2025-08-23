@@ -2,10 +2,8 @@
 pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 import {ZKPay} from "../src/ZKPay.sol";
-import {ZKPayV2} from "./mocks/ZKPayV2.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
@@ -48,63 +46,56 @@ contract MockInvalidAuthorizeCallbackContract {
 
 contract ZKPayTest is Test {
     ZKPay public zkpay;
-    address public _owner;
+    address public _admin;
     address public _priceFeed;
     AssetManagement.PaymentAsset public paymentAssetInstance;
     address public _sxt;
     int256 public _tokenPrice;
 
     function setUp() public {
-        _owner = vm.addr(0x1);
+        _admin = vm.addr(0x1);
         _tokenPrice = 1000;
 
         _priceFeed = address(new MockV3Aggregator(8, _tokenPrice));
         _sxt = address(new MockERC20());
-        vm.prank(_owner);
-        address zkPayProxyAddress = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", _owner, abi.encodeCall(ZKPay.initialize, (_owner, DummyData.getSwapLogicConfig()))
-        );
 
-        zkpay = ZKPay(zkPayProxyAddress);
+        zkpay = new ZKPay(_admin, DummyData.getSwapLogicConfig());
 
         paymentAssetInstance =
             AssetManagement.PaymentAsset({priceFeed: _priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 1000});
     }
 
-    function testOwnershipTransfer() public {
-        vm.prank(_owner);
-        zkpay.transferOwnership(address(0x4));
+    function testAdminRoleTransfer() public {
+        bytes32 adminRole = zkpay.DEFAULT_ADMIN_ROLE();
+        address newAdmin = address(0x4);
 
-        assertEq(zkpay.owner(), address(0x4));
+        assertTrue(zkpay.hasRole(adminRole, _admin));
+
+        vm.prank(_admin);
+        zkpay.beginDefaultAdminTransfer(newAdmin);
+
+        assertTrue(zkpay.hasRole(adminRole, _admin));
+        assertFalse(zkpay.hasRole(adminRole, newAdmin));
+
+        (address pendingAdmin,) = zkpay.pendingDefaultAdmin();
+        assertEq(pendingAdmin, newAdmin);
+
+        skip(1 days);
+
+        vm.prank(newAdmin);
+        zkpay.acceptDefaultAdminTransfer();
+        assertTrue(zkpay.hasRole(adminRole, newAdmin));
+        assertFalse(zkpay.hasRole(adminRole, _admin));
     }
 
-    function testOnlyOwnerCanTransferOwnership() public {
+    function testOnlyAdminCanTransferAdminRole() public {
         vm.prank(address(0x5));
         vm.expectRevert();
-        zkpay.transferOwnership(address(0x6));
-    }
-
-    function testTransparentUpgrade() public {
-        address proxy = Upgrades.deployTransparentProxy(
-            "ZKPay.sol", msg.sender, abi.encodeCall(ZKPay.initialize, (msg.sender, DummyData.getSwapLogicConfig()))
-        );
-        address implAddressV1 = Upgrades.getImplementationAddress(proxy);
-        address adminAddress = Upgrades.getAdminAddress(proxy);
-
-        assertFalse(adminAddress == ZERO_ADDRESS);
-
-        Upgrades.upgradeProxy(proxy, "ZKPayV2.sol", abi.encodeCall(ZKPayV2.initialize, (msg.sender)), msg.sender);
-        address implAddressV2 = Upgrades.getImplementationAddress(proxy);
-
-        assertEq(Upgrades.getAdminAddress(proxy), adminAddress);
-
-        assertFalse(implAddressV2 == implAddressV1);
-
-        assertEq(ZKPayV2(implAddressV2).getVersion(), 2);
+        zkpay.beginDefaultAdminTransfer(address(0x6));
     }
 
     function testFuzzSetPaymentAsset(address asset, uint8 tokenDecimals, uint64 stalePriceThresholdInSeconds) public {
-        vm.prank(_owner);
+        vm.prank(_admin);
 
         vm.expectEmit(true, true, true, true);
         emit AssetManagement.AssetAdded(asset, _priceFeed, tokenDecimals, stalePriceThresholdInSeconds);
@@ -121,7 +112,7 @@ contract ZKPayTest is Test {
     }
 
     function testFuzzSetPaymentAsset(address asset) public {
-        vm.prank(_owner);
+        vm.prank(_admin);
 
         vm.expectEmit(true, true, true, true);
         emit AssetManagement.AssetAdded(asset, _priceFeed, 18, 1000);
@@ -130,17 +121,17 @@ contract ZKPayTest is Test {
     }
 
     function testFuzzSetPaymentAssetInvalidPath(address asset) public {
-        vm.prank(_owner);
+        vm.prank(_admin);
         vm.assume(asset != DummyData.getUsdtAddress());
 
         vm.expectRevert(SwapLogic.InvalidPath.selector);
         zkpay.setPaymentAsset(asset, paymentAssetInstance, DummyData.getDestinationAssetPath(asset));
     }
 
-    function testFuzzOnlyOwnerCanSetPaymentAsset(address caller) public {
+    function testFuzzOnlyAdminCanSetPaymentAsset(address caller) public {
         vm.prank(caller);
 
-        if (caller != _owner) {
+        if (caller != _admin) {
             vm.expectRevert();
         }
 
@@ -148,7 +139,7 @@ contract ZKPayTest is Test {
     }
 
     function testRemovePaymentAsset() public {
-        vm.startPrank(_owner);
+        vm.startPrank(_admin);
 
         vm.expectEmit(true, true, true, true);
         emit AssetManagement.AssetRemoved(address(0x100));
@@ -159,10 +150,10 @@ contract ZKPayTest is Test {
         zkpay.getPaymentAsset(address(0x100));
     }
 
-    function testFuzzOnlyOwnerCanRemovePaymentAsset(address caller) public {
+    function testFuzzOnlyAdminCanRemovePaymentAsset(address caller) public {
         vm.prank(caller);
 
-        if (caller != _owner) {
+        if (caller != _admin) {
             vm.expectRevert();
         }
 
@@ -174,7 +165,7 @@ contract ZKPayTest is Test {
         mockToken.mint(address(this), amount);
         mockToken.approve(address(zkpay), amount);
 
-        vm.prank(_owner);
+        vm.prank(_admin);
         zkpay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
@@ -211,7 +202,7 @@ contract ZKPayTest is Test {
         mockToken.mint(address(this), amount);
         mockToken.approve(address(zkpay), amount);
 
-        vm.prank(_owner);
+        vm.prank(_admin);
         zkpay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
@@ -476,7 +467,7 @@ contract ZKPayTest is Test {
         mockToken.mint(address(this), amount);
         mockToken.approve(address(zkpay), amount);
 
-        vm.prank(_owner);
+        vm.prank(_admin);
         zkpay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
@@ -517,7 +508,7 @@ contract ZKPayTest is Test {
         mockToken.mint(address(this), amount);
         mockToken.approve(address(zkpay), amount);
 
-        vm.prank(_owner);
+        vm.prank(_admin);
         zkpay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
@@ -548,7 +539,7 @@ contract ZKPayTest is Test {
         mockToken.mint(address(this), amount);
         mockToken.approve(address(zkpay), amount);
 
-        vm.prank(_owner);
+        vm.prank(_admin);
         zkpay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
@@ -575,7 +566,7 @@ contract ZKPayTest is Test {
         mockToken.mint(address(this), amount);
         mockToken.approve(address(zkpay), amount);
 
-        vm.prank(_owner);
+        vm.prank(_admin);
         zkpay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
@@ -618,7 +609,7 @@ contract ZKPayTest is Test {
         bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
         bytes memory memo = "zero amount test";
 
-        vm.prank(_owner);
+        vm.prank(_admin);
         zkpay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
@@ -643,7 +634,7 @@ contract ZKPayTest is Test {
         mockToken.mint(address(this), amount);
         mockToken.approve(address(zkpay), amount);
 
-        vm.prank(_owner);
+        vm.prank(_admin);
         zkpay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
@@ -677,7 +668,7 @@ contract ZKPayTest is Test {
         mockToken.mint(address(this), amount);
         mockToken.approve(address(zkpay), amount);
 
-        vm.prank(_owner);
+        vm.prank(_admin);
         zkpay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
@@ -713,7 +704,7 @@ contract ZKPayTest is Test {
         mockToken.mint(address(this), amount);
         mockToken.approve(address(zkpay), amount);
 
-        vm.prank(_owner);
+        vm.prank(_admin);
         zkpay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
@@ -743,7 +734,7 @@ contract ZKPayTest is Test {
         mockToken.mint(address(this), amount);
         mockToken.approve(address(zkpay), amount);
 
-        vm.prank(_owner);
+        vm.prank(_admin);
         zkpay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );

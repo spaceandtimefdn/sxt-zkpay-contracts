@@ -97,7 +97,7 @@ jobs:
       - name: Run slither
         uses: crytic/slither-action@d86660fe7e45835a0ec7b7aeb768d271fb421ea0
 
-      - name: Run slither without ignoring openzeppelin
+      - name: Run slither without ignoring dependencies
         uses: crytic/slither-action@d86660fe7e45835a0ec7b7aeb768d271fb421ea0
         with:
-          slither-config: slither_openzeppelin.config.json
+          slither-config: slither_dependencies.config.json

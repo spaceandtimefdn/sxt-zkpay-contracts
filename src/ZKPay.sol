@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {AccessControlDefaultAdminRules} from
+    "@openzeppelin/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {IZKPay} from "./interfaces/IZKPay.sol";
 import {AssetManagement} from "./libraries/AssetManagement.sol";
@@ -16,7 +16,7 @@ import {EscrowPayment} from "./libraries/EscrowPayment.sol";
 import {PaymentLogic} from "./module/PaymentLogic.sol";
 
 // slither-disable-next-line locked-ether
-contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract ZKPay is IZKPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using MerchantLogic for MerchantLogic.MerchantLogicStorage;
     using SwapLogic for SwapLogic.SwapLogicStorage;
@@ -62,16 +62,10 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
 
     ZKPayStorage internal _zkPayStorage;
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    function initialize(address owner, SwapLogic.SwapLogicConfig calldata swapLogicConfig) external initializer {
-        __Ownable_init(owner);
-        __ReentrancyGuard_init();
+    constructor(address admin, SwapLogic.SwapLogicConfig memory swapLogicConfig)
+        AccessControlDefaultAdminRules(0, admin)
+    {
         _deployExecutor();
-
         _zkPayStorage.swapLogicStorage.setConfig(swapLogicConfig);
     }
 
@@ -89,7 +83,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
         address assetAddress,
         AssetManagement.PaymentAsset calldata paymentAsset,
         bytes calldata path
-    ) external onlyOwner {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         address originAsset = SwapLogic.calldataExtractPathOriginAsset(path);
         if (originAsset != assetAddress) {
             revert SwapLogic.InvalidPath();
@@ -100,7 +94,7 @@ contract ZKPay is IZKPay, Initializable, OwnableUpgradeable, ReentrancyGuardUpgr
     }
 
     /// @inheritdoc IZKPay
-    function removePaymentAsset(address asset) external onlyOwner {
+    function removePaymentAsset(address asset) external onlyRole(DEFAULT_ADMIN_ROLE) {
         AssetManagement.remove(_zkPayStorage.assets, asset);
     }
 

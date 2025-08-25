@@ -94,7 +94,8 @@ contract PaymentFunctionsTest is Test {
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: contractAddress,
                 funcSig: funcSig,
-                includePaymentMetadata: false
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
             })
         );
     }
@@ -103,7 +104,7 @@ contract PaymentFunctionsTest is Test {
         IERC20(USDC).approve(address(dspay), usdcAmount);
     }
 
-    function _getOnBehalfOfBytes32() internal view returns (bytes32) {
+    function getOnBehalfOfBytes32() internal view returns (bytes32) {
         return bytes32(uint256(uint160(onBehalfOf)));
     }
 
@@ -167,7 +168,7 @@ contract PaymentFunctionsTest is Test {
     }
 
     function testSendInsufficientPayment() public {
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         IERC20(USDC).approve(address(dspay), usdcAmount);
 
@@ -180,7 +181,7 @@ contract PaymentFunctionsTest is Test {
 
     function testSendUSDCPayment() public {
         uint248 usdcAmountTest = 100e6;
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
         dspay.setMerchantConfig(
@@ -194,7 +195,7 @@ contract PaymentFunctionsTest is Test {
     }
 
     function testSendToZeroAddress() public {
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         IERC20(USDC).approve(address(dspay), usdcAmount);
 
@@ -206,7 +207,7 @@ contract PaymentFunctionsTest is Test {
         address invalidAsset = vm.addr(0x5);
 
         vm.expectRevert();
-        dspay.send(invalidAsset, 100, bytes32(uint256(uint160(onBehalfOf))), targetMerchant, memoBytes, bytes32(0));
+        dspay.send(invalidAsset, 100, getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(0));
     }
 
     function testSendWithCallbackHappyPath() public {
@@ -216,7 +217,7 @@ contract PaymentFunctionsTest is Test {
         _setupStandardCallbackTest(address(callbackContract), MockCallbackContract.processCallback.selector);
 
         dspay.sendWithCallback(
-            USDC, usdcAmount, _getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
         );
 
         assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
@@ -249,7 +250,7 @@ contract PaymentFunctionsTest is Test {
         MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
         bytes memory callbackData = abi.encode(123);
 
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
@@ -257,7 +258,8 @@ contract PaymentFunctionsTest is Test {
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
                 funcSig: MockCallbackContract.processCallback.selector,
-                includePaymentMetadata: false
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
             })
         );
 
@@ -280,7 +282,7 @@ contract PaymentFunctionsTest is Test {
         _setupStandardCallbackTest(address(callbackContract), MockCallbackContract.processCallback.selector);
 
         dspay.sendWithCallback(
-            USDC, usdcAmount, _getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
         );
 
         assertEq(callbackContract.callCount(), 1);
@@ -296,7 +298,7 @@ contract PaymentFunctionsTest is Test {
         assertEq(callbackContract.callCount(), 0);
 
         dspay.sendWithCallback(
-            USDC, usdcAmount, _getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
         );
 
         assertEq(callbackContract.callCount(), 1);
@@ -307,7 +309,7 @@ contract PaymentFunctionsTest is Test {
         MockInvalidMerchantContract invalidCallbackContract = new MockInvalidMerchantContract();
         bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);
 
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
         dspay.setMerchantConfig(
@@ -320,7 +322,8 @@ contract PaymentFunctionsTest is Test {
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(invalidCallbackContract),
                 funcSig: MockCallbackContract.processCallback.selector,
-                includePaymentMetadata: false
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
             })
         );
 
@@ -336,7 +339,7 @@ contract PaymentFunctionsTest is Test {
         new MockCallbackContract(ZERO_ADDRESS);
         bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);
 
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         IERC20(USDC).approve(address(dspay), usdcAmount);
 
@@ -357,19 +360,14 @@ contract PaymentFunctionsTest is Test {
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
                 funcSig: MockCallbackContract.processCallback.selector,
-                includePaymentMetadata: false
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
             })
         );
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
         dspay.sendWithCallback(
-            invalidAsset,
-            100,
-            bytes32(uint256(uint160(onBehalfOf))),
-            targetMerchant,
-            memoBytes,
-            bytes32(uint256(itemId)),
-            callbackData
+            invalidAsset, 100, getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
         );
     }
 
@@ -381,7 +379,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.expectRevert();
         dspay.sendWithCallback(
-            USDC, usdcAmount, _getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
         );
     }
 
@@ -394,7 +392,7 @@ contract PaymentFunctionsTest is Test {
 
         assertTrue(expectedItemId != bytes32(0));
 
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
         dspay.setMerchantConfig(
@@ -407,7 +405,8 @@ contract PaymentFunctionsTest is Test {
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
                 funcSig: MockCallbackContract.processCallback.selector,
-                includePaymentMetadata: false
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
             })
         );
 
@@ -428,7 +427,7 @@ contract PaymentFunctionsTest is Test {
         MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
         bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);
 
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
         dspay.setMerchantConfig(
@@ -441,7 +440,8 @@ contract PaymentFunctionsTest is Test {
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
                 funcSig: MockCallbackContract.processCallback.selector,
-                includePaymentMetadata: false
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
             })
         );
 
@@ -460,7 +460,7 @@ contract PaymentFunctionsTest is Test {
         MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
         bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);
 
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
         dspay.setMerchantConfig(
@@ -473,7 +473,8 @@ contract PaymentFunctionsTest is Test {
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
                 funcSig: MockCallbackContract.processCallback.selector,
-                includePaymentMetadata: false
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
             })
         );
 
@@ -489,7 +490,7 @@ contract PaymentFunctionsTest is Test {
     function testSendWithCallbackWithoutGetMerchantMethod() public {
         bytes memory callbackData = abi.encodeWithSelector(MockERC20.mint.selector, address(this), 1000);
 
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         usdc.approve(address(dspay), usdcAmount);
 
@@ -504,7 +505,7 @@ contract PaymentFunctionsTest is Test {
 
     function testSendWithCallbackInvalidItemId() public {
         bytes memory callbackData = abi.encode(42);
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         IERC20(USDC).approve(address(dspay), usdcAmount);
 
@@ -515,7 +516,7 @@ contract PaymentFunctionsTest is Test {
     function testSettleAuthorizedPaymentHappyPath() public {
         address client = address(this);
         uint248 sxtAmount = 100 ether;
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
         dspay.setMerchantConfig(
@@ -554,7 +555,7 @@ contract PaymentFunctionsTest is Test {
     }
 
     function testSendPathOverride() public {
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
         bytes memory customPath = DummyData.getOriginAssetPath(USDC);
 
         vm.prank(targetMerchant);
@@ -572,7 +573,7 @@ contract PaymentFunctionsTest is Test {
     function testSendWithCallbackPathOverride() public {
         MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
         bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
         bytes memory customPath = DummyData.getOriginAssetPath(USDC);
 
         vm.prank(targetMerchant);
@@ -586,7 +587,8 @@ contract PaymentFunctionsTest is Test {
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
                 funcSig: MockCallbackContract.processCallback.selector,
-                includePaymentMetadata: false
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
             })
         );
 
@@ -603,7 +605,7 @@ contract PaymentFunctionsTest is Test {
     function testSendWithCallbackWithPaymentMetadata() public {
         MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
         bytes memory callbackData = abi.encode(999);
-        bytes32 onBehalfOfBytes32 = _getOnBehalfOfBytes32();
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
         dspay.setMerchantConfig(
@@ -616,7 +618,8 @@ contract PaymentFunctionsTest is Test {
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
                 funcSig: MockCallbackContract.processCallbackWithMetadata.selector,
-                includePaymentMetadata: true
+                includePaymentMetadata: true,
+                acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
             })
         );
 
@@ -642,7 +645,7 @@ contract PaymentFunctionsTest is Test {
     function testSendWithCallbackPathOverrideWithPaymentMetadata() public {
         MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
         bytes memory callbackData = abi.encode(777);
-        bytes32 onBehalfOfBytes32 = _getOnBehalfOfBytes32();
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
         bytes memory customPath = DummyData.getOriginAssetPath(USDC);
 
         vm.prank(targetMerchant);
@@ -656,7 +659,8 @@ contract PaymentFunctionsTest is Test {
             MerchantLogic.ItemIdCallbackConfig({
                 contractAddress: address(callbackContract),
                 funcSig: MockCallbackContract.processCallbackWithMetadata.selector,
-                includePaymentMetadata: true
+                includePaymentMetadata: true,
+                acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
             })
         );
 
@@ -682,7 +686,7 @@ contract PaymentFunctionsTest is Test {
     function testSettleAuthorizedPaymentPathOverride() public {
         address client = address(this);
         uint248 sxtAmount = 100 ether;
-        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
         bytes memory customPath =
             abi.encodePacked(SXT, uint24(3000), USDT, uint24(100), USDC, uint24(500), WETH, uint24(3000), USDT);
 
@@ -721,5 +725,128 @@ contract PaymentFunctionsTest is Test {
 
         assertLt(IERC20(SXT).balanceOf(client), sxtAmount);
         assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
+    }
+
+    function testSendWithCallbackRejectsAuthorizeOnlyMethod() public {
+        MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
+        _setupMerchantConfig();
+        vm.prank(targetMerchant);
+        dspay.setItemIdCallbackConfig(
+            bytes32(uint256(itemId)),
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockCallbackContract.processCallback.selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
+        );
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+        vm.expectRevert(MerchantLogic.UnsupportedPaymentMethod.selector);
+        dspay.sendWithCallback(
+            USDC,
+            usdcAmount,
+            getOnBehalfOfBytes32(),
+            targetMerchant,
+            memoBytes,
+            bytes32(uint256(itemId)),
+            abi.encode(123)
+        );
+    }
+
+    function testAuthorizeWithCallbackRejectsSendOnlyMethod() public {
+        MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
+        bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, uint256(123));
+        bytes4 selector = MockCallbackContract.processCallback.selector;
+        bytes32 generatedItemId = keccak256(abi.encode(address(callbackContract), selector));
+
+        vm.prank(targetMerchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
+        );
+        vm.prank(targetMerchant);
+        dspay.setItemIdCallbackConfig(
+            generatedItemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.SEND_METHOD
+            })
+        );
+
+        vm.expectRevert(MerchantLogic.UnsupportedPaymentMethod.selector);
+        dspay.authorizeWithCallback(
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, address(callbackContract), callbackData
+        );
+    }
+
+    function testSendWithCallbackAcceptsSendMethod() public {
+        MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
+        _setupMerchantConfig();
+        vm.prank(targetMerchant);
+        dspay.setItemIdCallbackConfig(
+            bytes32(uint256(itemId)),
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockCallbackContract.processCallback.selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.SEND_METHOD
+            })
+        );
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+        dspay.sendWithCallback(
+            USDC,
+            usdcAmount,
+            getOnBehalfOfBytes32(),
+            targetMerchant,
+            memoBytes,
+            bytes32(uint256(itemId)),
+            abi.encode(123)
+        );
+        assertEq(callbackContract.callCount(), 1);
+    }
+
+    function testAuthorizeWithCallbackAcceptsAuthorizeMethod() public {
+        MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
+        bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, uint256(123));
+        bytes4 selector = MockCallbackContract.processCallback.selector;
+        bytes32 generatedItemId = keccak256(abi.encode(address(callbackContract), selector));
+
+        vm.prank(targetMerchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
+        );
+        vm.prank(targetMerchant);
+        dspay.setItemIdCallbackConfig(
+            generatedItemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
+        );
+
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+        dspay.authorizeWithCallback(
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, address(callbackContract), callbackData
+        );
+        assertEq(callbackContract.callCount(), 1);
+    }
+
+    function testAuthorizeWithCallbackWorksWithoutConfig() public {
+        MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
+        bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, uint256(123));
+
+        vm.prank(targetMerchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
+        );
+
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+        dspay.authorizeWithCallback(
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, address(callbackContract), callbackData
+        );
+        assertEq(callbackContract.callCount(), 1);
     }
 }

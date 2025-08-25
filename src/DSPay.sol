@@ -177,6 +177,10 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
             revert ItemIdCallbackNotConfigured();
         }
 
+        if (callbackConfig.acceptedMethods & MerchantLogic.SEND_METHOD == 0) {
+            revert MerchantLogic.UnsupportedPaymentMethod();
+        }
+
         PaymentLogic.ProcessPaymentResult memory result = _sendPayment(
             params.asset,
             params.amount,
@@ -298,6 +302,15 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     ) external nonReentrant {
         bytes4 selector = bytes4(callbackData[:4]);
         bytes32 itemId = keccak256(abi.encode(callbackContractAddress, selector));
+
+        MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
+            _dsPayStorage.merchantLogicStorage.getItemIdCallback(merchant, itemId);
+
+        if (callbackConfig.contractAddress != address(0)) {
+            if (callbackConfig.acceptedMethods & MerchantLogic.AUTHORIZE_METHOD == 0) {
+                revert MerchantLogic.UnsupportedPaymentMethod();
+            }
+        }
 
         _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
 

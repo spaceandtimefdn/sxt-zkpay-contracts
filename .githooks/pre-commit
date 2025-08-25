@@ -4,7 +4,7 @@ set -euo pipefail
 forge fmt --check 
 solhint "**/*.sol" -w 0
 slither ./
-slither . --config-file slither_openzeppelin.config.json
+slither . --config-file slither_dependencies.config.json
 
 forge clean && forge test
 

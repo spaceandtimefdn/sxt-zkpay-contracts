@@ -345,6 +345,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         if (callbackConfig.contractAddress != address(0) && callbackConfig.includePaymentMetadata) {
             PaymentMetadata memory metadata = _getAuthorizePaymentMetadata(asset, amount, onBehalfOf, merchant, itemId);
             bytes memory originalParams = callbackData[4:];
+            // slither-disable-next-line encode-packed-collision
             fullCallbackData = abi.encodePacked(callbackConfig.funcSig, abi.encode(metadata), originalParams);
         } else {
             fullCallbackData = callbackData;

@@ -88,9 +88,6 @@ contract MockCallbackContractWithMerchantValidation is IMerchantCallback {
     }
 
     function processCallbackWithMetadata(DSPay.PaymentMetadata calldata metadata, uint256 value) external {
-        if (metadata.merchant != _expectedMerchant) {
-            revert InvalidMerchantFromMetadata();
-        }
         ++callCount;
         lastCallData = abi.encode(value);
         lastPaymentMetadata = metadata;

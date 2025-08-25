@@ -151,30 +151,6 @@ library SwapLogic {
         emit MerchantTargetAssetPathSet(merchant, path);
     }
 
-    /// @notice get the path for the source asset which is used to swap the source asset to the USDT token
-    /// @param _swapLogicStorage the storage of the swap logic
-    /// @param sourceAsset the address of the source asset
-    /// @return the path for the source asset
-    function getSourceAssetPath(SwapLogicStorage storage _swapLogicStorage, address sourceAsset)
-        internal
-        view
-        returns (bytes storage)
-    {
-        return _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset];
-    }
-
-    /// @notice get the path for the target asset which is used to swap the USDT token to the target asset
-    /// @param _swapLogicStorage the storage of the swap logic
-    /// @param merchant the address of the merchant
-    /// @return the path for the target asset
-    function getMerchantTargetAssetPath(SwapLogicStorage storage _swapLogicStorage, address merchant)
-        internal
-        view
-        returns (bytes storage)
-    {
-        return _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant];
-    }
-
     /// @notice get the payout asset address for a merchant by extracting it from their target asset path
     /// @param _swapLogicStorage the storage of the swap logic
     /// @param merchant the address of the merchant

@@ -12,7 +12,7 @@ import {SwapLogic} from "./libraries/SwapLogic.sol";
 import {PayWallLogic} from "./libraries/PayWallLogic.sol";
 import {SafeExecutor} from "./SafeExecutor.sol";
 import {IMerchantCallback} from "./interfaces/IMerchantCallback.sol";
-import {EscrowPayment} from "./libraries/EscrowPayment.sol";
+import {PendingPayment} from "./libraries/PendingPayment.sol";
 import {PaymentLogic} from "./module/PaymentLogic.sol";
 
 // slither-disable-next-line locked-ether
@@ -21,7 +21,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     using MerchantLogic for MerchantLogic.MerchantLogicStorage;
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
-    using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
+    using PendingPayment for PendingPayment.PendingPaymentStorage;
 
     error InsufficientPayment();
     error ExecutorAddressCannotBeZero();
@@ -57,7 +57,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         MerchantLogic.MerchantLogicStorage merchantLogicStorage;
         SwapLogic.SwapLogicStorage swapLogicStorage;
         PayWallLogic.PayWallLogicStorage paywallLogicStorage;
-        EscrowPayment.EscrowPaymentStorage escrowPaymentStorage;
+        PendingPayment.PendingPaymentStorage pendingPaymentStorage;
     }
 
     DSPayStorage internal _dsPayStorage;
@@ -268,7 +268,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         PaymentLogic.AuthorizePaymentParams memory params =
             PaymentLogic.AuthorizePaymentParams({asset: asset, amount: amount, merchant: merchant, itemId: itemId});
 
-        (EscrowPayment.Transaction memory transaction, bytes32 transactionHash) =
+        (PendingPayment.Transaction memory transaction, bytes32 transactionHash) =
             PaymentLogic.authorizePayment(_dsPayStorage, params);
 
         emit Authorized(transaction, transactionHash, onBehalfOf, memo, itemId);

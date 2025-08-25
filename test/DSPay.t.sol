@@ -11,7 +11,7 @@ import {ZERO_ADDRESS} from "../src/libraries/Constants.sol";
 import {DummyData} from "./data/DummyData.sol";
 import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 import {PayWallLogic} from "../src/libraries/PayWallLogic.sol";
-import {EscrowPayment} from "../src/libraries/EscrowPayment.sol";
+import {PendingPayment} from "../src/libraries/PendingPayment.sol";
 import {IDSPay} from "../src/interfaces/IDSPay.sol";
 
 contract MockAuthorizeCallbackContract {
@@ -207,8 +207,8 @@ contract DSPayTest is Test {
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
 
-        EscrowPayment.Transaction memory expectedTransaction =
-            EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
+        PendingPayment.Transaction memory expectedTransaction =
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
 
         bytes32 expectedTransactionHash = keccak256(abi.encode(expectedTransaction, 1, block.chainid));
         vm.expectEmit(true, true, true, true);
@@ -230,8 +230,8 @@ contract DSPayTest is Test {
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
 
-        EscrowPayment.Transaction memory expectedTransaction =
-            EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
+        PendingPayment.Transaction memory expectedTransaction =
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
 
         bytes32 expectedTransactionHash = keccak256(abi.encode(expectedTransaction, 4, block.chainid));
         vm.expectEmit(true, true, true, true);
@@ -255,8 +255,8 @@ contract DSPayTest is Test {
         amount = 1;
         mockToken = _setupMockTokenForAuthorize(amount);
 
-        EscrowPayment.Transaction memory expectedTransaction =
-            EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
+        PendingPayment.Transaction memory expectedTransaction =
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
 
         bytes32 expectedTransactionHash = keccak256(abi.encode(expectedTransaction, 1, block.chainid));
         vm.expectEmit(true, true, true, true);
@@ -275,8 +275,8 @@ contract DSPayTest is Test {
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
 
-        EscrowPayment.Transaction memory expectedTransaction =
-            EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
+        PendingPayment.Transaction memory expectedTransaction =
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
 
         bytes32 expectedTransactionHash = keccak256(abi.encode(expectedTransaction, 1, block.chainid));
         vm.expectEmit(true, true, true, true);
@@ -295,8 +295,8 @@ contract DSPayTest is Test {
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
 
-        EscrowPayment.Transaction memory expectedTransaction =
-            EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
+        PendingPayment.Transaction memory expectedTransaction =
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
 
         bytes32 expectedTransactionHash = keccak256(abi.encode(expectedTransaction, 1, block.chainid));
         vm.expectEmit(true, true, true, true);
@@ -308,14 +308,14 @@ contract DSPayTest is Test {
     function testAuthorizeMultipleDifferentTransactions() public {
         MockERC20 mockToken = _setupMockTokenForAuthorize(300);
 
-        EscrowPayment.Transaction memory transaction1 = EscrowPayment.Transaction({
+        PendingPayment.Transaction memory transaction1 = PendingPayment.Transaction({
             asset: address(mockToken),
             amount: 100,
             from: address(this),
             to: address(0x3333)
         });
 
-        EscrowPayment.Transaction memory transaction2 = EscrowPayment.Transaction({
+        PendingPayment.Transaction memory transaction2 = PendingPayment.Transaction({
             asset: address(mockToken),
             amount: 200,
             from: address(this),
@@ -360,8 +360,8 @@ contract DSPayTest is Test {
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount * 2);
 
-        EscrowPayment.Transaction memory expectedTransaction =
-            EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
+        PendingPayment.Transaction memory expectedTransaction =
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
 
         bytes32 hash1 = keccak256(abi.encode(expectedTransaction, 1, block.chainid));
         vm.expectEmit(true, true, true, true);
@@ -370,8 +370,8 @@ contract DSPayTest is Test {
 
         vm.chainId(999);
 
-        EscrowPayment.Transaction memory expectedTransaction2 =
-            EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
+        PendingPayment.Transaction memory expectedTransaction2 =
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
 
         bytes32 hash2 = keccak256(abi.encode(expectedTransaction2, 2, 999));
         vm.expectEmit(true, true, true, true);
@@ -392,8 +392,8 @@ contract DSPayTest is Test {
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
 
-        EscrowPayment.Transaction memory expectedTransaction =
-            EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
+        PendingPayment.Transaction memory expectedTransaction =
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
 
         bytes32 expectedTransactionHash = keccak256(abi.encode(expectedTransaction, 1, block.chainid));
         vm.expectEmit(true, true, true, true);
@@ -415,8 +415,8 @@ contract DSPayTest is Test {
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
 
-        EscrowPayment.Transaction memory expectedTransaction =
-            EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
+        PendingPayment.Transaction memory expectedTransaction =
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
 
         bytes32 expectedTransactionHash = keccak256(abi.encode(expectedTransaction, 1, block.chainid));
         vm.expectEmit(true, true, true, true);
@@ -479,8 +479,8 @@ contract DSPayTest is Test {
         bytes4 selector = bytes4(callbackData);
         bytes32 expectedItemId = keccak256(abi.encode(address(callbackContract), selector));
 
-        EscrowPayment.Transaction memory expectedTransaction =
-            EscrowPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
+        PendingPayment.Transaction memory expectedTransaction =
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
 
         bytes32 expectedTransactionHash = keccak256(abi.encode(expectedTransaction, 1, block.chainid));
 
@@ -741,7 +741,7 @@ contract DSPayTest is Test {
 
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
 
-        vm.expectRevert(EscrowPayment.TransactionNotAuthorized.selector);
+        vm.expectRevert(PendingPayment.TransactionNotAuthorized.selector);
         dspay.settleAuthorizedPayment(
             address(mockToken), amount, address(this), merchant, keccak256("invalid"), 50 ether
         );

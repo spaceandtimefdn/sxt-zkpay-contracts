@@ -2,25 +2,25 @@
 pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {EscrowPayment} from "../../src/libraries/EscrowPayment.sol";
+import {PendingPayment} from "../../src/libraries/PendingPayment.sol";
 import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
 
-contract EscrowPaymentWrapper {
-    EscrowPayment.EscrowPaymentStorage internal _escrowPaymentStorage;
+contract PendingPaymentWrapper {
+    PendingPayment.PendingPaymentStorage internal _pendingPaymentStorage;
 
-    function authorize(EscrowPayment.Transaction calldata transaction) external {
-        EscrowPayment.authorize(_escrowPaymentStorage, transaction);
+    function authorize(PendingPayment.Transaction calldata transaction) external {
+        PendingPayment.authorize(_pendingPaymentStorage, transaction);
     }
 
     function getNonce() external view returns (uint248) {
-        return _escrowPaymentStorage.nonce;
+        return _pendingPaymentStorage.nonce;
     }
 
     function getTransactionNonce(bytes32 transactionHash) external view returns (uint248) {
-        return _escrowPaymentStorage.transactionNonces[transactionHash];
+        return _pendingPaymentStorage.transactionNonces[transactionHash];
     }
 
-    function generateTransactionHash(EscrowPayment.Transaction calldata transaction, uint248 nonce)
+    function generateTransactionHash(PendingPayment.Transaction calldata transaction, uint248 nonce)
         external
         view
         returns (bytes32)
@@ -29,24 +29,24 @@ contract EscrowPaymentWrapper {
     }
 
     function setNonce(uint248 nonce) external {
-        _escrowPaymentStorage.nonce = nonce;
+        _pendingPaymentStorage.nonce = nonce;
     }
 
-    function completeAuthorizedTransaction(EscrowPayment.Transaction calldata transaction, bytes32 transactionHash)
+    function completeAuthorizedTransaction(PendingPayment.Transaction calldata transaction, bytes32 transactionHash)
         external
     {
-        EscrowPayment.completeAuthorizedTransaction(_escrowPaymentStorage, transaction, transactionHash);
+        PendingPayment.completeAuthorizedTransaction(_pendingPaymentStorage, transaction, transactionHash);
     }
 }
 
-contract EscrowPaymentTest is Test {
-    EscrowPaymentWrapper internal _wrapper;
-    EscrowPayment.Transaction internal _sampleTransaction;
+contract PendingPaymentTest is Test {
+    PendingPaymentWrapper internal _wrapper;
+    PendingPayment.Transaction internal _sampleTransaction;
 
     function setUp() public {
-        _wrapper = new EscrowPaymentWrapper();
+        _wrapper = new PendingPaymentWrapper();
 
-        _sampleTransaction = EscrowPayment.Transaction({
+        _sampleTransaction = PendingPayment.Transaction({
             asset: address(0x1234),
             amount: 1000,
             from: address(0x5678),
@@ -80,11 +80,19 @@ contract EscrowPaymentTest is Test {
     }
 
     function testAuthorizeMultipleTransactions() public {
-        EscrowPayment.Transaction memory transaction1 =
-            EscrowPayment.Transaction({asset: address(0x1111), amount: 100, from: address(0x2222), to: address(0x3333)});
+        PendingPayment.Transaction memory transaction1 = PendingPayment.Transaction({
+            asset: address(0x1111),
+            amount: 100,
+            from: address(0x2222),
+            to: address(0x3333)
+        });
 
-        EscrowPayment.Transaction memory transaction2 =
-            EscrowPayment.Transaction({asset: address(0x4444), amount: 200, from: address(0x5555), to: address(0x6666)});
+        PendingPayment.Transaction memory transaction2 = PendingPayment.Transaction({
+            asset: address(0x4444),
+            amount: 200,
+            from: address(0x5555),
+            to: address(0x6666)
+        });
 
         bytes32 hash1 = _wrapper.generateTransactionHash(transaction1, 1);
         bytes32 hash2 = _wrapper.generateTransactionHash(transaction2, 2);
@@ -116,8 +124,8 @@ contract EscrowPaymentTest is Test {
     }
 
     function testAuthorizeWithZeroValues() public {
-        EscrowPayment.Transaction memory zeroTransaction =
-            EscrowPayment.Transaction({asset: ZERO_ADDRESS, amount: 0, from: ZERO_ADDRESS, to: ZERO_ADDRESS});
+        PendingPayment.Transaction memory zeroTransaction =
+            PendingPayment.Transaction({asset: ZERO_ADDRESS, amount: 0, from: ZERO_ADDRESS, to: ZERO_ADDRESS});
 
         bytes32 expectedHash = _wrapper.generateTransactionHash(zeroTransaction, 1);
 
@@ -129,7 +137,7 @@ contract EscrowPaymentTest is Test {
 
     function testAuthorizeWithMaxValues() public {
         // solhint-disable-next-line gas-small-strings
-        EscrowPayment.Transaction memory maxTransaction = EscrowPayment.Transaction({
+        PendingPayment.Transaction memory maxTransaction = PendingPayment.Transaction({
             asset: address(type(uint160).max),
             amount: type(uint248).max,
             from: address(type(uint160).max),
@@ -150,7 +158,7 @@ contract EscrowPaymentTest is Test {
 
         assertNotEq(hash1, hash2);
 
-        EscrowPayment.Transaction memory differentTransaction = EscrowPayment.Transaction({
+        PendingPayment.Transaction memory differentTransaction = PendingPayment.Transaction({
             asset: address(0x1234),
             amount: 2000,
             from: address(0x5678),
@@ -172,8 +180,8 @@ contract EscrowPaymentTest is Test {
     }
 
     function testFuzzAuthorize(address asset, uint248 amount, address from, address to) public {
-        EscrowPayment.Transaction memory fuzzTransaction =
-            EscrowPayment.Transaction({asset: asset, amount: amount, from: from, to: to});
+        PendingPayment.Transaction memory fuzzTransaction =
+            PendingPayment.Transaction({asset: asset, amount: amount, from: from, to: to});
 
         bytes32 expectedHash = _wrapper.generateTransactionHash(fuzzTransaction, 1);
 
@@ -197,7 +205,7 @@ contract EscrowPaymentTest is Test {
     function testCompleteAuthorizedTransactionNotAuthorized() public {
         bytes32 transactionHash = _wrapper.generateTransactionHash(_sampleTransaction, 1);
 
-        vm.expectRevert(EscrowPayment.TransactionNotAuthorized.selector);
+        vm.expectRevert(PendingPayment.TransactionNotAuthorized.selector);
         _wrapper.completeAuthorizedTransaction(_sampleTransaction, transactionHash);
     }
 
@@ -205,14 +213,14 @@ contract EscrowPaymentTest is Test {
         bytes32 transactionHash = _wrapper.generateTransactionHash(_sampleTransaction, 1);
         _wrapper.authorize(_sampleTransaction);
 
-        EscrowPayment.Transaction memory differentTransaction = EscrowPayment.Transaction({
+        PendingPayment.Transaction memory differentTransaction = PendingPayment.Transaction({
             asset: address(0x1234),
             amount: 2000,
             from: address(0x5678),
             to: address(0x9abc)
         });
 
-        vm.expectRevert(EscrowPayment.TransactionHashMismatch.selector);
+        vm.expectRevert(PendingPayment.TransactionHashMismatch.selector);
         _wrapper.completeAuthorizedTransaction(differentTransaction, transactionHash);
     }
 
@@ -220,8 +228,12 @@ contract EscrowPaymentTest is Test {
         bytes32 hash1 = _wrapper.generateTransactionHash(_sampleTransaction, 1);
         _wrapper.authorize(_sampleTransaction);
 
-        EscrowPayment.Transaction memory transaction2 =
-            EscrowPayment.Transaction({asset: address(0x1111), amount: 200, from: address(0x2222), to: address(0x3333)});
+        PendingPayment.Transaction memory transaction2 = PendingPayment.Transaction({
+            asset: address(0x1111),
+            amount: 200,
+            from: address(0x2222),
+            to: address(0x3333)
+        });
         bytes32 hash2 = _wrapper.generateTransactionHash(transaction2, 2);
         _wrapper.authorize(transaction2);
 
@@ -242,7 +254,7 @@ contract EscrowPaymentTest is Test {
 
         _wrapper.completeAuthorizedTransaction(_sampleTransaction, transactionHash);
 
-        vm.expectRevert(EscrowPayment.TransactionNotAuthorized.selector);
+        vm.expectRevert(PendingPayment.TransactionNotAuthorized.selector);
         _wrapper.completeAuthorizedTransaction(_sampleTransaction, transactionHash);
     }
 }

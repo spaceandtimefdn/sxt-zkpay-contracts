@@ -849,4 +849,75 @@ contract PaymentFunctionsTest is Test {
         );
         assertEq(callbackContract.callCount(), 1);
     }
+
+    function testAuthorizeWithCallbackWithMetadata() public {
+        MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
+        bytes memory callbackData =
+            abi.encodeWithSelector(MockCallbackContract.processCallbackWithMetadata.selector, uint256(456));
+        bytes4 selector = MockCallbackContract.processCallbackWithMetadata.selector;
+        bytes32 generatedItemId = keccak256(abi.encode(address(callbackContract), selector));
+
+        vm.prank(targetMerchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
+        );
+        vm.prank(targetMerchant);
+        dspay.setItemIdCallbackConfig(
+            generatedItemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: selector,
+                includePaymentMetadata: true,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
+        );
+
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+        dspay.authorizeWithCallback(
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, address(callbackContract), callbackData
+        );
+
+        assertEq(callbackContract.callCount(), 1);
+        assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 456);
+        assertTrue(callbackContract.receivedMetadata());
+
+        DSPay.PaymentMetadata memory metadata = callbackContract.getLastPaymentMetadata();
+        assertEq(metadata.payoutToken, USDC);
+        assertEq(metadata.payoutAmount, 0);
+        assertGt(metadata.amountInUSD, 0);
+        assertEq(metadata.onBehalfOf, getOnBehalfOfBytes32());
+        assertEq(metadata.sender, address(this));
+        assertEq(metadata.itemId, generatedItemId);
+    }
+
+    function testAuthorizeWithCallbackWithoutMetadata() public {
+        MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
+        bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, uint256(789));
+        bytes4 selector = MockCallbackContract.processCallback.selector;
+        bytes32 generatedItemId = keccak256(abi.encode(address(callbackContract), selector));
+
+        vm.prank(targetMerchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
+        );
+        vm.prank(targetMerchant);
+        dspay.setItemIdCallbackConfig(
+            generatedItemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
+        );
+
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+        dspay.authorizeWithCallback(
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, address(callbackContract), callbackData
+        );
+
+        assertEq(callbackContract.callCount(), 1);
+        assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 789);
+        assertFalse(callbackContract.receivedMetadata());
+    }
 }

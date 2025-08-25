@@ -278,6 +278,26 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         emit Authorized(transaction, transactionHash, onBehalfOf, memo, itemId);
     }
 
+    function _getAuthorizePaymentMetadata(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes32 itemId
+    ) internal view returns (PaymentMetadata memory metadata) {
+        uint248 amountInUSD = _dsPayStorage.assets.convertToUsd(asset, amount);
+        MerchantLogic.MerchantConfig memory merchantConfig = _dsPayStorage.merchantLogicStorage.getConfig(merchant);
+
+        metadata = PaymentMetadata({
+            payoutToken: merchantConfig.payoutToken,
+            payoutAmount: 0,
+            amountInUSD: amountInUSD,
+            onBehalfOf: onBehalfOf,
+            sender: msg.sender,
+            itemId: itemId
+        });
+    }
+
     /// @inheritdoc IDSPay
     function authorize(
         address asset,
@@ -312,9 +332,22 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
             }
         }
 
+        if (callbackConfig.contractAddress != address(0)) {
+            _validateMerchant(merchant, callbackContractAddress);
+        }
+
         _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
 
-        SafeExecutor(_dsPayStorage.executorAddress).execute(callbackContractAddress, callbackData);
+        bytes memory fullCallbackData;
+        if (callbackConfig.contractAddress != address(0) && callbackConfig.includePaymentMetadata) {
+            PaymentMetadata memory metadata = _getAuthorizePaymentMetadata(asset, amount, onBehalfOf, merchant, itemId);
+            bytes memory originalParams = callbackData[4:];
+            fullCallbackData = abi.encodePacked(callbackConfig.funcSig, abi.encode(metadata), originalParams);
+        } else {
+            fullCallbackData = callbackData;
+        }
+
+        SafeExecutor(_dsPayStorage.executorAddress).execute(callbackContractAddress, fullCallbackData);
     }
 
     /// @inheritdoc IDSPay

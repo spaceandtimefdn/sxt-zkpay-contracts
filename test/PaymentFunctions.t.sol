@@ -70,6 +70,38 @@ contract MockContractWithoutGetMerchant {
     }
 }
 
+contract MockCallbackContractWithMerchantValidation is IMerchantCallback {
+    address private _expectedMerchant;
+    uint256 public callCount;
+    bytes public lastCallData;
+    DSPay.PaymentMetadata public lastPaymentMetadata;
+    bool public receivedMetadata;
+
+    error InvalidMerchantFromMetadata();
+
+    constructor(address expectedMerchant_) {
+        _expectedMerchant = expectedMerchant_;
+    }
+
+    function getMerchant() external view override returns (address) {
+        return _expectedMerchant;
+    }
+
+    function processCallbackWithMetadata(DSPay.PaymentMetadata calldata metadata, uint256 value) external {
+        if (metadata.merchant != _expectedMerchant) {
+            revert InvalidMerchantFromMetadata();
+        }
+        ++callCount;
+        lastCallData = abi.encode(value);
+        lastPaymentMetadata = metadata;
+        receivedMetadata = true;
+    }
+
+    function getLastPaymentMetadata() external view returns (DSPay.PaymentMetadata memory) {
+        return lastPaymentMetadata;
+    }
+}
+
 contract PaymentFunctionsTest is Test {
     DSPay public dspay;
     address public admin;
@@ -640,6 +672,7 @@ contract PaymentFunctionsTest is Test {
         assertEq(metadata.onBehalfOf, onBehalfOfBytes32);
         assertEq(metadata.sender, address(this));
         assertEq(metadata.itemId, bytes32(uint256(itemId)));
+        assertEq(metadata.merchant, targetMerchant);
     }
 
     function testSendWithCallbackPathOverrideWithPaymentMetadata() public {
@@ -681,6 +714,7 @@ contract PaymentFunctionsTest is Test {
         assertEq(metadata.onBehalfOf, onBehalfOfBytes32);
         assertEq(metadata.sender, address(this));
         assertEq(metadata.itemId, bytes32(uint256(itemId)));
+        assertEq(metadata.merchant, targetMerchant);
     }
 
     function testSettleAuthorizedPaymentPathOverride() public {
@@ -888,6 +922,7 @@ contract PaymentFunctionsTest is Test {
         assertEq(metadata.onBehalfOf, getOnBehalfOfBytes32());
         assertEq(metadata.sender, address(this));
         assertEq(metadata.itemId, generatedItemId);
+        assertEq(metadata.merchant, targetMerchant);
     }
 
     function testAuthorizeWithCallbackWithoutMetadata() public {
@@ -919,5 +954,128 @@ contract PaymentFunctionsTest is Test {
         assertEq(callbackContract.callCount(), 1);
         assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 789);
         assertFalse(callbackContract.receivedMetadata());
+    }
+
+    function testSendWithCallbackMerchantValidationViaMetadata() public {
+        MockCallbackContractWithMerchantValidation callbackContract =
+            new MockCallbackContractWithMerchantValidation(targetMerchant);
+        bytes memory callbackData = abi.encode(123);
+
+        vm.prank(targetMerchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
+        );
+        vm.prank(targetMerchant);
+        dspay.setItemIdCallbackConfig(
+            bytes32(uint256(itemId)),
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockCallbackContractWithMerchantValidation.processCallbackWithMetadata.selector,
+                includePaymentMetadata: true,
+                acceptedMethods: MerchantLogic.SEND_METHOD
+            })
+        );
+
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+        dspay.sendWithCallback(
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
+        );
+
+        assertEq(callbackContract.callCount(), 1);
+        assertTrue(callbackContract.receivedMetadata());
+        assertEq(callbackContract.getLastPaymentMetadata().merchant, targetMerchant);
+    }
+
+    function testSendWithCallbackMerchantValidationFailsWrongMerchant() public {
+        address wrongMerchant = vm.addr(0x999);
+        MockCallbackContractWithMerchantValidation callbackContract =
+            new MockCallbackContractWithMerchantValidation(wrongMerchant);
+        bytes memory callbackData = abi.encode(123);
+
+        vm.prank(targetMerchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
+        );
+        vm.prank(targetMerchant);
+        dspay.setItemIdCallbackConfig(
+            bytes32(uint256(itemId)),
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockCallbackContractWithMerchantValidation.processCallbackWithMetadata.selector,
+                includePaymentMetadata: true,
+                acceptedMethods: MerchantLogic.SEND_METHOD
+            })
+        );
+
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+        vm.expectRevert(DSPay.InvalidMerchant.selector);
+        dspay.sendWithCallback(
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
+        );
+    }
+
+    function testCallbackContractCanValidateViaBothMethods() public {
+        MockCallbackContractWithMerchantValidation callbackContract =
+            new MockCallbackContractWithMerchantValidation(targetMerchant);
+        bytes memory callbackData = abi.encode(456);
+
+        vm.prank(targetMerchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
+        );
+        vm.prank(targetMerchant);
+        dspay.setItemIdCallbackConfig(
+            bytes32(uint256(itemId)),
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockCallbackContractWithMerchantValidation.processCallbackWithMetadata.selector,
+                includePaymentMetadata: true,
+                acceptedMethods: MerchantLogic.SEND_METHOD
+            })
+        );
+
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+        dspay.sendWithCallback(
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
+        );
+
+        assertEq(callbackContract.callCount(), 1);
+        assertTrue(callbackContract.receivedMetadata());
+        assertEq(callbackContract.getLastPaymentMetadata().merchant, targetMerchant);
+        assertEq(callbackContract.getMerchant(), targetMerchant);
+    }
+
+    function testAuthorizeWithCallbackMerchantValidationViaMetadata() public {
+        MockCallbackContractWithMerchantValidation callbackContract =
+            new MockCallbackContractWithMerchantValidation(targetMerchant);
+        bytes memory callbackData = abi.encodeWithSelector(
+            MockCallbackContractWithMerchantValidation.processCallbackWithMetadata.selector, uint256(456)
+        );
+        bytes4 selector = MockCallbackContractWithMerchantValidation.processCallbackWithMetadata.selector;
+        bytes32 generatedItemId = keccak256(abi.encode(address(callbackContract), selector));
+
+        vm.prank(targetMerchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
+        );
+        vm.prank(targetMerchant);
+        dspay.setItemIdCallbackConfig(
+            generatedItemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: selector,
+                includePaymentMetadata: true,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
+        );
+
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+        dspay.authorizeWithCallback(
+            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, address(callbackContract), callbackData
+        );
+
+        assertEq(callbackContract.callCount(), 1);
+        assertTrue(callbackContract.receivedMetadata());
+        assertEq(callbackContract.getLastPaymentMetadata().merchant, targetMerchant);
     }
 }

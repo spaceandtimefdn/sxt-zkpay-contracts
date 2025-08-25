@@ -38,6 +38,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         bytes32 onBehalfOf;
         address sender;
         bytes32 itemId;
+        address merchant;
     }
 
     struct SendWithCallbackParams {
@@ -201,7 +202,8 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
                 amountInUSD: result.amountInUSD,
                 onBehalfOf: params.onBehalfOf,
                 sender: msg.sender,
-                itemId: params.itemId
+                itemId: params.itemId,
+                merchant: params.merchant
             });
 
             // slither-disable-next-line encode-packed-collision
@@ -294,7 +296,8 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
             amountInUSD: amountInUSD,
             onBehalfOf: onBehalfOf,
             sender: msg.sender,
-            itemId: itemId
+            itemId: itemId,
+            merchant: merchant
         });
     }
 

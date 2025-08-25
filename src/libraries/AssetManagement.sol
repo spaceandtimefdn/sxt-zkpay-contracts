@@ -194,41 +194,6 @@ library AssetManagement {
         tokenAmount = (usdValue * uint248(10 ** _assets[asset].tokenDecimals)) / adjustedPrice;
     }
 
-    /// @dev Pulls `amount` of `asset` from msg.sender to `to`,
-    /// measures the real amount received (fee-on-transfer tokens),
-    /// and converts it to USD.
-    /// Reverts if the asset isn’t supported for the given payment type.
-    function _pullAndQuote(
-        mapping(address asset => PaymentAsset) storage _assets,
-        address asset,
-        address to,
-        uint248 amount
-    ) internal returns (uint248 actualAmountReceived, uint248 amountInUSD) {
-        if (!isSupported(_assets, asset)) {
-            revert AssetIsNotSupportedForThisMethod();
-        }
-
-        IERC20 token = IERC20(asset);
-        uint256 beforeBalance = token.balanceOf(to);
-        SafeERC20.safeTransferFrom(token, msg.sender, to, amount);
-        uint256 afterBalance = token.balanceOf(to);
-
-        actualAmountReceived = uint248(afterBalance - beforeBalance);
-        amountInUSD = convertToUsd(_assets, asset, actualAmountReceived);
-    }
-
-    /// @notice Escrows a payment by transferring it from the sender to the contract
-    /// @param _assets The mapping of assets to their payment information.
-    /// @param asset The address of the asset to escrow the payment for.
-    /// @param amount The amount of the asset to escrow.
-    /// @return actualAmountReceived The actual amount received by the contract.
-    function escrowPayment(mapping(address asset => PaymentAsset) storage _assets, address asset, uint248 amount)
-        internal
-        returns (uint248 actualAmountReceived, uint248 amountInUSD)
-    {
-        (actualAmountReceived, amountInUSD) = _pullAndQuote(_assets, asset, address(this), amount);
-    }
-
     /// @notice Transfers asset to recipient and returns actual amount received
     /// @param asset The address of the asset to transfer
     /// @param amount The amount to transfer

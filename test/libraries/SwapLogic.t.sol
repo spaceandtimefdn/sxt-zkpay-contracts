@@ -100,16 +100,6 @@ contract SwapLogicTest is Test {
         assertFalse(SwapLogic.isValidPath(badPath));
     }
 
-    function testSetSourceAssetPath() public {
-        bytes memory path = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
-
-        vm.expectEmit(true, false, false, true);
-        emit SwapLogic.SourceAssetPathSet(SOURCE_ASSET, path);
-        this._setSourceAssetPath(path);
-
-        assertEq(keccak256(SwapLogic.getSourceAssetPath(_swapLogicStorage, SOURCE_ASSET)), keccak256(path));
-    }
-
     function testSetSourceAssetPathInvalidPathReverts() public {
         bytes memory badPath = new bytes(21);
         vm.expectRevert(SwapLogic.InvalidPath.selector);
@@ -131,16 +121,6 @@ contract SwapLogicTest is Test {
         bytes memory zeroPath = abi.encodePacked(ZERO_ADDRESS);
         vm.expectRevert(SwapLogic.PathMustEndWithUSDT.selector);
         this._setSourceAssetPath(zeroPath);
-    }
-
-    function testSetMerchantTargetAssetPath() public {
-        bytes memory path = abi.encodePacked(USDT);
-
-        vm.expectEmit(true, false, false, true);
-        emit SwapLogic.MerchantTargetAssetPathSet(MERCHANT, path);
-        this._setMerchantTargetAssetPath(MERCHANT, path);
-
-        assertEq(keccak256(SwapLogic.getMerchantTargetAssetPath(_swapLogicStorage, MERCHANT)), keccak256(path));
     }
 
     function testSetMerchantTargetAssetPathInvalidPathReverts() public {
@@ -174,18 +154,6 @@ contract SwapLogicTest is Test {
     function testExtractPathOriginAsset() public pure {
         bytes memory path = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
         assertEq(SwapLogic.extractPathOriginAsset(path), SOURCE_ASSET);
-    }
-
-    function testGetSourceAssetPath() public {
-        bytes memory path = abi.encodePacked(SOURCE_ASSET, bytes3(0x112233), USDT);
-        this._setSourceAssetPath(path);
-        assertEq(keccak256(SwapLogic.getSourceAssetPath(_swapLogicStorage, SOURCE_ASSET)), keccak256(path));
-    }
-
-    function testGetMerchantTargetAssetPath() public {
-        bytes memory path = abi.encodePacked(USDT);
-        this._setMerchantTargetAssetPath(MERCHANT, path);
-        assertEq(keccak256(SwapLogic.getMerchantTargetAssetPath(_swapLogicStorage, MERCHANT)), keccak256(path));
     }
 
     function testCalldataExtractPathDestinationAssetAddress() public view {

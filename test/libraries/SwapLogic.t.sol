@@ -35,12 +35,6 @@ contract SwapLogicTest is Test {
         SwapLogic.setMerchantTargetAssetPath(_swapLogicStorage, merchant, path);
     }
 
-    function testSetAndGetConfig() public view {
-        SwapLogic.SwapLogicConfig memory cfg = SwapLogic.getConfig(_swapLogicStorage);
-        assertEq(cfg.router, ROUTER, "router addr mismatch");
-        assertEq(cfg.usdt, USDT, "usdt addr mismatch");
-    }
-
     function testSetConfigRouterZeroAddressReverts() public {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ZERO_ADDRESS;

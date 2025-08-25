@@ -23,8 +23,6 @@ library AssetManagement {
     error StalePriceFeedData();
     /// @notice Error thrown when the asset is not supported for this method
     error AssetIsNotSupportedForThisMethod();
-    /// @notice Error thrown when the merchant address is zero
-    error MerchantAddressCannotBeZero();
 
     /// @notice Emitted when a new asset is added
     /// @param asset The asset address

@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import {AssetManagement} from "../libraries/AssetManagement.sol";
 import {MerchantLogic} from "../libraries/MerchantLogic.sol";
-import {EscrowPayment} from "../libraries/EscrowPayment.sol";
+import {PendingPayment} from "../libraries/PendingPayment.sol";
 
 interface IDSPay {
     /// @notice Emitted when a payment is made
@@ -33,7 +33,7 @@ interface IDSPay {
     /// @param memo Additional data or information about the payment
     /// @param itemId The item ID
     event Authorized(
-        EscrowPayment.Transaction transaction, bytes32 transactionHash, bytes32 onBehalfOf, bytes memo, bytes32 itemId
+        PendingPayment.Transaction transaction, bytes32 transactionHash, bytes32 onBehalfOf, bytes memo, bytes32 itemId
     );
 
     /// @notice Emitted when an authorized payment is settled
@@ -144,7 +144,7 @@ interface IDSPay {
     ) external;
 
     /// @notice Authorizes a payment to a target merchant
-    /// the payment will be pulled from `msg.sender` and held in DSpay contract as escrow
+    /// the payment will be pulled from `msg.sender` and held pending in DSpay contract
     /// the payment is accounted for `onBehalfOf` which means that any refunded amount will be send to `onBehalfOf`
     /// @param asset The address of the ERC20 token to send
     /// @param amount The amount of tokens to send
@@ -162,7 +162,7 @@ interface IDSPay {
     ) external;
 
     /// @notice Authorizes a payment to a target merchant with a callback contract
-    /// the payment will be pulled from `msg.sender` and held in DSpay contract as escrow
+    /// the payment will be pulled from `msg.sender` and held pending in DSpay contract
     /// the payment is accounted for `onBehalfOf` which means that any refunded amount will be send to `onBehalfOf`
     /// @param asset The address of the ERC20 token to send
     /// @param amount The amount of tokens to send

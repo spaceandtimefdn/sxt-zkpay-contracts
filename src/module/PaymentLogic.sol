@@ -5,17 +5,17 @@ import {PayWallLogic} from "../libraries/PayWallLogic.sol";
 import {DSPay} from "../DSPay.sol";
 import {SwapLogic} from "../libraries/SwapLogic.sol";
 import {AssetManagement} from "../libraries/AssetManagement.sol";
-import {EscrowPayment} from "../libraries/EscrowPayment.sol";
+import {PendingPayment} from "../libraries/PendingPayment.sol";
 import {MerchantLogic} from "../libraries/MerchantLogic.sol";
 
 /// @title PaymentLogic
 /// @notice Library for processing payments, authorizations, and settlements in the DSPay protocol
-/// @dev Orchestrates interactions between asset management, swap logic, paywall, and escrow systems
+/// @dev Orchestrates interactions between asset management, swap logic, paywall, and payment systems
 library PaymentLogic {
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using SwapLogic for SwapLogic.SwapLogicStorage;
-    using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
+    using PendingPayment for PendingPayment.PendingPaymentStorage;
     using MerchantLogic for mapping(address merchant => MerchantLogic.MerchantConfig);
 
     error InsufficientPayment();
@@ -104,13 +104,13 @@ library PaymentLogic {
         bytes32 itemId;
     }
 
-    /// @notice Authorizes a payment by transferring assets to escrow
+    /// @notice Authorizes a payment by transferring assets to a pending payment status
     /// @param _dsPayStorage The DSPay storage
     /// @param params The payment parameters struct
     function authorizePayment(DSPay.DSPayStorage storage _dsPayStorage, AuthorizePaymentParams memory params)
         internal
         _validateAsset(_dsPayStorage.assets, params.asset)
-        returns (EscrowPayment.Transaction memory transaction, bytes32 transactionHash)
+        returns (PendingPayment.Transaction memory transaction, bytes32 transactionHash)
     {
         uint248 receivedSourceAssetAmount =
             AssetManagement.transferAssetFromCaller(params.asset, params.amount, address(this));
@@ -122,14 +122,14 @@ library PaymentLogic {
 
         _validateItemPrice(_dsPayStorage.paywallLogicStorage, params.merchant, params.itemId, amountInUSD);
 
-        transaction = EscrowPayment.Transaction({
+        transaction = PendingPayment.Transaction({
             asset: params.asset,
             amount: receivedSourceAssetAmount,
             from: msg.sender,
             to: params.merchant
         });
 
-        transactionHash = EscrowPayment.authorize(_dsPayStorage.escrowPaymentStorage, transaction);
+        transactionHash = PendingPayment.authorize(_dsPayStorage.pendingPaymentStorage, transaction);
     }
 
     /// @notice Computes the breakdown of amounts for settlement (payment, refund)
@@ -173,7 +173,7 @@ library PaymentLogic {
         uint248 receivedRefundAmount;
     }
 
-    /// @notice Settles an escrowed payment by
+    /// @notice Settles a pending payment by
     /// - completing the authorized transaction
     /// - computing the settlement breakdown
     /// - paying the merchant
@@ -184,8 +184,8 @@ library PaymentLogic {
         internal
         returns (ProcessSettlementResult memory result)
     {
-        _dsPayStorage.escrowPaymentStorage.completeAuthorizedTransaction(
-            EscrowPayment.Transaction({
+        _dsPayStorage.pendingPaymentStorage.completeAuthorizedTransaction(
+            PendingPayment.Transaction({
                 asset: params.sourceAsset,
                 amount: params.sourceAssetAmount,
                 from: params.from,

@@ -13,7 +13,7 @@ import {DummyData} from "./data/DummyData.sol";
 import {IMerchantCallback} from "../src/interfaces/IMerchantCallback.sol";
 import {MerchantLogic} from "../src/libraries/MerchantLogic.sol";
 import {RPC_URL, SXT, USDC, BLOCK_NUMBER, USDT, WETH} from "./data/MainnetConstants.sol";
-import {EscrowPayment} from "../src/libraries/EscrowPayment.sol";
+import {PendingPayment} from "../src/libraries/PendingPayment.sol";
 import {IDSPay} from "../src/interfaces/IDSPay.sol";
 
 contract MockCallbackContract is IMerchantCallback {
@@ -540,8 +540,8 @@ contract PaymentFunctionsTest is Test {
 
         dspay.authorize(SXT, sxtAmount, onBehalfOfBytes32, targetMerchant, "test", bytes32(0));
 
-        bytes32 transactionHash = EscrowPayment.generateTransactionHash(
-            EscrowPayment.Transaction({asset: SXT, amount: sxtAmount, from: client, to: targetMerchant}), 1
+        bytes32 transactionHash = PendingPayment.generateTransactionHash(
+            PendingPayment.Transaction({asset: SXT, amount: sxtAmount, from: client, to: targetMerchant}), 1
         );
 
         // validate emitted event
@@ -709,8 +709,8 @@ contract PaymentFunctionsTest is Test {
 
         dspay.authorize(SXT, sxtAmount, onBehalfOfBytes32, targetMerchant, "test", bytes32(0));
 
-        bytes32 transactionHash = EscrowPayment.generateTransactionHash(
-            EscrowPayment.Transaction({asset: SXT, amount: sxtAmount, from: client, to: targetMerchant}), 1
+        bytes32 transactionHash = PendingPayment.generateTransactionHash(
+            PendingPayment.Transaction({asset: SXT, amount: sxtAmount, from: client, to: targetMerchant}), 1
         );
 
         vm.expectEmit(true, true, true, false);

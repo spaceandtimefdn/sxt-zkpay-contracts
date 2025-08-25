@@ -9,7 +9,7 @@ import {AssetManagement} from "../../src/libraries/AssetManagement.sol";
 import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
-import {EscrowPayment} from "../../src/libraries/EscrowPayment.sol";
+import {PendingPayment} from "../../src/libraries/PendingPayment.sol";
 import {RPC_URL, ROUTER, USDT, SXT, USDC, BLOCK_NUMBER} from "../data/MainnetConstants.sol";
 import {MerchantLogic} from "../../src/libraries/MerchantLogic.sol";
 
@@ -401,7 +401,7 @@ contract PaymentLogicAuthorizePaymentWrapper {
     using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
     using SwapLogic for SwapLogic.SwapLogicStorage;
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
-    using EscrowPayment for EscrowPayment.EscrowPaymentStorage;
+    using PendingPayment for PendingPayment.PendingPaymentStorage;
     using MerchantLogic for MerchantLogic.MerchantLogicStorage;
 
     DSPay.DSPayStorage internal dsPayStorage;
@@ -445,7 +445,7 @@ contract PaymentLogicAuthorizePaymentWrapper {
 
     function authorizePayment(PaymentLogic.AuthorizePaymentParams calldata params)
         external
-        returns (EscrowPayment.Transaction memory transaction, bytes32 transactionHash)
+        returns (PendingPayment.Transaction memory transaction, bytes32 transactionHash)
     {
         return PaymentLogic.authorizePayment(dsPayStorage, params);
     }
@@ -455,7 +455,7 @@ contract PaymentLogicAuthorizePaymentWrapper {
     }
 
     function isTransactionAuthorized(bytes32 transactionHash) external view returns (bool) {
-        return dsPayStorage.escrowPaymentStorage.transactionNonces[transactionHash] > 0;
+        return dsPayStorage.pendingPaymentStorage.transactionNonces[transactionHash] > 0;
     }
 
     function processSettlement(PaymentLogic.ProcessSettlementParams calldata params)

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-/// @title EscrowPayment
-library EscrowPayment {
+/// @title PendingPayment
+library PendingPayment {
     error TransactionNotAuthorized();
     error TransactionHashMismatch();
 
@@ -21,17 +21,17 @@ library EscrowPayment {
         address to;
     }
 
-    struct EscrowPaymentStorage {
-        /// @notice Global nonce for the escrow payment
+    struct PendingPaymentStorage {
+        /// @notice Global nonce for the pending payment
         uint248 nonce;
         /// @notice Mapping of transaction hashes to their nonces, if nonce is 0, the transaction is not authorized
         mapping(bytes32 transactionHash => uint248 transactionNonce) transactionNonces;
     }
 
-    /// @notice Increments the global nonce for the escrow payment
-    /// @param escrowPaymentStorage The storage of the escrow payment
-    modifier incrementNonce(EscrowPaymentStorage storage escrowPaymentStorage) {
-        ++escrowPaymentStorage.nonce;
+    /// @notice Increments the global nonce for the pending payment
+    /// @param pendingPaymentStorage The storage of the pending payment
+    modifier incrementNonce(PendingPaymentStorage storage pendingPaymentStorage) {
+        ++pendingPaymentStorage.nonce;
         _;
     }
 
@@ -44,28 +44,28 @@ library EscrowPayment {
     }
 
     /// @notice Authorizes a transaction
-    /// @param escrowPaymentStorage The storage of the escrow payment
+    /// @param pendingPaymentStorage The storage of the pending payment
     /// @param transaction The transaction to authorize
     /// @return transactionHash The hash of the transaction
-    function authorize(EscrowPaymentStorage storage escrowPaymentStorage, Transaction memory transaction)
+    function authorize(PendingPaymentStorage storage pendingPaymentStorage, Transaction memory transaction)
         internal
-        incrementNonce(escrowPaymentStorage)
+        incrementNonce(pendingPaymentStorage)
         returns (bytes32 transactionHash)
     {
-        transactionHash = generateTransactionHash(transaction, escrowPaymentStorage.nonce);
-        escrowPaymentStorage.transactionNonces[transactionHash] = escrowPaymentStorage.nonce;
+        transactionHash = generateTransactionHash(transaction, pendingPaymentStorage.nonce);
+        pendingPaymentStorage.transactionNonces[transactionHash] = pendingPaymentStorage.nonce;
     }
 
-    /// @notice complete authorized transaction from the escrow
-    /// @param escrowPaymentStorage The storage of the escrow payment
+    /// @notice complete authorized transaction from the pending payment
+    /// @param pendingPaymentStorage The storage of the pending payment
     /// @param transaction The transaction to pull the payment from
     /// @param transactionHash the authorized transaction hash
     function completeAuthorizedTransaction(
-        EscrowPaymentStorage storage escrowPaymentStorage,
+        PendingPaymentStorage storage pendingPaymentStorage,
         Transaction memory transaction,
         bytes32 transactionHash
     ) internal {
-        uint248 transactionNonce = escrowPaymentStorage.transactionNonces[transactionHash];
+        uint248 transactionNonce = pendingPaymentStorage.transactionNonces[transactionHash];
         if (transactionNonce == 0) revert TransactionNotAuthorized();
 
         bytes32 expectedTransactionHash = generateTransactionHash(transaction, transactionNonce);
@@ -74,6 +74,6 @@ library EscrowPayment {
             revert TransactionHashMismatch();
         }
 
-        escrowPaymentStorage.transactionNonces[transactionHash] = 0;
+        pendingPaymentStorage.transactionNonces[transactionHash] = 0;
     }
 }

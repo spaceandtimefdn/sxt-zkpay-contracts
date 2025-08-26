@@ -20,6 +20,7 @@ library PaymentLogic {
 
     error InsufficientPayment();
     error ZeroAmountReceived();
+    error TransactionNotAuthorized();
 
     /// @notice Modifier to validate that an asset is supported for payment operations
     /// @param _assets The assets mapping
@@ -184,15 +185,14 @@ library PaymentLogic {
         internal
         returns (ProcessSettlementResult memory result)
     {
-        _dsPayStorage.pendingPaymentStorage.completeAuthorizedTransaction(
-            PendingPayment.Transaction({
-                asset: params.sourceAsset,
-                amount: params.sourceAssetAmount,
-                from: params.from,
-                to: params.merchant
-            }),
-            params.transactionHash
-        );
+        PendingPayment.Transaction memory transaction = PendingPayment.Transaction({
+            asset: params.sourceAsset,
+            amount: params.sourceAssetAmount,
+            from: params.from,
+            to: params.merchant
+        });
+
+        _dsPayStorage.pendingPaymentStorage.completeAuthorizedTransaction(transaction, params.transactionHash);
 
         result.payoutToken = _dsPayStorage.swapLogicStorage.getMerchantPayoutAsset(params.merchant);
         (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken) = _computeSettlementBreakdown(

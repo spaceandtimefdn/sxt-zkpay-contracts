@@ -820,27 +820,6 @@ contract DSPayTest is Test {
         assertEq(mockToken.balanceOf(address(dspay)), amount);
     }
 
-    function testAuthorizeWithCallbackInvalidItemId() public {
-        address merchant = vm.addr(0x10);
-        MockERC20 mockToken = new MockERC20();
-        uint248 amount = 100 ether;
-        bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
-        bytes memory memo = "invalid item id test";
-        bytes32 itemId = bytes32(0); // Invalid itemId
-        bytes memory callbackData = abi.encode(123);
-
-        mockToken.mint(address(this), amount);
-        mockToken.approve(address(dspay), amount);
-
-        vm.prank(_admin);
-        dspay.setPaymentAsset(
-            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
-        );
-
-        vm.expectRevert(DSPay.InvalidItemId.selector);
-        dspay.authorizeWithCallback(address(mockToken), amount, onBehalfOf, merchant, memo, itemId, callbackData);
-    }
-
     function testMockInvalidAuthorizeCallbackContract() public {
         MockInvalidAuthorizeCallbackContract mockContract = new MockInvalidAuthorizeCallbackContract();
 

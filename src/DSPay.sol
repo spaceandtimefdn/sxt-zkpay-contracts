@@ -25,9 +25,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     using PendingPayment for PendingPayment.PendingPaymentStorage;
 
     error InvalidMerchant();
-    error InvalidItemId();
     error ItemIdCallbackNotConfigured();
-    error InvalidCallbackContract();
     /// @notice Error thrown when the merchant address is zero
     error MerchantAddressCannotBeZero();
 
@@ -170,10 +168,6 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     }
 
     function _sendWithCallback(SendWithCallbackParams memory params, bytes calldata memo) internal {
-        if (params.itemId == bytes32(0)) {
-            revert InvalidItemId();
-        }
-
         MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
             _dsPayStorage.merchantLogicStorage.getItemIdCallback(params.merchant, params.itemId);
 
@@ -320,10 +314,6 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         bytes32 itemId,
         bytes calldata callbackData
     ) external nonReentrant {
-        if (itemId == bytes32(0)) {
-            revert InvalidItemId();
-        }
-
         MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
             _dsPayStorage.merchantLogicStorage.getItemIdCallback(merchant, itemId);
 
@@ -440,12 +430,6 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     }
 
     function setItemIdCallbackConfig(bytes32 itemId, MerchantLogic.ItemIdCallbackConfig calldata config) external {
-        if (itemId == bytes32(0)) {
-            revert InvalidItemId();
-        }
-        if (config.contractAddress == address(0)) {
-            revert InvalidCallbackContract();
-        }
         _dsPayStorage.merchantLogicStorage.setItemIdCallback(msg.sender, itemId, config);
     }
 

@@ -532,16 +532,6 @@ contract PaymentFunctionsTest is Test {
         contractWithoutGetMerchant.processCallback(42);
     }
 
-    function testSendWithCallbackInvalidItemId() public {
-        bytes memory callbackData = abi.encode(42);
-        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
-
-        IERC20(USDC).approve(address(dspay), usdcAmount);
-
-        vm.expectRevert(DSPay.InvalidItemId.selector);
-        dspay.sendWithCallback(USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0), callbackData);
-    }
-
     function testSettleAuthorizedPaymentHappyPath() public {
         address client = address(this);
         uint248 sxtAmount = 100 ether;

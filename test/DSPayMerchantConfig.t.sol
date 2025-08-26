@@ -85,31 +85,6 @@ contract DSPayMerchantConfigTest is Test {
         assertEq(result.acceptedMethods, config.acceptedMethods);
     }
 
-    function testSetItemIdCallbackConfigInvalidItemId() public {
-        MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({
-            contractAddress: address(2),
-            funcSig: bytes4(0x87654321),
-            includePaymentMetadata: false,
-            acceptedMethods: MerchantLogic.SEND_METHOD
-        });
-
-        vm.expectRevert(DSPay.InvalidItemId.selector);
-        _dspay.setItemIdCallbackConfig(bytes32(0), config);
-    }
-
-    function testSetItemIdCallbackConfigInvalidContract() public {
-        bytes32 itemId = bytes32(uint256(456));
-        MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({
-            contractAddress: address(0),
-            funcSig: bytes4(0x87654321),
-            includePaymentMetadata: false,
-            acceptedMethods: MerchantLogic.SEND_METHOD
-        });
-
-        vm.expectRevert(DSPay.InvalidCallbackContract.selector);
-        _dspay.setItemIdCallbackConfig(itemId, config);
-    }
-
     function testSetItemIdCallbackConfigZeroAcceptedMethods() public {
         bytes32 itemId = bytes32(uint256(456));
         MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({

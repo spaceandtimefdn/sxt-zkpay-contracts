@@ -211,14 +211,12 @@ interface IDSPay {
     /// @param sourceAsset The source asset of the payment
     /// @param sourceAssetAmount The amount of source asset that was authorized
     /// @param from The address that made the original payment
-    /// @param merchant The merchant address
     /// @param transactionHash The hash of the transaction to settle
     /// @param maxUsdValueOfTargetToken Maximum USD value allowed for the target token
     function settleAuthorizedPayment(
         address sourceAsset,
         uint248 sourceAssetAmount,
         address from,
-        address merchant,
         bytes32 transactionHash,
         uint248 maxUsdValueOfTargetToken
     ) external;
@@ -227,14 +225,12 @@ interface IDSPay {
     /// @param customSourceAssetPath The custom swap path to override the stored sourceAssetPaths mapping
     /// @param sourceAssetAmount The amount of source asset that was authorized
     /// @param from The address that made the original payment
-    /// @param merchant The merchant address
     /// @param transactionHash The hash of the transaction to settle
     /// @param maxUsdValueOfTargetToken Maximum USD value allowed for the target token
     function settleAuthorizedPaymentPathOverride(
         bytes calldata customSourceAssetPath,
         uint248 sourceAssetAmount,
         address from,
-        address merchant,
         bytes32 transactionHash,
         uint248 maxUsdValueOfTargetToken
     ) external;

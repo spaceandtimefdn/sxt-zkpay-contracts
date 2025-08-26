@@ -577,7 +577,8 @@ contract PaymentFunctionsTest is Test {
         // validate emitted event
         vm.expectEmit(true, true, true, false);
         emit IDSPay.AuthorizedPaymentSettled(SXT, sxtAmount, USDC, 0, 0, client, targetMerchant, transactionHash);
-        dspay.settleAuthorizedPayment(SXT, sxtAmount, client, targetMerchant, transactionHash, 5 ether);
+        vm.prank(targetMerchant);
+        dspay.settleAuthorizedPayment(SXT, sxtAmount, client, transactionHash, 5 ether);
 
         assertLt(IERC20(SXT).balanceOf(client), sxtAmount);
         assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
@@ -750,9 +751,8 @@ contract PaymentFunctionsTest is Test {
 
         vm.expectEmit(true, true, true, false);
         emit IDSPay.AuthorizedPaymentSettled(SXT, sxtAmount, USDC, 0, 0, client, targetMerchant, transactionHash);
-        dspay.settleAuthorizedPaymentPathOverride(
-            customPath, sxtAmount, client, targetMerchant, transactionHash, 5 ether
-        );
+        vm.prank(targetMerchant);
+        dspay.settleAuthorizedPaymentPathOverride(customPath, sxtAmount, client, transactionHash, 5 ether);
 
         assertLt(IERC20(SXT).balanceOf(client), sxtAmount);
         assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);

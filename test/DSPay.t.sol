@@ -856,8 +856,7 @@ contract DSPayTest is Test {
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
 
         vm.expectRevert(PendingPayment.TransactionNotAuthorized.selector);
-        dspay.settleAuthorizedPayment(
-            address(mockToken), amount, address(this), merchant, keccak256("invalid"), 50 ether
-        );
+        vm.prank(merchant);
+        dspay.settleAuthorizedPayment(address(mockToken), amount, address(this), keccak256("invalid"), 50 ether);
     }
 }

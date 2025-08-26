@@ -414,12 +414,11 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         address sourceAsset,
         uint248 sourceAssetAmount,
         address from,
-        address merchant,
         bytes32 transactionHash,
         uint248 maxUsdValueOfTargetToken
     ) external nonReentrant {
         _settleAuthorizedPayment(
-            "", sourceAsset, sourceAssetAmount, from, merchant, transactionHash, maxUsdValueOfTargetToken
+            "", sourceAsset, sourceAssetAmount, from, msg.sender, transactionHash, maxUsdValueOfTargetToken
         );
     }
 
@@ -428,7 +427,6 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         bytes calldata customSourceAssetPath,
         uint248 sourceAssetAmount,
         address from,
-        address merchant,
         bytes32 transactionHash,
         uint248 maxUsdValueOfTargetToken
     ) external nonReentrant {
@@ -439,7 +437,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
             sourceAsset,
             sourceAssetAmount,
             from,
-            merchant,
+            msg.sender,
             transactionHash,
             maxUsdValueOfTargetToken
         );

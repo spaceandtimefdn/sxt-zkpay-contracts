@@ -28,6 +28,8 @@ library MerchantLogic {
     /// @notice Error thrown when a payout percentage is zero
     error ZeroPayoutPercentage();
 
+    error UnsupportedPaymentMethod();
+
     uint32 public constant PERCENTAGE_PRECISION = 1e6;
     uint32 public constant TOTAL_PERCENTAGE = 100 * PERCENTAGE_PRECISION;
 
@@ -42,10 +44,14 @@ library MerchantLogic {
         mapping(bytes32 => MerchantLogic.ItemIdCallbackConfig) itemIdCallbackConfigs;
     }
 
+    bytes1 public constant SEND_METHOD = bytes1(uint8(1 << 0));
+    bytes1 public constant AUTHORIZE_METHOD = bytes1(uint8(1 << 1));
+
     struct ItemIdCallbackConfig {
         bytes4 funcSig;
         address contractAddress;
         bool includePaymentMetadata;
+        bytes1 acceptedMethods;
     }
 
     function setConfig(
@@ -95,6 +101,12 @@ library MerchantLogic {
         bytes32 itemId,
         ItemIdCallbackConfig memory callbackConfig
     ) internal {
+        if (callbackConfig.acceptedMethods == 0) {
+            revert UnsupportedPaymentMethod();
+        }
+        if (callbackConfig.acceptedMethods & ~(SEND_METHOD | AUTHORIZE_METHOD) != 0) {
+            revert UnsupportedPaymentMethod();
+        }
         merchantLogicStorage.itemIdCallbackConfigs[keccak256(abi.encodePacked(merchant, itemId))] = callbackConfig;
     }
 

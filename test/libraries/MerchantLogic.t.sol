@@ -91,7 +91,8 @@ contract MerchantLogicTest is Test {
         MerchantLogic.ItemIdCallbackConfig memory callbackConfig = MerchantLogic.ItemIdCallbackConfig({
             contractAddress: address(1),
             funcSig: bytes4(0x12345678),
-            includePaymentMetadata: false
+            includePaymentMetadata: false,
+            acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
         });
 
         _wrapper.setItemIdCallback(merchant, itemId, callbackConfig);

@@ -72,7 +72,8 @@ contract DSPayMerchantConfigTest is Test {
         MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({
             contractAddress: address(2),
             funcSig: bytes4(0x87654321),
-            includePaymentMetadata: false
+            includePaymentMetadata: false,
+            acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
         });
 
         _dspay.setItemIdCallbackConfig(itemId, config);
@@ -81,13 +82,15 @@ contract DSPayMerchantConfigTest is Test {
         assertEq(result.contractAddress, config.contractAddress);
         assertEq(result.funcSig, config.funcSig);
         assertEq(result.includePaymentMetadata, config.includePaymentMetadata);
+        assertEq(result.acceptedMethods, config.acceptedMethods);
     }
 
     function testSetItemIdCallbackConfigInvalidItemId() public {
         MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({
             contractAddress: address(2),
             funcSig: bytes4(0x87654321),
-            includePaymentMetadata: false
+            includePaymentMetadata: false,
+            acceptedMethods: MerchantLogic.SEND_METHOD
         });
 
         vm.expectRevert(DSPay.InvalidItemId.selector);
@@ -99,10 +102,67 @@ contract DSPayMerchantConfigTest is Test {
         MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({
             contractAddress: address(0),
             funcSig: bytes4(0x87654321),
-            includePaymentMetadata: false
+            includePaymentMetadata: false,
+            acceptedMethods: MerchantLogic.SEND_METHOD
         });
 
         vm.expectRevert(DSPay.InvalidCallbackContract.selector);
         _dspay.setItemIdCallbackConfig(itemId, config);
+    }
+
+    function testSetItemIdCallbackConfigZeroAcceptedMethods() public {
+        bytes32 itemId = bytes32(uint256(456));
+        MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({
+            contractAddress: address(2),
+            funcSig: bytes4(0x87654321),
+            includePaymentMetadata: false,
+            acceptedMethods: bytes1(0)
+        });
+
+        vm.expectRevert(MerchantLogic.UnsupportedPaymentMethod.selector);
+        _dspay.setItemIdCallbackConfig(itemId, config);
+    }
+
+    function testSetItemIdCallbackConfigInvalidAcceptedMethods() public {
+        bytes32 itemId = bytes32(uint256(456));
+        MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({
+            contractAddress: address(2),
+            funcSig: bytes4(0x87654321),
+            includePaymentMetadata: false,
+            acceptedMethods: bytes1(0x08)
+        });
+
+        vm.expectRevert(MerchantLogic.UnsupportedPaymentMethod.selector);
+        _dspay.setItemIdCallbackConfig(itemId, config);
+    }
+
+    function testSetItemIdCallbackConfigSendMethodOnly() public {
+        bytes32 itemId = bytes32(uint256(456));
+        MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({
+            contractAddress: address(2),
+            funcSig: bytes4(0x87654321),
+            includePaymentMetadata: false,
+            acceptedMethods: MerchantLogic.SEND_METHOD
+        });
+
+        _dspay.setItemIdCallbackConfig(itemId, config);
+
+        MerchantLogic.ItemIdCallbackConfig memory result = _dspay.getItemIdCallbackConfig(address(this), itemId);
+        assertEq(result.acceptedMethods, MerchantLogic.SEND_METHOD);
+    }
+
+    function testSetItemIdCallbackConfigAuthorizeMethodOnly() public {
+        bytes32 itemId = bytes32(uint256(456));
+        MerchantLogic.ItemIdCallbackConfig memory config = MerchantLogic.ItemIdCallbackConfig({
+            contractAddress: address(2),
+            funcSig: bytes4(0x87654321),
+            includePaymentMetadata: false,
+            acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+        });
+
+        _dspay.setItemIdCallbackConfig(itemId, config);
+
+        MerchantLogic.ItemIdCallbackConfig memory result = _dspay.getItemIdCallbackConfig(address(this), itemId);
+        assertEq(result.acceptedMethods, MerchantLogic.AUTHORIZE_METHOD);
     }
 }

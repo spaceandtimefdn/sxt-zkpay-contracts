@@ -38,6 +38,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         bytes32 onBehalfOf;
         address sender;
         bytes32 itemId;
+        address merchant;
     }
 
     struct SendWithCallbackParams {
@@ -177,6 +178,10 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
             revert ItemIdCallbackNotConfigured();
         }
 
+        if (callbackConfig.acceptedMethods & MerchantLogic.SEND_METHOD == 0) {
+            revert MerchantLogic.UnsupportedPaymentMethod();
+        }
+
         PaymentLogic.ProcessPaymentResult memory result = _sendPayment(
             params.asset,
             params.amount,
@@ -197,7 +202,8 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
                 amountInUSD: result.amountInUSD,
                 onBehalfOf: params.onBehalfOf,
                 sender: msg.sender,
-                itemId: params.itemId
+                itemId: params.itemId,
+                merchant: params.merchant
             });
 
             // slither-disable-next-line encode-packed-collision
@@ -274,6 +280,27 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         emit Authorized(transaction, transactionHash, onBehalfOf, memo, itemId);
     }
 
+    function _getAuthorizePaymentMetadata(
+        address asset,
+        uint248 amount,
+        bytes32 onBehalfOf,
+        address merchant,
+        bytes32 itemId
+    ) internal view returns (PaymentMetadata memory metadata) {
+        uint248 amountInUSD = _dsPayStorage.assets.convertToUsd(asset, amount);
+        MerchantLogic.MerchantConfig memory merchantConfig = _dsPayStorage.merchantLogicStorage.getConfig(merchant);
+
+        metadata = PaymentMetadata({
+            payoutToken: merchantConfig.payoutToken,
+            payoutAmount: 0,
+            amountInUSD: amountInUSD,
+            onBehalfOf: onBehalfOf,
+            sender: msg.sender,
+            itemId: itemId,
+            merchant: merchant
+        });
+    }
+
     /// @inheritdoc IDSPay
     function authorize(
         address asset,
@@ -293,15 +320,38 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         bytes32 onBehalfOf,
         address merchant,
         bytes calldata memo,
-        address callbackContractAddress,
+        bytes32 itemId,
         bytes calldata callbackData
     ) external nonReentrant {
-        bytes4 selector = bytes4(callbackData[:4]);
-        bytes32 itemId = keccak256(abi.encode(callbackContractAddress, selector));
+        if (itemId == bytes32(0)) {
+            revert InvalidItemId();
+        }
+
+        MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
+            _dsPayStorage.merchantLogicStorage.getItemIdCallback(merchant, itemId);
+
+        if (callbackConfig.contractAddress == address(0)) {
+            revert ItemIdCallbackNotConfigured();
+        }
+
+        if (callbackConfig.acceptedMethods & MerchantLogic.AUTHORIZE_METHOD == 0) {
+            revert MerchantLogic.UnsupportedPaymentMethod();
+        }
+
+        _validateMerchant(merchant, callbackConfig.contractAddress);
 
         _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
 
-        SafeExecutor(_dsPayStorage.executorAddress).execute(callbackContractAddress, callbackData);
+        bytes memory fullCallbackData;
+        if (callbackConfig.includePaymentMetadata) {
+            PaymentMetadata memory metadata = _getAuthorizePaymentMetadata(asset, amount, onBehalfOf, merchant, itemId);
+            // slither-disable-next-line encode-packed-collision
+            fullCallbackData = abi.encodePacked(callbackConfig.funcSig, abi.encode(metadata), callbackData);
+        } else {
+            fullCallbackData = abi.encodePacked(callbackConfig.funcSig, callbackData);
+        }
+
+        SafeExecutor(_dsPayStorage.executorAddress).execute(callbackConfig.contractAddress, fullCallbackData);
     }
 
     /// @inheritdoc IDSPay

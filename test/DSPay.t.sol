@@ -253,7 +253,7 @@ contract DSPayTest is Test {
     function testAuthorizeWithZeroValues() public {
         uint248 amount = 0;
         bytes32 onBehalfOf = bytes32(0);
-        address merchant = ZERO_ADDRESS;
+        address merchant = address(1);
         bytes memory memo = "";
         bytes32 itemId = bytes32(0);
 
@@ -292,6 +292,19 @@ contract DSPayTest is Test {
         vm.expectEmit(true, true, true, true);
         emit IDSPay.Authorized(expectedTransaction, expectedTransactionHash, onBehalfOf, memo, itemId);
 
+        dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
+    }
+
+    function testAuthorizeWithZeroMerchantAddress() public {
+        uint248 amount = 100;
+        bytes32 onBehalfOf = bytes32(uint256(0x1234));
+        address merchant = ZERO_ADDRESS;
+        bytes memory memo = "test memo";
+        bytes32 itemId = bytes32("test");
+
+        MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
+
+        vm.expectRevert(DSPay.MerchantAddressCannotBeZero.selector);
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 

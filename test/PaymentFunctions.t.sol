@@ -600,6 +600,16 @@ contract PaymentFunctionsTest is Test {
         assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
     }
 
+    function testSendPathOverrideToZeroAddress() public {
+        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes memory customPath = DummyData.getOriginAssetPath(USDC);
+
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+
+        vm.expectRevert(DSPay.MerchantAddressCannotBeZero.selector);
+        dspay.sendPathOverride(customPath, usdcAmount, onBehalfOfBytes32, ZERO_ADDRESS, memoBytes, bytes32(0));
+    }
+
     function testSendWithCallbackPathOverride() public {
         MockCallbackContract callbackContract = new MockCallbackContract(targetMerchant);
         bytes memory callbackData = abi.encode(42);
@@ -713,6 +723,19 @@ contract PaymentFunctionsTest is Test {
         assertEq(metadata.sender, address(this));
         assertEq(metadata.itemId, bytes32(uint256(itemId)));
         assertEq(metadata.merchant, targetMerchant);
+    }
+
+    function testSendWithCallbackPathOverrideToZeroAddress() public {
+        bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);
+        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes memory customPath = DummyData.getOriginAssetPath(USDC);
+
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+
+        vm.expectRevert(DSPay.ItemIdCallbackNotConfigured.selector);
+        dspay.sendWithCallbackPathOverride(
+            customPath, usdcAmount, onBehalfOfBytes32, ZERO_ADDRESS, memoBytes, bytes32(uint256(itemId)), callbackData
+        );
     }
 
     function testSettleAuthorizedPaymentPathOverride() public {

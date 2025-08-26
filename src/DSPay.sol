@@ -11,7 +11,6 @@ import {MerchantLogic} from "./libraries/MerchantLogic.sol";
 import {SwapLogic} from "./libraries/SwapLogic.sol";
 import {PayWallLogic} from "./libraries/PayWallLogic.sol";
 import {SafeExecutor} from "./SafeExecutor.sol";
-import {IMerchantCallback} from "./interfaces/IMerchantCallback.sol";
 import {PendingPayment} from "./libraries/PendingPayment.sol";
 import {PaymentLogic} from "./module/PaymentLogic.sol";
 import {ZERO_ADDRESS} from "./libraries/Constants.sol";
@@ -101,13 +100,6 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         return AssetManagement.get(_dsPayStorage.assets, asset);
     }
 
-    function _validateMerchant(address merchant, address callbackContractAddress) internal view {
-        address callbackContractMerchant = IMerchantCallback(callbackContractAddress).getMerchant();
-        if (callbackContractMerchant != merchant) {
-            revert InvalidMerchant();
-        }
-    }
-
     function _sendPayment(
         address asset,
         uint248 amount,
@@ -183,8 +175,6 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
             params.itemId,
             params.customSourceAssetPath
         );
-
-        _validateMerchant(params.merchant, callbackConfig.contractAddress);
 
         bytes memory fullCallbackData;
         if (callbackConfig.includePaymentMetadata) {
@@ -315,8 +305,6 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         if (callbackConfig.acceptedMethods & MerchantLogic.AUTHORIZE_METHOD == 0) {
             revert MerchantLogic.UnsupportedPaymentMethod();
         }
-
-        _validateMerchant(merchant, callbackConfig.contractAddress);
 
         PaymentMetadata memory metadata = _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
 

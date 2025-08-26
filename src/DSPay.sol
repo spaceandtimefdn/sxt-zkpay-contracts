@@ -25,7 +25,6 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     using PendingPayment for PendingPayment.PendingPaymentStorage;
 
     error InvalidMerchant();
-    error ItemIdCallbackNotConfigured();
     /// @notice Error thrown when the merchant address is zero
     error MerchantAddressCannotBeZero();
 
@@ -171,10 +170,6 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
             _dsPayStorage.merchantLogicStorage.getItemIdCallback(params.merchant, params.itemId);
 
-        if (callbackConfig.contractAddress == address(0)) {
-            revert ItemIdCallbackNotConfigured();
-        }
-
         if (callbackConfig.acceptedMethods & MerchantLogic.SEND_METHOD == 0) {
             revert MerchantLogic.UnsupportedPaymentMethod();
         }
@@ -316,10 +311,6 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     ) external nonReentrant {
         MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
             _dsPayStorage.merchantLogicStorage.getItemIdCallback(merchant, itemId);
-
-        if (callbackConfig.contractAddress == address(0)) {
-            revert ItemIdCallbackNotConfigured();
-        }
 
         if (callbackConfig.acceptedMethods & MerchantLogic.AUTHORIZE_METHOD == 0) {
             revert MerchantLogic.UnsupportedPaymentMethod();

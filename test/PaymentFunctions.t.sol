@@ -722,7 +722,7 @@ contract PaymentFunctionsTest is Test {
 
         IERC20(USDC).approve(address(dspay), usdcAmount);
 
-        vm.expectRevert(DSPay.ItemIdCallbackNotConfigured.selector);
+        vm.expectRevert(MerchantLogic.ItemIdCallbackNotConfigured.selector);
         dspay.sendWithCallbackPathOverride(
             customPath, usdcAmount, onBehalfOfBytes32, ZERO_ADDRESS, memoBytes, bytes32(uint256(itemId)), callbackData
         );
@@ -887,7 +887,7 @@ contract PaymentFunctionsTest is Test {
         );
 
         IERC20(USDC).approve(address(dspay), usdcAmount);
-        vm.expectRevert(DSPay.ItemIdCallbackNotConfigured.selector);
+        vm.expectRevert(MerchantLogic.ItemIdCallbackNotConfigured.selector);
         dspay.authorizeWithCallback(
             USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
         );

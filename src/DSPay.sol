@@ -24,10 +24,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
     using PendingPayment for PendingPayment.PendingPaymentStorage;
 
-    error InsufficientPayment();
-    error ExecutorAddressCannotBeZero();
     error InvalidMerchant();
-    error ZeroAmountReceived();
     error InvalidItemId();
     error ItemIdCallbackNotConfigured();
     error InvalidCallbackContract();

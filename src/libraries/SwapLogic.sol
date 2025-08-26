@@ -12,10 +12,8 @@ library SwapLogic {
     using SafeERC20 for IERC20;
 
     uint256 internal constant WORD_SIZE = 0x20;
-    uint256 internal constant FREE_PTR = 0x40;
     uint256 internal constant ADDRESS_SIZE = 20;
     uint256 internal constant ADDRESS_OFFSET_BITS = 96;
-    uint256 internal constant PATH_FEED_SIZE = 3;
     uint256 internal constant MIN_AMOUNT_OUT = 0;
 
     // solhint-disable-next-line gas-struct-packing
@@ -57,11 +55,6 @@ library SwapLogic {
         }
 
         _swapLogicStorage.swapLogicConfig = newConfig;
-    }
-
-    /// @notice get the config for the swap logic
-    function getConfig(SwapLogicStorage storage _swapLogicStorage) internal view returns (SwapLogicConfig memory) {
-        return _swapLogicStorage.swapLogicConfig;
     }
 
     /// @notice validate the path

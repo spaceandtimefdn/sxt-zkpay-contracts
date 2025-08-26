@@ -13,6 +13,7 @@ import {DummyData} from "./data/DummyData.sol";
 import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 import {PayWallLogic} from "../src/libraries/PayWallLogic.sol";
 import {PendingPayment} from "../src/libraries/PendingPayment.sol";
+import {PaymentLogic} from "../src/module/PaymentLogic.sol";
 import {IDSPay} from "../src/interfaces/IDSPay.sol";
 import {IMerchantCallback} from "../src/interfaces/IMerchantCallback.sol";
 
@@ -259,7 +260,7 @@ contract DSPayTest is Test {
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
 
-        vm.expectRevert(DSPay.ZeroAmountReceived.selector);
+        vm.expectRevert(PaymentLogic.ZeroAmountReceived.selector);
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
 
         amount = 1;
@@ -476,7 +477,7 @@ contract DSPayTest is Test {
         vm.prank(merchant);
         dspay.setPaywallItemPrice(itemId, itemPrice);
 
-        vm.expectRevert(DSPay.InsufficientPayment.selector);
+        vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 
@@ -773,7 +774,7 @@ contract DSPayTest is Test {
             })
         );
 
-        vm.expectRevert(DSPay.InsufficientPayment.selector);
+        vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
         dspay.authorizeWithCallback(address(mockToken), amount, onBehalfOf, merchant, memo, itemId, callbackData);
     }
 

@@ -320,38 +320,38 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         bytes32 onBehalfOf,
         address merchant,
         bytes calldata memo,
-        address callbackContractAddress,
+        bytes32 itemId,
         bytes calldata callbackData
     ) external nonReentrant {
-        bytes4 selector = bytes4(callbackData[:4]);
-        bytes32 itemId = keccak256(abi.encode(callbackContractAddress, selector));
+        if (itemId == bytes32(0)) {
+            revert InvalidItemId();
+        }
 
         MerchantLogic.ItemIdCallbackConfig memory callbackConfig =
             _dsPayStorage.merchantLogicStorage.getItemIdCallback(merchant, itemId);
 
-        if (callbackConfig.contractAddress != address(0)) {
-            if (callbackConfig.acceptedMethods & MerchantLogic.AUTHORIZE_METHOD == 0) {
-                revert MerchantLogic.UnsupportedPaymentMethod();
-            }
+        if (callbackConfig.contractAddress == address(0)) {
+            revert ItemIdCallbackNotConfigured();
         }
 
-        if (callbackConfig.contractAddress != address(0)) {
-            _validateMerchant(merchant, callbackContractAddress);
+        if (callbackConfig.acceptedMethods & MerchantLogic.AUTHORIZE_METHOD == 0) {
+            revert MerchantLogic.UnsupportedPaymentMethod();
         }
+
+        _validateMerchant(merchant, callbackConfig.contractAddress);
 
         _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
 
         bytes memory fullCallbackData;
-        if (callbackConfig.contractAddress != address(0) && callbackConfig.includePaymentMetadata) {
+        if (callbackConfig.includePaymentMetadata) {
             PaymentMetadata memory metadata = _getAuthorizePaymentMetadata(asset, amount, onBehalfOf, merchant, itemId);
-            bytes memory originalParams = callbackData[4:];
             // slither-disable-next-line encode-packed-collision
-            fullCallbackData = abi.encodePacked(callbackConfig.funcSig, abi.encode(metadata), originalParams);
+            fullCallbackData = abi.encodePacked(callbackConfig.funcSig, abi.encode(metadata), callbackData);
         } else {
-            fullCallbackData = callbackData;
+            fullCallbackData = abi.encodePacked(callbackConfig.funcSig, callbackData);
         }
 
-        SafeExecutor(_dsPayStorage.executorAddress).execute(callbackContractAddress, fullCallbackData);
+        SafeExecutor(_dsPayStorage.executorAddress).execute(callbackConfig.contractAddress, fullCallbackData);
     }
 
     /// @inheritdoc IDSPay

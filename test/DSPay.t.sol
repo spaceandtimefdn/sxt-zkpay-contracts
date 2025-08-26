@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {DSPay} from "../src/DSPay.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 import {AssetManagement} from "../src/libraries/AssetManagement.sol";
+import {MerchantLogic} from "../src/libraries/MerchantLogic.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {ZERO_ADDRESS} from "../src/libraries/Constants.sol";
 import {DummyData} from "./data/DummyData.sol";
@@ -13,8 +14,9 @@ import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 import {PayWallLogic} from "../src/libraries/PayWallLogic.sol";
 import {PendingPayment} from "../src/libraries/PendingPayment.sol";
 import {IDSPay} from "../src/interfaces/IDSPay.sol";
+import {IMerchantCallback} from "../src/interfaces/IMerchantCallback.sol";
 
-contract MockAuthorizeCallbackContract {
+contract MockAuthorizeCallbackContract is IMerchantCallback {
     address private _merchant;
     uint256 public callCount;
     bytes public lastCallData;
@@ -24,6 +26,10 @@ contract MockAuthorizeCallbackContract {
 
     constructor(address merchant_) {
         _merchant = merchant_;
+    }
+
+    function getMerchant() external view override returns (address) {
+        return _merchant;
     }
 
     function processAuthorization(uint256 value) external {
@@ -39,7 +45,11 @@ contract MockAuthorizeCallbackContract {
     }
 }
 
-contract MockInvalidAuthorizeCallbackContract {
+contract MockInvalidAuthorizeCallbackContract is IMerchantCallback {
+    function getMerchant() external pure override returns (address) {
+        return address(0x999);
+    }
+
     // solhint-disable-next-line no-empty-blocks
     function processAuthorization(uint256 value) external pure {}
 }
@@ -463,6 +473,7 @@ contract DSPayTest is Test {
         uint248 amount = 1000 ether;
         bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
         bytes memory memo = "test memo";
+        bytes32 itemId = bytes32(uint256(123));
 
         mockToken.mint(address(this), amount);
         mockToken.approve(address(dspay), amount);
@@ -473,11 +484,18 @@ contract DSPayTest is Test {
         );
 
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
-        bytes memory callbackData =
-            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 42);
+        bytes memory callbackData = abi.encode(42);
 
-        bytes4 selector = bytes4(callbackData);
-        bytes32 expectedItemId = keccak256(abi.encode(address(callbackContract), selector));
+        vm.prank(merchant);
+        dspay.setItemIdCallbackConfig(
+            itemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockAuthorizeCallbackContract.processAuthorization.selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
+        );
 
         PendingPayment.Transaction memory expectedTransaction =
             PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
@@ -485,11 +503,9 @@ contract DSPayTest is Test {
         bytes32 expectedTransactionHash = keccak256(abi.encode(expectedTransaction, 1, block.chainid));
 
         vm.expectEmit(true, true, true, true);
-        emit IDSPay.Authorized(expectedTransaction, expectedTransactionHash, onBehalfOf, memo, expectedItemId);
+        emit IDSPay.Authorized(expectedTransaction, expectedTransactionHash, onBehalfOf, memo, itemId);
 
-        dspay.authorizeWithCallback(
-            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
-        );
+        dspay.authorizeWithCallback(address(mockToken), amount, onBehalfOf, merchant, memo, itemId, callbackData);
 
         assertEq(callbackContract.callCount(), 1);
         assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 42);
@@ -504,6 +520,7 @@ contract DSPayTest is Test {
         uint248 amount = 500 ether;
         bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
         bytes memory memo = "itemId test";
+        bytes32 itemId = bytes32(uint256(456));
 
         mockToken.mint(address(this), amount);
         mockToken.approve(address(dspay), amount);
@@ -514,16 +531,22 @@ contract DSPayTest is Test {
         );
 
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
-        bytes memory callbackData =
-            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 999);
+        bytes memory callbackData = abi.encode(999);
 
-        bytes4 selector = bytes4(callbackData);
-        bytes32 expectedItemId = keccak256(abi.encode(address(callbackContract), selector));
-        assertTrue(expectedItemId != bytes32(0));
-
-        dspay.authorizeWithCallback(
-            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
+        vm.prank(merchant);
+        dspay.setItemIdCallbackConfig(
+            itemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockAuthorizeCallbackContract.processAuthorization.selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
         );
+
+        assertTrue(itemId != bytes32(0));
+
+        dspay.authorizeWithCallback(address(mockToken), amount, onBehalfOf, merchant, memo, itemId, callbackData);
 
         assertEq(callbackContract.callCount(), 1);
         assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 999);
@@ -535,6 +558,7 @@ contract DSPayTest is Test {
         uint248 amount = 500 ether;
         bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
         bytes memory memo = "invalid merchant test";
+        bytes32 itemId = bytes32(uint256(789));
 
         mockToken.mint(address(this), amount);
         mockToken.approve(address(dspay), amount);
@@ -545,15 +569,24 @@ contract DSPayTest is Test {
         );
 
         MockInvalidAuthorizeCallbackContract invalidCallbackContract = new MockInvalidAuthorizeCallbackContract();
-        bytes memory callbackData =
-            abi.encodeWithSelector(MockInvalidAuthorizeCallbackContract.processAuthorization.selector, 42);
+        bytes memory callbackData = abi.encode(42);
 
-        dspay.authorizeWithCallback(
-            address(mockToken), amount, onBehalfOf, merchant, memo, address(invalidCallbackContract), callbackData
+        vm.prank(merchant);
+        dspay.setItemIdCallbackConfig(
+            itemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(invalidCallbackContract),
+                funcSig: MockInvalidAuthorizeCallbackContract.processAuthorization.selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
         );
 
-        assertEq(mockToken.balanceOf(address(dspay)), amount);
-        assertEq(mockToken.balanceOf(address(this)), 0);
+        vm.expectRevert(DSPay.InvalidMerchant.selector);
+        dspay.authorizeWithCallback(address(mockToken), amount, onBehalfOf, merchant, memo, itemId, callbackData);
+
+        assertEq(mockToken.balanceOf(address(dspay)), 0);
+        assertEq(mockToken.balanceOf(address(this)), amount);
     }
 
     function testAuthorizeWithCallbackFailure() public {
@@ -562,6 +595,7 @@ contract DSPayTest is Test {
         uint248 amount = 500 ether;
         bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
         bytes memory memo = "callback failure test";
+        bytes32 itemId = bytes32(uint256(101));
 
         mockToken.mint(address(this), amount);
         mockToken.approve(address(dspay), amount);
@@ -573,13 +607,21 @@ contract DSPayTest is Test {
 
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
         callbackContract.setShouldFail(true);
-        bytes memory callbackData =
-            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 42);
+        bytes memory callbackData = abi.encode(42);
+
+        vm.prank(merchant);
+        dspay.setItemIdCallbackConfig(
+            itemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockAuthorizeCallbackContract.processAuthorization.selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
+        );
 
         vm.expectRevert();
-        dspay.authorizeWithCallback(
-            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
-        );
+        dspay.authorizeWithCallback(address(mockToken), amount, onBehalfOf, merchant, memo, itemId, callbackData);
 
         assertEq(mockToken.balanceOf(address(dspay)), 0);
         assertEq(mockToken.balanceOf(address(this)), amount);
@@ -591,15 +633,24 @@ contract DSPayTest is Test {
         uint248 amount = 500 ether;
         bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
         bytes memory memo = "unsupported asset test";
+        bytes32 itemId = bytes32(uint256(102));
 
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
-        bytes memory callbackData =
-            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 42);
+        bytes memory callbackData = abi.encode(42);
+
+        vm.prank(merchant);
+        dspay.setItemIdCallbackConfig(
+            itemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockAuthorizeCallbackContract.processAuthorization.selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
+        );
 
         vm.expectRevert();
-        dspay.authorizeWithCallback(
-            unsupportedToken, amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
-        );
+        dspay.authorizeWithCallback(unsupportedToken, amount, onBehalfOf, merchant, memo, itemId, callbackData);
     }
 
     function testAuthorizeWithCallbackZeroAmount() public {
@@ -608,6 +659,7 @@ contract DSPayTest is Test {
         uint248 amount = 0;
         bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
         bytes memory memo = "zero amount test";
+        bytes32 itemId = bytes32(uint256(103));
 
         vm.prank(_admin);
         dspay.setPaymentAsset(
@@ -615,13 +667,21 @@ contract DSPayTest is Test {
         );
 
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
-        bytes memory callbackData =
-            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 42);
+        bytes memory callbackData = abi.encode(42);
+
+        vm.prank(merchant);
+        dspay.setItemIdCallbackConfig(
+            itemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockAuthorizeCallbackContract.processAuthorization.selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
+        );
 
         vm.expectRevert();
-        dspay.authorizeWithCallback(
-            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
-        );
+        dspay.authorizeWithCallback(address(mockToken), amount, onBehalfOf, merchant, memo, itemId, callbackData);
     }
 
     function testAuthorizeWithCallbackWithPaywallItemPrice() public {
@@ -630,6 +690,7 @@ contract DSPayTest is Test {
         uint248 amount = 1000 ether;
         bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
         bytes memory memo = "paywall test";
+        bytes32 itemId = bytes32(uint256(104));
 
         mockToken.mint(address(this), amount);
         mockToken.approve(address(dspay), amount);
@@ -640,19 +701,25 @@ contract DSPayTest is Test {
         );
 
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
-        bytes memory callbackData =
-            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 789);
+        bytes memory callbackData = abi.encode(789);
 
-        bytes4 selector = bytes4(callbackData);
-        bytes32 itemId = keccak256(abi.encode(address(callbackContract), selector));
         uint248 itemPrice = 1;
 
         vm.prank(merchant);
         dspay.setPaywallItemPrice(itemId, itemPrice);
 
-        dspay.authorizeWithCallback(
-            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
+        vm.prank(merchant);
+        dspay.setItemIdCallbackConfig(
+            itemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockAuthorizeCallbackContract.processAuthorization.selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
         );
+
+        dspay.authorizeWithCallback(address(mockToken), amount, onBehalfOf, merchant, memo, itemId, callbackData);
 
         assertEq(callbackContract.callCount(), 1);
         assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 789);
@@ -673,21 +740,28 @@ contract DSPayTest is Test {
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
 
+        bytes32 itemId = bytes32(uint256(105));
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
-        bytes memory callbackData =
-            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, 123);
+        bytes memory callbackData = abi.encode(123);
 
-        bytes4 selector = bytes4(callbackData);
-        bytes32 itemId = keccak256(abi.encode(address(callbackContract), selector));
         uint248 itemPrice = 1000 * 1e18;
 
         vm.prank(merchant);
         dspay.setPaywallItemPrice(itemId, itemPrice);
 
-        vm.expectRevert(DSPay.InsufficientPayment.selector);
-        dspay.authorizeWithCallback(
-            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
+        vm.prank(merchant);
+        dspay.setItemIdCallbackConfig(
+            itemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockAuthorizeCallbackContract.processAuthorization.selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
         );
+
+        vm.expectRevert(DSPay.InsufficientPayment.selector);
+        dspay.authorizeWithCallback(address(mockToken), amount, onBehalfOf, merchant, memo, itemId, callbackData);
     }
 
     function testFuzzAuthorizeWithCallback(uint248 amount, uint256 callbackValue, address merchant, bytes32 onBehalfOf)
@@ -700,6 +774,7 @@ contract DSPayTest is Test {
 
         MockERC20 mockToken = new MockERC20();
         bytes memory memo = "fuzz test";
+        bytes32 itemId = bytes32(uint256(106));
 
         mockToken.mint(address(this), amount);
         mockToken.approve(address(dspay), amount);
@@ -710,17 +785,56 @@ contract DSPayTest is Test {
         );
 
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
-        bytes memory callbackData =
-            abi.encodeWithSelector(MockAuthorizeCallbackContract.processAuthorization.selector, callbackValue);
+        bytes memory callbackData = abi.encode(callbackValue);
 
-        dspay.authorizeWithCallback(
-            address(mockToken), amount, onBehalfOf, merchant, memo, address(callbackContract), callbackData
+        vm.prank(merchant);
+        dspay.setItemIdCallbackConfig(
+            itemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockAuthorizeCallbackContract.processAuthorization.selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.AUTHORIZE_METHOD
+            })
         );
+
+        dspay.authorizeWithCallback(address(mockToken), amount, onBehalfOf, merchant, memo, itemId, callbackData);
 
         assertEq(callbackContract.callCount(), 1);
         assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), callbackValue);
 
         assertEq(mockToken.balanceOf(address(dspay)), amount);
+    }
+
+    function testAuthorizeWithCallbackInvalidItemId() public {
+        address merchant = vm.addr(0x10);
+        MockERC20 mockToken = new MockERC20();
+        uint248 amount = 100 ether;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
+        bytes memory memo = "invalid item id test";
+        bytes32 itemId = bytes32(0); // Invalid itemId
+        bytes memory callbackData = abi.encode(123);
+
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(dspay), amount);
+
+        vm.prank(_admin);
+        dspay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        vm.expectRevert(DSPay.InvalidItemId.selector);
+        dspay.authorizeWithCallback(address(mockToken), amount, onBehalfOf, merchant, memo, itemId, callbackData);
+    }
+
+    function testMockInvalidAuthorizeCallbackContract() public {
+        MockInvalidAuthorizeCallbackContract mockContract = new MockInvalidAuthorizeCallbackContract();
+
+        // Test getMerchant returns the expected invalid address
+        assertEq(mockContract.getMerchant(), address(0x999));
+
+        // Call processAuthorization directly to achieve 100% coverage
+        mockContract.processAuthorization(123);
     }
 
     function testSettleAuthorizedPaymentRevertsTransactionNotAuthorized() public {

@@ -577,7 +577,8 @@ contract PaymentFunctionsTest is Test {
         // validate emitted event
         vm.expectEmit(true, true, true, false);
         emit IDSPay.AuthorizedPaymentSettled(SXT, sxtAmount, USDC, 0, 0, client, targetMerchant, transactionHash);
-        dspay.settleAuthorizedPayment(SXT, sxtAmount, client, targetMerchant, transactionHash, 5 ether);
+        vm.prank(targetMerchant);
+        dspay.settleAuthorizedPayment(SXT, sxtAmount, client, transactionHash, 5 ether);
 
         assertLt(IERC20(SXT).balanceOf(client), sxtAmount);
         assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
@@ -597,6 +598,16 @@ contract PaymentFunctionsTest is Test {
         dspay.sendPathOverride(customPath, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0));
 
         assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
+    }
+
+    function testSendPathOverrideToZeroAddress() public {
+        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes memory customPath = DummyData.getOriginAssetPath(USDC);
+
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+
+        vm.expectRevert(DSPay.MerchantAddressCannotBeZero.selector);
+        dspay.sendPathOverride(customPath, usdcAmount, onBehalfOfBytes32, ZERO_ADDRESS, memoBytes, bytes32(0));
     }
 
     function testSendWithCallbackPathOverride() public {
@@ -714,6 +725,19 @@ contract PaymentFunctionsTest is Test {
         assertEq(metadata.merchant, targetMerchant);
     }
 
+    function testSendWithCallbackPathOverrideToZeroAddress() public {
+        bytes memory callbackData = abi.encodeWithSelector(MockCallbackContract.processCallback.selector, 42);
+        bytes32 onBehalfOfBytes32 = bytes32(uint256(uint160(onBehalfOf)));
+        bytes memory customPath = DummyData.getOriginAssetPath(USDC);
+
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+
+        vm.expectRevert(DSPay.ItemIdCallbackNotConfigured.selector);
+        dspay.sendWithCallbackPathOverride(
+            customPath, usdcAmount, onBehalfOfBytes32, ZERO_ADDRESS, memoBytes, bytes32(uint256(itemId)), callbackData
+        );
+    }
+
     function testSettleAuthorizedPaymentPathOverride() public {
         address client = address(this);
         uint248 sxtAmount = 100 ether;
@@ -750,9 +774,8 @@ contract PaymentFunctionsTest is Test {
 
         vm.expectEmit(true, true, true, false);
         emit IDSPay.AuthorizedPaymentSettled(SXT, sxtAmount, USDC, 0, 0, client, targetMerchant, transactionHash);
-        dspay.settleAuthorizedPaymentPathOverride(
-            customPath, sxtAmount, client, targetMerchant, transactionHash, 5 ether
-        );
+        vm.prank(targetMerchant);
+        dspay.settleAuthorizedPaymentPathOverride(customPath, sxtAmount, client, transactionHash, 5 ether);
 
         assertLt(IERC20(SXT).balanceOf(client), sxtAmount);
         assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);

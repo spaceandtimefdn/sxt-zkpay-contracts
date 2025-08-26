@@ -36,7 +36,7 @@ contract SwapLogicTest is Test {
     }
 
     function testSetAndGetConfig() public view {
-        SwapLogic.SwapLogicConfig memory cfg = SwapLogic.getConfig(_swapLogicStorage);
+        SwapLogic.SwapLogicConfig memory cfg = _swapLogicStorage.swapLogicConfig;
         assertEq(cfg.router, ROUTER, "router addr mismatch");
         assertEq(cfg.usdt, USDT, "usdt addr mismatch");
     }

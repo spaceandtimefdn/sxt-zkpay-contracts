@@ -14,6 +14,7 @@ import {SafeExecutor} from "./SafeExecutor.sol";
 import {IMerchantCallback} from "./interfaces/IMerchantCallback.sol";
 import {PendingPayment} from "./libraries/PendingPayment.sol";
 import {PaymentLogic} from "./module/PaymentLogic.sol";
+import {ZERO_ADDRESS} from "./libraries/Constants.sol";
 
 // slither-disable-next-line locked-ether
 contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
@@ -23,13 +24,12 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     using PayWallLogic for PayWallLogic.PayWallLogicStorage;
     using PendingPayment for PendingPayment.PendingPaymentStorage;
 
-    error InsufficientPayment();
-    error ExecutorAddressCannotBeZero();
     error InvalidMerchant();
-    error ZeroAmountReceived();
     error InvalidItemId();
     error ItemIdCallbackNotConfigured();
     error InvalidCallbackContract();
+    /// @notice Error thrown when the merchant address is zero
+    error MerchantAddressCannotBeZero();
 
     struct PaymentMetadata {
         address payoutToken;
@@ -120,6 +120,9 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         bytes32 itemId,
         bytes memory customSourceAssetPath
     ) internal returns (PaymentLogic.ProcessPaymentResult memory result) {
+        if (merchant == ZERO_ADDRESS) {
+            revert MerchantAddressCannotBeZero();
+        }
         result = PaymentLogic.processPayment(
             _dsPayStorage,
             PaymentLogic.ProcessPaymentParams({
@@ -271,6 +274,9 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         bytes calldata memo,
         bytes32 itemId
     ) internal {
+        if (merchant == ZERO_ADDRESS) {
+            revert MerchantAddressCannotBeZero();
+        }
         PaymentLogic.AuthorizePaymentParams memory params =
             PaymentLogic.AuthorizePaymentParams({asset: asset, amount: amount, merchant: merchant, itemId: itemId});
 
@@ -414,12 +420,11 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         address sourceAsset,
         uint248 sourceAssetAmount,
         address from,
-        address merchant,
         bytes32 transactionHash,
         uint248 maxUsdValueOfTargetToken
     ) external nonReentrant {
         _settleAuthorizedPayment(
-            "", sourceAsset, sourceAssetAmount, from, merchant, transactionHash, maxUsdValueOfTargetToken
+            "", sourceAsset, sourceAssetAmount, from, msg.sender, transactionHash, maxUsdValueOfTargetToken
         );
     }
 
@@ -428,7 +433,6 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         bytes calldata customSourceAssetPath,
         uint248 sourceAssetAmount,
         address from,
-        address merchant,
         bytes32 transactionHash,
         uint248 maxUsdValueOfTargetToken
     ) external nonReentrant {
@@ -439,7 +443,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
             sourceAsset,
             sourceAssetAmount,
             from,
-            merchant,
+            msg.sender,
             transactionHash,
             maxUsdValueOfTargetToken
         );

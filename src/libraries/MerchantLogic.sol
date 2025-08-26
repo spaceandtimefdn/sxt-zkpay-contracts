@@ -28,10 +28,14 @@ library MerchantLogic {
     /// @notice Error thrown when a payout percentage is zero
     error ZeroPayoutPercentage();
 
+    /// @notice Error thrown when too many payout recipients are specified
+    error TooManyPayoutRecipients();
+
     error UnsupportedPaymentMethod();
 
     uint32 public constant PERCENTAGE_PRECISION = 1e6;
     uint32 public constant TOTAL_PERCENTAGE = 100 * PERCENTAGE_PRECISION;
+    uint256 public constant MAX_PAYOUT_RECIPIENTS = 16;
 
     struct MerchantConfig {
         address payoutToken;
@@ -62,6 +66,9 @@ library MerchantLogic {
         uint256 len = config.payoutAddresses.length;
         if (len == 0) {
             revert NoPayoutRecipients();
+        }
+        if (len > MAX_PAYOUT_RECIPIENTS) {
+            revert TooManyPayoutRecipients();
         }
         if (len != config.payoutPercentages.length) {
             revert PayoutArrayLengthMismatch();

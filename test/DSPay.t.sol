@@ -13,6 +13,7 @@ import {DummyData} from "./data/DummyData.sol";
 import {SwapLogic} from "../src/libraries/SwapLogic.sol";
 import {PayWallLogic} from "../src/libraries/PayWallLogic.sol";
 import {PendingPayment} from "../src/libraries/PendingPayment.sol";
+import {PaymentLogic} from "../src/module/PaymentLogic.sol";
 import {IDSPay} from "../src/interfaces/IDSPay.sol";
 import {IMerchantCallback} from "../src/interfaces/IMerchantCallback.sol";
 
@@ -253,13 +254,13 @@ contract DSPayTest is Test {
     function testAuthorizeWithZeroValues() public {
         uint248 amount = 0;
         bytes32 onBehalfOf = bytes32(0);
-        address merchant = ZERO_ADDRESS;
+        address merchant = address(1);
         bytes memory memo = "";
         bytes32 itemId = bytes32(0);
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
 
-        vm.expectRevert(DSPay.ZeroAmountReceived.selector);
+        vm.expectRevert(PaymentLogic.ZeroAmountReceived.selector);
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
 
         amount = 1;
@@ -292,6 +293,19 @@ contract DSPayTest is Test {
         vm.expectEmit(true, true, true, true);
         emit IDSPay.Authorized(expectedTransaction, expectedTransactionHash, onBehalfOf, memo, itemId);
 
+        dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
+    }
+
+    function testAuthorizeWithZeroMerchantAddress() public {
+        uint248 amount = 100;
+        bytes32 onBehalfOf = bytes32(uint256(0x1234));
+        address merchant = ZERO_ADDRESS;
+        bytes memory memo = "test memo";
+        bytes32 itemId = bytes32("test");
+
+        MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
+
+        vm.expectRevert(DSPay.MerchantAddressCannotBeZero.selector);
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 
@@ -463,7 +477,7 @@ contract DSPayTest is Test {
         vm.prank(merchant);
         dspay.setPaywallItemPrice(itemId, itemPrice);
 
-        vm.expectRevert(DSPay.InsufficientPayment.selector);
+        vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
 
@@ -760,7 +774,7 @@ contract DSPayTest is Test {
             })
         );
 
-        vm.expectRevert(DSPay.InsufficientPayment.selector);
+        vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
         dspay.authorizeWithCallback(address(mockToken), amount, onBehalfOf, merchant, memo, itemId, callbackData);
     }
 
@@ -856,8 +870,7 @@ contract DSPayTest is Test {
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
 
         vm.expectRevert(PendingPayment.TransactionNotAuthorized.selector);
-        dspay.settleAuthorizedPayment(
-            address(mockToken), amount, address(this), merchant, keccak256("invalid"), 50 ether
-        );
+        vm.prank(merchant);
+        dspay.settleAuthorizedPayment(address(mockToken), amount, address(this), keccak256("invalid"), 50 ether);
     }
 }

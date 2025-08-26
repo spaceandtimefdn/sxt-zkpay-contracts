@@ -273,27 +273,18 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         address merchant,
         bytes calldata memo,
         bytes32 itemId
-    ) internal {
+    ) internal returns (PaymentMetadata memory metadata) {
         if (merchant == ZERO_ADDRESS) {
             revert MerchantAddressCannotBeZero();
         }
         PaymentLogic.AuthorizePaymentParams memory params =
             PaymentLogic.AuthorizePaymentParams({asset: asset, amount: amount, merchant: merchant, itemId: itemId});
 
-        (PendingPayment.Transaction memory transaction, bytes32 transactionHash) =
+        (PendingPayment.Transaction memory transaction, bytes32 transactionHash, uint248 amountInUSD) =
             PaymentLogic.authorizePayment(_dsPayStorage, params);
 
         emit Authorized(transaction, transactionHash, onBehalfOf, memo, itemId);
-    }
 
-    function _getAuthorizePaymentMetadata(
-        address asset,
-        uint248 amount,
-        bytes32 onBehalfOf,
-        address merchant,
-        bytes32 itemId
-    ) internal view returns (PaymentMetadata memory metadata) {
-        uint248 amountInUSD = _dsPayStorage.assets.convertToUsd(asset, amount);
         MerchantLogic.MerchantConfig memory merchantConfig = _dsPayStorage.merchantLogicStorage.getConfig(merchant);
 
         metadata = PaymentMetadata({
@@ -346,11 +337,10 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
 
         _validateMerchant(merchant, callbackConfig.contractAddress);
 
-        _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
+        PaymentMetadata memory metadata = _authorize(asset, amount, onBehalfOf, merchant, memo, itemId);
 
         bytes memory fullCallbackData;
         if (callbackConfig.includePaymentMetadata) {
-            PaymentMetadata memory metadata = _getAuthorizePaymentMetadata(asset, amount, onBehalfOf, merchant, itemId);
             // slither-disable-next-line encode-packed-collision
             fullCallbackData = abi.encodePacked(callbackConfig.funcSig, abi.encode(metadata), callbackData);
         } else {

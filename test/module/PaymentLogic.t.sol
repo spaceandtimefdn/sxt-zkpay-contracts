@@ -698,6 +698,7 @@ contract PaymentLogicAuthorizePaymentTest is Test {
             maxUsdValueOfTargetToken: maxUsdValue
         });
 
+        vm.prank(MERCHANT);
         PaymentLogic.ProcessSettlementResult memory result = wrapper.processSettlement(params);
 
         assertEq(result.payoutToken, USDC);

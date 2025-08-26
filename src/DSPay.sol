@@ -28,7 +28,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     error InvalidItemId();
     error ItemIdCallbackNotConfigured();
     error InvalidCallbackContract();
-    /// @notice Error thrown when the merchant address is zero
+    error TransactionNotAuthorized();
     error MerchantAddressCannotBeZero();
 
     struct PaymentMetadata {

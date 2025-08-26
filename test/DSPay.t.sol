@@ -873,4 +873,91 @@ contract DSPayTest is Test {
         vm.prank(merchant);
         dspay.settleAuthorizedPayment(address(mockToken), amount, address(this), keccak256("invalid"), 50 ether);
     }
+
+    function testSettleAuthorizedPaymentRevertsUnauthorizedCaller() public {
+        MockERC20 mockToken = new MockERC20();
+        uint248 amount = 100 ether;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(address(0x123))));
+        address merchant = address(0x456);
+        address attacker = address(0x789);
+        bytes memory memo = "test settlement";
+        bytes32 itemId = bytes32(uint256(789));
+
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(dspay), amount);
+
+        vm.prank(_admin);
+        dspay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
+
+        bytes32 transactionHash = PendingPayment.generateTransactionHash(
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: attacker}),
+            1
+        );
+
+        vm.expectRevert(DSPay.TransactionNotAuthorized.selector);
+        vm.prank(attacker);
+        dspay.settleAuthorizedPayment(address(mockToken), amount, address(this), transactionHash, 50 ether);
+    }
+
+    function testSettleAuthorizedPaymentPathOverrideRevertsUnauthorizedCaller() public {
+        MockERC20 mockToken = new MockERC20();
+        uint248 amount = 100 ether;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(address(0x123))));
+        address merchant = address(0x456);
+        address attacker = address(0x789);
+        bytes memory memo = "test settlement";
+        bytes32 itemId = bytes32(uint256(789));
+        bytes memory customPath = DummyData.getOriginAssetPath(address(mockToken));
+
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(dspay), amount);
+
+        vm.prank(_admin);
+        dspay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
+
+        bytes32 transactionHash = PendingPayment.generateTransactionHash(
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: attacker}),
+            1
+        );
+
+        vm.expectRevert(DSPay.TransactionNotAuthorized.selector);
+        vm.prank(attacker);
+        dspay.settleAuthorizedPaymentPathOverride(customPath, amount, address(this), transactionHash, 50 ether);
+    }
+
+    function testSettleAuthorizedPaymentValidatesAuth() public {
+        MockERC20 mockToken = new MockERC20();
+        uint248 amount = 100 ether;
+        bytes32 onBehalfOf = bytes32(uint256(uint160(address(0x123))));
+        address merchant = address(0x456);
+        bytes memory memo = "test settlement";
+        bytes32 itemId = bytes32(uint256(789));
+
+        mockToken.mint(address(this), amount);
+        mockToken.approve(address(dspay), amount);
+
+        vm.prank(_admin);
+        dspay.setPaymentAsset(
+            address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
+        );
+
+        dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
+
+        bytes32 transactionHash = PendingPayment.generateTransactionHash(
+            PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant}),
+            1
+        );
+
+        vm.prank(merchant);
+        vm.expectRevert();
+        dspay.settleAuthorizedPayment(address(mockToken), amount, address(this), transactionHash, 50 ether);
+    }
 }

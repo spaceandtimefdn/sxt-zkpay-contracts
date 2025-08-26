@@ -165,4 +165,60 @@ contract DSPayMerchantConfigTest is Test {
         MerchantLogic.ItemIdCallbackConfig memory result = _dspay.getItemIdCallbackConfig(address(this), itemId);
         assertEq(result.acceptedMethods, MerchantLogic.AUTHORIZE_METHOD);
     }
+
+    function testSetMerchantConfigTooManyRecipients() public {
+        uint256 numRecipients = MerchantLogic.MAX_PAYOUT_RECIPIENTS + 1;
+        address[] memory addresses = new address[](numRecipients);
+        uint32[] memory percentages = new uint32[](numRecipients);
+
+        uint32 percentagePerRecipient = MerchantLogic.TOTAL_PERCENTAGE / uint32(numRecipients);
+        uint32 remainder = MerchantLogic.TOTAL_PERCENTAGE % uint32(numRecipients);
+
+        for (uint256 i = 0; i < numRecipients; ++i) {
+            addresses[i] = address(uint160(i + 1000));
+            percentages[i] = percentagePerRecipient;
+            if (i == 0) {
+                percentages[i] += remainder;
+            }
+        }
+
+        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
+            payoutToken: address(1),
+            payoutAddresses: addresses,
+            payoutPercentages: percentages
+        });
+
+        vm.expectRevert(MerchantLogic.TooManyPayoutRecipients.selector);
+        _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
+    }
+
+    function testSetMerchantConfigMaxRecipients() public {
+        uint256 numRecipients = MerchantLogic.MAX_PAYOUT_RECIPIENTS;
+        address[] memory addresses = new address[](numRecipients);
+        uint32[] memory percentages = new uint32[](numRecipients);
+
+        uint32 percentagePerRecipient = MerchantLogic.TOTAL_PERCENTAGE / uint32(numRecipients);
+        uint32 remainder = MerchantLogic.TOTAL_PERCENTAGE % uint32(numRecipients);
+
+        for (uint256 i = 0; i < numRecipients; ++i) {
+            addresses[i] = address(uint160(i + 1000));
+            percentages[i] = percentagePerRecipient;
+            if (i == 0) {
+                percentages[i] += remainder;
+            }
+        }
+
+        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
+            payoutToken: address(1),
+            payoutAddresses: addresses,
+            payoutPercentages: percentages
+        });
+
+        _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
+
+        MerchantLogic.MerchantConfig memory result = _dspay.getMerchantConfig(address(this));
+        assertEq(result.payoutAddresses.length, numRecipients);
+        assertEq(result.payoutAddresses[0], address(1000));
+        assertEq(result.payoutAddresses[numRecipients - 1], address(uint160(1000 + numRecipients - 1)));
+    }
 }

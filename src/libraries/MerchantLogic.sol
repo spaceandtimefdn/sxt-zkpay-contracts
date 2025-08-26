@@ -33,6 +33,9 @@ library MerchantLogic {
 
     error UnsupportedPaymentMethod();
 
+    /// @notice Error thrown when item ID callback is not configured
+    error ItemIdCallbackNotConfigured();
+
     uint32 public constant PERCENTAGE_PRECISION = 1e6;
     uint32 public constant TOTAL_PERCENTAGE = 100 * PERCENTAGE_PRECISION;
     uint256 public constant MAX_PAYOUT_RECIPIENTS = 16;
@@ -123,5 +126,9 @@ library MerchantLogic {
         returns (ItemIdCallbackConfig memory callbackConfig)
     {
         callbackConfig = merchantLogicStorage.itemIdCallbackConfigs[keccak256(abi.encodePacked(merchant, itemId))];
+
+        if (callbackConfig.contractAddress == ZERO_ADDRESS) {
+            revert ItemIdCallbackNotConfigured();
+        }
     }
 }

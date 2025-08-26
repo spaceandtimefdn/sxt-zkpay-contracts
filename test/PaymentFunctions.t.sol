@@ -10,13 +10,12 @@ import {AssetManagement} from "../src/libraries/AssetManagement.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {ZERO_ADDRESS} from "../src/libraries/Constants.sol";
 import {DummyData} from "./data/DummyData.sol";
-import {IMerchantCallback} from "../src/interfaces/IMerchantCallback.sol";
 import {MerchantLogic} from "../src/libraries/MerchantLogic.sol";
 import {RPC_URL, SXT, USDC, BLOCK_NUMBER, USDT, WETH} from "./data/MainnetConstants.sol";
 import {PendingPayment} from "../src/libraries/PendingPayment.sol";
 import {IDSPay} from "../src/interfaces/IDSPay.sol";
 
-contract MockCallbackContract is IMerchantCallback {
+contract MockCallbackContract {
     address private _merchant;
     uint256 public callCount;
     bytes public lastCallData;
@@ -27,10 +26,6 @@ contract MockCallbackContract is IMerchantCallback {
 
     constructor(address merchant_) {
         _merchant = merchant_;
-    }
-
-    function getMerchant() external view override returns (address) {
-        return _merchant;
     }
 
     function processCallback(uint256 value) external {
@@ -54,23 +49,7 @@ contract MockCallbackContract is IMerchantCallback {
     }
 }
 
-contract MockInvalidMerchantContract is IMerchantCallback {
-    event Processed(uint256 value);
-
-    function getMerchant() external pure override returns (address) {
-        return address(0x999);
-    }
-}
-
-contract MockContractWithoutGetMerchant {
-    event Processed(uint256 value);
-
-    function processCallback(uint256 value) external {
-        emit Processed(value);
-    }
-}
-
-contract MockCallbackContractWithMerchantValidation is IMerchantCallback {
+contract MockCallbackContractWithMerchantValidation {
     address private _expectedMerchant;
     uint256 public callCount;
     bytes public lastCallData;
@@ -81,10 +60,6 @@ contract MockCallbackContractWithMerchantValidation is IMerchantCallback {
 
     constructor(address expectedMerchant_) {
         _expectedMerchant = expectedMerchant_;
-    }
-
-    function getMerchant() external view override returns (address) {
-        return _expectedMerchant;
     }
 
     function processCallbackWithMetadata(DSPay.PaymentMetadata calldata metadata, uint256 value) external {
@@ -334,36 +309,6 @@ contract PaymentFunctionsTest is Test {
         assertEq(abi.decode(callbackContract.lastCallData(), (uint256)), 555);
     }
 
-    function testSendWithCallbackInvalidMerchant() public {
-        MockInvalidMerchantContract invalidCallbackContract = new MockInvalidMerchantContract();
-        bytes memory callbackData = abi.encode(42);
-
-        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
-
-        vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
-
-        vm.prank(targetMerchant);
-        dspay.setItemIdCallbackConfig(
-            bytes32(uint256(itemId)),
-            MerchantLogic.ItemIdCallbackConfig({
-                contractAddress: address(invalidCallbackContract),
-                funcSig: MockCallbackContract.processCallback.selector,
-                includePaymentMetadata: false,
-                acceptedMethods: MerchantLogic.SEND_METHOD | MerchantLogic.AUTHORIZE_METHOD
-            })
-        );
-
-        IERC20(USDC).approve(address(dspay), usdcAmount);
-
-        vm.expectRevert(DSPay.InvalidMerchant.selector);
-        dspay.sendWithCallback(
-            USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
-        );
-    }
-
     function testSendWithCallbackToZeroAddress() public {
         new MockCallbackContract(ZERO_ADDRESS);
         bytes memory callbackData = abi.encode(42);
@@ -514,32 +459,6 @@ contract PaymentFunctionsTest is Test {
         );
 
         assertEq(callbackContract.callCount(), 1);
-    }
-
-    function testSendWithCallbackWithoutGetMerchantMethod() public {
-        bytes memory callbackData = abi.encodeWithSelector(MockERC20.mint.selector, address(this), 1000);
-
-        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
-
-        usdc.approve(address(dspay), usdcAmount);
-
-        vm.expectRevert();
-        dspay.sendWithCallback(
-            USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
-        );
-
-        MockContractWithoutGetMerchant contractWithoutGetMerchant = new MockContractWithoutGetMerchant();
-        contractWithoutGetMerchant.processCallback(42);
-    }
-
-    function testSendWithCallbackInvalidItemId() public {
-        bytes memory callbackData = abi.encode(42);
-        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
-
-        IERC20(USDC).approve(address(dspay), usdcAmount);
-
-        vm.expectRevert(DSPay.InvalidItemId.selector);
-        dspay.sendWithCallback(USDC, usdcAmount, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0), callbackData);
     }
 
     function testSettleAuthorizedPaymentHappyPath() public {
@@ -732,7 +651,7 @@ contract PaymentFunctionsTest is Test {
 
         IERC20(USDC).approve(address(dspay), usdcAmount);
 
-        vm.expectRevert(DSPay.ItemIdCallbackNotConfigured.selector);
+        vm.expectRevert(MerchantLogic.ItemIdCallbackNotConfigured.selector);
         dspay.sendWithCallbackPathOverride(
             customPath, usdcAmount, onBehalfOfBytes32, ZERO_ADDRESS, memoBytes, bytes32(uint256(itemId)), callbackData
         );
@@ -897,7 +816,7 @@ contract PaymentFunctionsTest is Test {
         );
 
         IERC20(USDC).approve(address(dspay), usdcAmount);
-        vm.expectRevert(DSPay.ItemIdCallbackNotConfigured.selector);
+        vm.expectRevert(MerchantLogic.ItemIdCallbackNotConfigured.selector);
         dspay.authorizeWithCallback(
             USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
         );
@@ -1004,34 +923,6 @@ contract PaymentFunctionsTest is Test {
         assertEq(callbackContract.getLastPaymentMetadata().merchant, targetMerchant);
     }
 
-    function testSendWithCallbackMerchantValidationFailsWrongMerchant() public {
-        address wrongMerchant = vm.addr(0x999);
-        MockCallbackContractWithMerchantValidation callbackContract =
-            new MockCallbackContractWithMerchantValidation(wrongMerchant);
-        bytes memory callbackData = abi.encode(123);
-
-        vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
-        vm.prank(targetMerchant);
-        dspay.setItemIdCallbackConfig(
-            bytes32(uint256(itemId)),
-            MerchantLogic.ItemIdCallbackConfig({
-                contractAddress: address(callbackContract),
-                funcSig: MockCallbackContractWithMerchantValidation.processCallbackWithMetadata.selector,
-                includePaymentMetadata: true,
-                acceptedMethods: MerchantLogic.SEND_METHOD
-            })
-        );
-
-        IERC20(USDC).approve(address(dspay), usdcAmount);
-        vm.expectRevert(DSPay.InvalidMerchant.selector);
-        dspay.sendWithCallback(
-            USDC, usdcAmount, getOnBehalfOfBytes32(), targetMerchant, memoBytes, bytes32(uint256(itemId)), callbackData
-        );
-    }
-
     function testCallbackContractCanValidateViaBothMethods() public {
         MockCallbackContractWithMerchantValidation callbackContract =
             new MockCallbackContractWithMerchantValidation(targetMerchant);
@@ -1060,7 +951,6 @@ contract PaymentFunctionsTest is Test {
         assertEq(callbackContract.callCount(), 1);
         assertTrue(callbackContract.receivedMetadata());
         assertEq(callbackContract.getLastPaymentMetadata().merchant, targetMerchant);
-        assertEq(callbackContract.getMerchant(), targetMerchant);
     }
 
     function testAuthorizeWithCallbackMerchantValidationViaMetadata() public {

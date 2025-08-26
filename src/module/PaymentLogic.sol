@@ -110,11 +110,11 @@ library PaymentLogic {
     function authorizePayment(DSPay.DSPayStorage storage _dsPayStorage, AuthorizePaymentParams memory params)
         internal
         _validateAsset(_dsPayStorage.assets, params.asset)
-        returns (PendingPayment.Transaction memory transaction, bytes32 transactionHash)
+        returns (PendingPayment.Transaction memory transaction, bytes32 transactionHash, uint248 amountInUSD)
     {
         uint248 receivedSourceAssetAmount =
             AssetManagement.transferAssetFromCaller(params.asset, params.amount, address(this));
-        uint248 amountInUSD = _dsPayStorage.assets.convertToUsd(params.asset, receivedSourceAssetAmount);
+        amountInUSD = _dsPayStorage.assets.convertToUsd(params.asset, receivedSourceAssetAmount);
 
         if (receivedSourceAssetAmount == 0) {
             revert ZeroAmountReceived();
@@ -130,6 +130,8 @@ library PaymentLogic {
         });
 
         transactionHash = PendingPayment.authorize(_dsPayStorage.pendingPaymentStorage, transaction);
+
+        return (transaction, transactionHash, amountInUSD);
     }
 
     /// @notice Computes the breakdown of amounts for settlement (payment, refund)

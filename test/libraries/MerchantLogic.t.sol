@@ -16,6 +16,10 @@ contract MerchantLogicWrapper {
         return MerchantLogic.getConfig(_merchantLogicStorage, merchant);
     }
 
+    function isConfigured(address merchant) external view returns (bool) {
+        return MerchantLogic.isConfigured(_merchantLogicStorage, merchant);
+    }
+
     function setItemIdCallback(address merchant, bytes32 itemId, MerchantLogic.ItemIdCallbackConfig calldata config)
         external
     {
@@ -175,5 +179,25 @@ contract MerchantLogicTest is Test {
 
         vm.expectRevert(MerchantLogic.ZeroPayoutPercentage.selector);
         _wrapper.setConfig(address(this), merchantConfig);
+    }
+
+    function testIsConfigured() public {
+        address merchant = address(0x123);
+        
+        assertFalse(_wrapper.isConfigured(merchant));
+
+        address[] memory addresses = new address[](1);
+        addresses[0] = address(2);
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
+
+        MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
+            payoutToken: address(1),
+            payoutAddresses: addresses,
+            payoutPercentages: percentages
+        });
+
+        _wrapper.setConfig(merchant, merchantConfig);
+        assertTrue(_wrapper.isConfigured(merchant));
     }
 }

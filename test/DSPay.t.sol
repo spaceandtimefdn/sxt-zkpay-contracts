@@ -170,6 +170,22 @@ contract DSPayTest is Test {
         return mockToken;
     }
 
+    function _setupMerchantConfig(address merchant) internal {
+        address[] memory payoutAddresses = new address[](1);
+        payoutAddresses[0] = merchant;
+        uint32[] memory payoutPercentages = new uint32[](1);
+        payoutPercentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
+
+        MerchantLogic.MerchantConfig memory config = MerchantLogic.MerchantConfig({
+            payoutToken: address(0x1),
+            payoutAddresses: payoutAddresses,
+            payoutPercentages: payoutPercentages
+        });
+
+        vm.prank(merchant);
+        dspay.setMerchantConfig(config, DummyData.getDestinationAssetPath(address(0x1)));
+    }
+
     function testSetAndGetPaywallItemPrice() public {
         bytes32 item = bytes32(uint256(0x1234));
         uint248 price = 1 ether;
@@ -204,6 +220,8 @@ contract DSPayTest is Test {
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
 
+        _setupMerchantConfig(merchant);
+
         PendingPayment.Transaction memory expectedTransaction =
             PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
 
@@ -222,6 +240,7 @@ contract DSPayTest is Test {
         bytes32 itemId = bytes32("item123");
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount * 4);
+        _setupMerchantConfig(merchant);
 
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
@@ -245,6 +264,7 @@ contract DSPayTest is Test {
         bytes32 itemId = bytes32(0);
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
+        _setupMerchantConfig(merchant);
 
         vm.expectRevert(PaymentLogic.ZeroAmountReceived.selector);
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
@@ -271,6 +291,7 @@ contract DSPayTest is Test {
         bytes32 itemId = bytes32(type(uint256).max);
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
+        _setupMerchantConfig(merchant);
 
         PendingPayment.Transaction memory expectedTransaction =
             PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
@@ -304,6 +325,7 @@ contract DSPayTest is Test {
         bytes32 itemId = bytes32("longmemo");
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
+        _setupMerchantConfig(merchant);
 
         PendingPayment.Transaction memory expectedTransaction =
             PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
@@ -331,6 +353,9 @@ contract DSPayTest is Test {
             from: address(this),
             to: address(0x6666)
         });
+
+        _setupMerchantConfig(address(0x3333));
+        _setupMerchantConfig(address(0x6666));
 
         bytes32 expectedHash1 = keccak256(abi.encode(transaction1, 1, block.chainid));
         vm.expectEmit(true, true, true, true);
@@ -369,6 +394,7 @@ contract DSPayTest is Test {
         bytes32 itemId = bytes32("item123");
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount * 2);
+        _setupMerchantConfig(merchant);
 
         PendingPayment.Transaction memory expectedTransaction =
             PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
@@ -401,6 +427,7 @@ contract DSPayTest is Test {
         bytes32 itemId = bytes32("item123");
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
+        _setupMerchantConfig(merchant);
 
         PendingPayment.Transaction memory expectedTransaction =
             PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
@@ -424,6 +451,7 @@ contract DSPayTest is Test {
         vm.assume(merchant != ZERO_ADDRESS);
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
+        _setupMerchantConfig(merchant);
 
         PendingPayment.Transaction memory expectedTransaction =
             PendingPayment.Transaction({asset: address(mockToken), amount: amount, from: address(this), to: merchant});
@@ -446,6 +474,8 @@ contract DSPayTest is Test {
         mockToken.mint(address(this), amount);
         mockToken.approve(address(dspay), amount);
 
+        _setupMerchantConfig(merchant);
+
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
         dspay.authorize(address(mockToken), amount, onBehalfOf, merchant, memo, itemId);
     }
@@ -458,6 +488,7 @@ contract DSPayTest is Test {
         bytes32 itemId = bytes32("item123");
 
         MockERC20 mockToken = _setupMockTokenForAuthorize(amount);
+        _setupMerchantConfig(merchant);
 
         uint248 itemPrice = 2000 * 1e18;
         vm.prank(merchant);
@@ -482,6 +513,8 @@ contract DSPayTest is Test {
         dspay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
+
+        _setupMerchantConfig(merchant);
 
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
         bytes memory callbackData = abi.encode(42);
@@ -530,6 +563,8 @@ contract DSPayTest is Test {
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
 
+        _setupMerchantConfig(merchant);
+
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
         bytes memory callbackData = abi.encode(999);
 
@@ -568,6 +603,8 @@ contract DSPayTest is Test {
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
 
+        _setupMerchantConfig(merchant);
+
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
         callbackContract.setShouldFail(true);
         bytes memory callbackData = abi.encode(42);
@@ -597,6 +634,8 @@ contract DSPayTest is Test {
         bytes32 onBehalfOf = bytes32(uint256(uint160(vm.addr(0x11))));
         bytes memory memo = "unsupported asset test";
         bytes32 itemId = bytes32(uint256(102));
+
+        _setupMerchantConfig(merchant);
 
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
         bytes memory callbackData = abi.encode(42);
@@ -628,6 +667,8 @@ contract DSPayTest is Test {
         dspay.setPaymentAsset(
             address(mockToken), paymentAssetInstance, DummyData.getOriginAssetPath(address(mockToken))
         );
+
+        _setupMerchantConfig(merchant);
 
         MockAuthorizeCallbackContract callbackContract = new MockAuthorizeCallbackContract(merchant);
         bytes memory callbackData = abi.encode(42);

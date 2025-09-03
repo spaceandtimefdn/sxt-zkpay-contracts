@@ -256,6 +256,9 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         if (merchant == ZERO_ADDRESS) {
             revert MerchantAddressCannotBeZero();
         }
+        if (!_dsPayStorage.merchantLogicStorage.isConfigured(merchant)) {
+            revert MerchantLogic.MerchantNotConfigured();
+        }
         PaymentLogic.AuthorizePaymentParams memory params =
             PaymentLogic.AuthorizePaymentParams({asset: asset, amount: amount, merchant: merchant, itemId: itemId});
 

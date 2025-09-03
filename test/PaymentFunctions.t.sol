@@ -986,4 +986,35 @@ contract PaymentFunctionsTest is Test {
         assertTrue(callbackContract.receivedMetadata());
         assertEq(callbackContract.getLastPaymentMetadata().merchant, targetMerchant);
     }
+
+    function testAuthorizePaymentToNonexistentMerchant() public {
+        uint248 sxtAmount = 100 ether;
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
+
+        vm.prank(targetMerchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
+        );
+
+        vm.startPrank(admin);
+        address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
+        dspay.setPaymentAsset(
+            SXT,
+            AssetManagement.PaymentAsset({
+                priceFeed: sxtPriceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 1000
+            }),
+            DummyData.getOriginAssetPath(SXT)
+        );
+        vm.stopPrank();
+
+        deal(SXT, address(this), sxtAmount);
+        IERC20(SXT).approve(address(dspay), sxtAmount);
+
+        address nonexistentMerchant = vm.addr(0x999);
+
+        vm.expectRevert(MerchantLogic.MerchantNotConfigured.selector);
+        dspay.authorize(SXT, sxtAmount, onBehalfOfBytes32, nonexistentMerchant, "test", bytes32(0));
+    }
 }

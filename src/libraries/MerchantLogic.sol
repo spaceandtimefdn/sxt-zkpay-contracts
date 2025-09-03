@@ -28,6 +28,9 @@ library MerchantLogic {
     /// @notice Error thrown when a payout percentage is zero
     error ZeroPayoutPercentage();
 
+    /// @notice Error thrown when trying to use an unconfigured merchant
+    error MerchantNotConfigured();
+
     /// @notice Error thrown when too many payout recipients are specified
     error TooManyPayoutRecipients();
 
@@ -103,6 +106,14 @@ library MerchantLogic {
         returns (MerchantConfig memory config)
     {
         config = merchantLogicStorage.merchantConfigs[merchant];
+    }
+
+    function isConfigured(MerchantLogicStorage storage merchantLogicStorage, address merchant)
+        internal
+        view
+        returns (bool)
+    {
+        return merchantLogicStorage.merchantConfigs[merchant].payoutToken != ZERO_ADDRESS;
     }
 
     function setItemIdCallback(

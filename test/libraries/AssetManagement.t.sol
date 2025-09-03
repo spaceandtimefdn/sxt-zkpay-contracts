@@ -74,6 +74,14 @@ contract AssetManagementTestWrapper {
         return _assets[asset];
     }
 
+    function getPaymentAssetWithValidation(address asset)
+        external
+        view
+        returns (AssetManagement.PaymentAsset memory storageAsset)
+    {
+        storageAsset = AssetManagement.get(_assets, asset);
+    }
+
     function removeAsset(address asset) external {
         AssetManagement.remove(_assets, asset);
     }
@@ -117,7 +125,8 @@ contract AssetManagementTest is Test {
             AssetManagement.PaymentAsset({
                 priceFeed: priceFeed,
                 tokenDecimals: tokenDecimals,
-                stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
+                stalePriceThresholdInSeconds: stalePriceThresholdInSeconds,
+                active: true
             })
         );
 
@@ -132,7 +141,12 @@ contract AssetManagementTest is Test {
         vm.expectRevert(AssetManagement.InvalidPriceFeed.selector);
         _wrapper.setPaymentAsset(
             address(0x1),
-            AssetManagement.PaymentAsset({priceFeed: address(0x1), tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
+            AssetManagement.PaymentAsset({
+                priceFeed: address(0x1),
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 100,
+                active: true
+            })
         );
     }
 
@@ -141,7 +155,12 @@ contract AssetManagementTest is Test {
 
         _wrapper.setPaymentAsset(
             address(0x4),
-            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
+            AssetManagement.PaymentAsset({
+                priceFeed: priceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 100,
+                active: true
+            })
         );
 
         vm.expectEmit(true, true, true, true);
@@ -149,7 +168,17 @@ contract AssetManagementTest is Test {
 
         _wrapper.removeAsset(address(0x4));
 
-        assertEq(_wrapper.getPaymentAsset(address(0x4)).priceFeed, ZERO_ADDRESS);
+        assertFalse(_wrapper.getPaymentAsset(address(0x4)).active);
+    }
+
+    function testRemoveAssetNotFound() public {
+        vm.expectRevert(AssetManagement.AssetNotFound.selector);
+        _wrapper.removeAsset(address(0x999));
+    }
+
+    function testGetAssetNotFound() public {
+        vm.expectRevert(AssetManagement.AssetNotFound.selector);
+        _wrapper.getPaymentAssetWithValidation(address(0x999));
     }
 
     function testIsSupported() public {
@@ -158,7 +187,12 @@ contract AssetManagementTest is Test {
         address priceFeed = address(new MockV3Aggregator(8, 100));
         _wrapper.setPaymentAsset(
             address(0x1),
-            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
+            AssetManagement.PaymentAsset({
+                priceFeed: priceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 100,
+                active: true
+            })
         );
 
         assertEq(_wrapper.isSupported(address(0x1)), true);
@@ -168,7 +202,12 @@ contract AssetManagementTest is Test {
     function testInvalidPriceFeedWhenZeroAddress() public {
         vm.expectRevert(AssetManagement.InvalidPriceFeed.selector);
         _wrapper.validatePriceFeed(
-            AssetManagement.PaymentAsset({priceFeed: ZERO_ADDRESS, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
+            AssetManagement.PaymentAsset({
+                priceFeed: ZERO_ADDRESS,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 100,
+                active: true
+            })
         );
     }
 
@@ -177,7 +216,12 @@ contract AssetManagementTest is Test {
         MockV3Aggregator(priceFeed).updateAnswer(0);
         vm.expectRevert(AssetManagement.InvalidPriceFeedData.selector);
         _wrapper.validatePriceFeed(
-            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
+            AssetManagement.PaymentAsset({
+                priceFeed: priceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 100,
+                active: true
+            })
         );
     }
 
@@ -196,7 +240,8 @@ contract AssetManagementTest is Test {
             AssetManagement.PaymentAsset({
                 priceFeed: address(priceFeed2),
                 tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
+                stalePriceThresholdInSeconds: 100,
+                active: true
             })
         );
     }
@@ -206,7 +251,12 @@ contract AssetManagementTest is Test {
         MockV3Aggregator(priceFeed).updateAnswer(-1);
         vm.expectRevert(AssetManagement.InvalidPriceFeedData.selector);
         _wrapper.validatePriceFeed(
-            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
+            AssetManagement.PaymentAsset({
+                priceFeed: priceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 100,
+                active: true
+            })
         );
     }
 
@@ -219,7 +269,8 @@ contract AssetManagementTest is Test {
             AssetManagement.PaymentAsset({
                 priceFeed: address(mockZeroAggregator),
                 tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
+                stalePriceThresholdInSeconds: 100,
+                active: true
             })
         );
     }
@@ -233,7 +284,8 @@ contract AssetManagementTest is Test {
             AssetManagement.PaymentAsset({
                 priceFeed: address(mockIncompleteAggregator),
                 tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
+                stalePriceThresholdInSeconds: 100,
+                active: true
             })
         );
     }
@@ -247,7 +299,8 @@ contract AssetManagementTest is Test {
             AssetManagement.PaymentAsset({
                 priceFeed: address(priceFeed2),
                 tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
+                stalePriceThresholdInSeconds: 100,
+                active: true
             })
         );
 
@@ -265,7 +318,8 @@ contract AssetManagementTest is Test {
             AssetManagement.PaymentAsset({
                 priceFeed: address(priceFeed2),
                 tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 100
+                stalePriceThresholdInSeconds: 100,
+                active: true
             })
         );
 
@@ -279,7 +333,12 @@ contract AssetManagementTest is Test {
 
         _wrapper.setPaymentAsset(
             address(0x1),
-            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
+            AssetManagement.PaymentAsset({
+                priceFeed: priceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 100,
+                active: true
+            })
         );
 
         uint248 amount = 1e18;
@@ -292,7 +351,12 @@ contract AssetManagementTest is Test {
 
         _wrapper.setPaymentAsset(
             address(0x1),
-            AssetManagement.PaymentAsset({priceFeed: priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 100})
+            AssetManagement.PaymentAsset({
+                priceFeed: priceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 100,
+                active: true
+            })
         );
 
         uint248 usdValue = 1e18; // 1 USD in 18 decimals

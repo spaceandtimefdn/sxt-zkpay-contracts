@@ -58,8 +58,12 @@ contract DSPayTest is Test {
 
         dspay = new DSPay(_admin, DummyData.getSwapLogicConfig());
 
-        paymentAssetInstance =
-            AssetManagement.PaymentAsset({priceFeed: _priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 1000});
+        paymentAssetInstance = AssetManagement.PaymentAsset({
+            priceFeed: _priceFeed,
+            tokenDecimals: 18,
+            stalePriceThresholdInSeconds: 1000,
+            active: true
+        });
     }
 
     function testAdminRoleTransfer() public {
@@ -102,7 +106,8 @@ contract DSPayTest is Test {
             AssetManagement.PaymentAsset({
                 priceFeed: _priceFeed,
                 tokenDecimals: tokenDecimals,
-                stalePriceThresholdInSeconds: stalePriceThresholdInSeconds
+                stalePriceThresholdInSeconds: stalePriceThresholdInSeconds,
+                active: true
             }),
             DummyData.getOriginAssetPath(asset)
         );
@@ -138,16 +143,21 @@ contract DSPayTest is Test {
     function testRemovePaymentAsset() public {
         vm.startPrank(_admin);
 
+        dspay.setPaymentAsset(address(0x100), paymentAssetInstance, DummyData.getOriginAssetPath(address(0x100)));
+
         vm.expectEmit(true, true, true, true);
         emit AssetManagement.AssetRemoved(address(0x100));
 
         dspay.removePaymentAsset(address(0x100));
 
-        vm.expectRevert(AssetManagement.AssetNotFound.selector);
-        dspay.getPaymentAsset(address(0x100));
+        AssetManagement.PaymentAsset memory asset = dspay.getPaymentAsset(address(0x100));
+        assertFalse(asset.active);
     }
 
     function testFuzzOnlyAdminCanRemovePaymentAsset(address caller) public {
+        vm.prank(_admin);
+        dspay.setPaymentAsset(address(0x100), paymentAssetInstance, DummyData.getOriginAssetPath(address(0x100)));
+
         vm.prank(caller);
 
         if (caller != _admin) {

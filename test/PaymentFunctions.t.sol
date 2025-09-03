@@ -145,7 +145,8 @@ contract PaymentFunctionsTest is Test {
             AssetManagement.PaymentAsset({
                 priceFeed: usdcPriceFeed,
                 tokenDecimals: 6,
-                stalePriceThresholdInSeconds: 1000
+                stalePriceThresholdInSeconds: 1000,
+                active: true
             }),
             DummyData.getOriginAssetPath(USDC)
         );
@@ -265,7 +266,8 @@ contract PaymentFunctionsTest is Test {
             AssetManagement.PaymentAsset({
                 priceFeed: sxtPriceFeed,
                 tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 1000
+                stalePriceThresholdInSeconds: 1000,
+                active: true
             }),
             DummyData.getOriginAssetPath(SXT)
         );
@@ -498,7 +500,8 @@ contract PaymentFunctionsTest is Test {
             AssetManagement.PaymentAsset({
                 priceFeed: sxtPriceFeed,
                 tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 1000
+                stalePriceThresholdInSeconds: 1000,
+                active: true
             }),
             DummyData.getOriginAssetPath(SXT)
         );
@@ -696,7 +699,8 @@ contract PaymentFunctionsTest is Test {
             AssetManagement.PaymentAsset({
                 priceFeed: sxtPriceFeed,
                 tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 1000
+                stalePriceThresholdInSeconds: 1000,
+                active: true
             }),
             DummyData.getOriginAssetPath(SXT)
         );
@@ -1085,5 +1089,74 @@ contract PaymentFunctionsTest is Test {
         dspay.sendPathOverride(customPath, usdcAmount, onBehalfOfBytes32, merchant, memoBytes, bytes32(0));
 
         assertGt(IERC20(USDC).balanceOf(merchant), 0);
+    }
+
+    function testRemovingPaymentAssetWithOngoingAuthorizedTransactions() public {
+        address client = address(this);
+        uint248 sxtAmount = 100 ether;
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
+
+        vm.prank(targetMerchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
+        );
+
+        vm.startPrank(admin);
+        address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
+        dspay.setPaymentAsset(
+            SXT,
+            AssetManagement.PaymentAsset({
+                priceFeed: sxtPriceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 1000,
+                active: true
+            }),
+            DummyData.getOriginAssetPath(SXT)
+        );
+        vm.stopPrank();
+
+        deal(SXT, address(this), sxtAmount);
+        IERC20(SXT).approve(address(dspay), sxtAmount);
+
+        dspay.authorize(SXT, sxtAmount, onBehalfOfBytes32, targetMerchant, "test", bytes32(0));
+
+        bytes32 transactionHash = PendingPayment.generateTransactionHash(
+            PendingPayment.Transaction({asset: SXT, amount: sxtAmount, from: client, to: targetMerchant}), 1
+        );
+
+        vm.prank(admin);
+        dspay.removePaymentAsset(SXT);
+
+        vm.prank(targetMerchant);
+        dspay.settleAuthorizedPayment(SXT, sxtAmount, client, transactionHash, 1 ether);
+
+        assertGt(IERC20(USDC).balanceOf(targetMerchant), 0);
+    }
+
+    function testCannotAuthorizeWithDisabledAsset() public {
+        uint248 sxtAmount = 100 ether;
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
+
+        vm.startPrank(admin);
+        address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
+        dspay.setPaymentAsset(
+            SXT,
+            AssetManagement.PaymentAsset({
+                priceFeed: sxtPriceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 1000,
+                active: true
+            }),
+            DummyData.getOriginAssetPath(SXT)
+        );
+
+        dspay.removePaymentAsset(SXT);
+        vm.stopPrank();
+
+        deal(SXT, address(this), sxtAmount);
+        IERC20(SXT).approve(address(dspay), sxtAmount);
+
+        vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
+        dspay.authorize(SXT, sxtAmount, onBehalfOfBytes32, targetMerchant, "test", bytes32(0));
     }
 }

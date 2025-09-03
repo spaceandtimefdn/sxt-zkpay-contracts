@@ -288,7 +288,8 @@ contract PaymentLogicProcessPaymentWrapper {
         AssetManagement.PaymentAsset memory sxtAsset = AssetManagement.PaymentAsset({
             priceFeed: address(sxtPriceFeed),
             tokenDecimals: 18,
-            stalePriceThresholdInSeconds: 3600
+            stalePriceThresholdInSeconds: 3600,
+            active: true
         });
         AssetManagement.set(dsPayStorage.assets, SXT, sxtAsset);
 
@@ -426,7 +427,8 @@ contract PaymentLogicAuthorizePaymentWrapper {
         AssetManagement.PaymentAsset memory sxtAsset = AssetManagement.PaymentAsset({
             priceFeed: address(sxtPriceFeed),
             tokenDecimals: 18,
-            stalePriceThresholdInSeconds: 3600
+            stalePriceThresholdInSeconds: 3600,
+            active: true
         });
         AssetManagement.set(dsPayStorage.assets, SXT, sxtAsset);
 
@@ -434,7 +436,8 @@ contract PaymentLogicAuthorizePaymentWrapper {
         AssetManagement.PaymentAsset memory usdtAsset = AssetManagement.PaymentAsset({
             priceFeed: address(usdtPriceFeed),
             tokenDecimals: 6,
-            stalePriceThresholdInSeconds: 3600
+            stalePriceThresholdInSeconds: 3600,
+            active: true
         });
         AssetManagement.set(dsPayStorage.assets, USDT, usdtAsset);
 

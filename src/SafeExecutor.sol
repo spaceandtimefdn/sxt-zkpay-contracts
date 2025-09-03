@@ -7,8 +7,21 @@ import {ISafeExecutor} from "./interfaces/ISafeExecutor.sol";
 /// @notice A contract that executes calls to other contracts
 /// NOTE: this contract should not hold any funds, it's only used to execute calls to other contracts
 contract SafeExecutor is ISafeExecutor {
+    address public immutable OWNER;
+
+    constructor() {
+        OWNER = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        if (msg.sender != OWNER) {
+            revert Unauthorized();
+        }
+        _;
+    }
+
     /// @inheritdoc ISafeExecutor
-    function execute(address target, bytes calldata data) external {
+    function execute(address target, bytes calldata data) external onlyOwner {
         if (target.code.length == 0) {
             revert InvalidTarget();
         }

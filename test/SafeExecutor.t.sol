@@ -77,4 +77,12 @@ contract SafeExecutorTest is Test {
 
         assertEq(token.balanceOf(address(this)), 1000);
     }
+
+    function testExecuteUnauthorized() public {
+        bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 123);
+
+        vm.prank(address(0x999));
+        vm.expectRevert(ISafeExecutor.Unauthorized.selector);
+        safeExecutor.execute(address(mockTarget), data);
+    }
 }

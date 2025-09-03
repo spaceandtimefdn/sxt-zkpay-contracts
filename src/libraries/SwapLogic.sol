@@ -216,6 +216,12 @@ library SwapLogic {
         address targetAssetRecipient,
         bytes memory customSourceAssetPath
     ) internal returns (uint256 receivedTargetAssetAmount) {
+        address targetAsset = getMerchantPayoutAsset(_swapLogicStorage, merchant);
+
+        if (sourceAsset == targetAsset) {
+            return sourceAssetAmountIn;
+        }
+
         bytes memory swapPath;
         if (customSourceAssetPath.length > 0) {
             swapPath = _connect2Paths(

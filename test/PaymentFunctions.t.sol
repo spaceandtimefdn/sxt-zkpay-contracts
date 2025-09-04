@@ -167,7 +167,27 @@ contract PaymentFunctionsTest is Test {
         return MerchantLogic.MerchantConfig({
             payoutToken: payoutToken,
             payoutAddresses: addresses,
-            payoutPercentages: percentages
+            payoutPercentages: percentages,
+            allowUserCustomPath: true
+        });
+    }
+
+    function createSingleRecipientConfigWithCustomPathFlag(
+        address payoutToken,
+        address payoutAddress,
+        bool allowUserCustomPath
+    ) internal pure returns (MerchantLogic.MerchantConfig memory) {
+        address[] memory addresses = new address[](1);
+        addresses[0] = payoutAddress;
+
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
+
+        return MerchantLogic.MerchantConfig({
+            payoutToken: payoutToken,
+            payoutAddresses: addresses,
+            payoutPercentages: percentages,
+            allowUserCustomPath: allowUserCustomPath
         });
     }
 
@@ -651,7 +671,7 @@ contract PaymentFunctionsTest is Test {
 
         IERC20(USDC).approve(address(dspay), usdcAmount);
 
-        vm.expectRevert(MerchantLogic.ItemIdCallbackNotConfigured.selector);
+        vm.expectRevert(DSPay.MerchantAddressCannotBeZero.selector);
         dspay.sendWithCallbackPathOverride(
             customPath, usdcAmount, onBehalfOfBytes32, ZERO_ADDRESS, memoBytes, bytes32(uint256(itemId)), callbackData
         );
@@ -985,5 +1005,85 @@ contract PaymentFunctionsTest is Test {
         assertEq(callbackContract.callCount(), 1);
         assertTrue(callbackContract.receivedMetadata());
         assertEq(callbackContract.getLastPaymentMetadata().merchant, targetMerchant);
+    }
+
+    function testSendPathOverrideUserCustomPathNotAllowed() public {
+        address merchant = address(0x123);
+        uint248 usdcAmount = 100e6;
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
+        bytes memory memoBytes = "test memo";
+
+        vm.prank(merchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfigWithCustomPathFlag(USDC, merchant, false),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        bytes memory customPath = DummyData.getOriginAssetPath(USDC);
+
+        deal(USDC, address(this), usdcAmount);
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+
+        vm.expectRevert(MerchantLogic.UserCustomPathNotAllowed.selector);
+        dspay.sendPathOverride(customPath, usdcAmount, onBehalfOfBytes32, merchant, memoBytes, bytes32(0));
+    }
+
+    function testSendWithCallbackPathOverrideUserCustomPathNotAllowed() public {
+        address merchant = address(0x123);
+        uint248 usdcAmount = 100e6;
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
+        bytes memory memoBytes = "test memo";
+        bytes32 itemId = bytes32(uint256(123));
+        bytes memory callbackData = "test callback data";
+
+        MockCallbackContract callbackContract = new MockCallbackContract(merchant);
+
+        vm.prank(merchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfigWithCustomPathFlag(USDC, merchant, false),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        vm.prank(merchant);
+        dspay.setItemIdCallbackConfig(
+            itemId,
+            MerchantLogic.ItemIdCallbackConfig({
+                contractAddress: address(callbackContract),
+                funcSig: MockCallbackContract.processCallback.selector,
+                includePaymentMetadata: false,
+                acceptedMethods: MerchantLogic.SEND_METHOD
+            })
+        );
+
+        bytes memory customPath = DummyData.getOriginAssetPath(USDC);
+
+        deal(USDC, address(this), usdcAmount);
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+
+        vm.expectRevert(MerchantLogic.UserCustomPathNotAllowed.selector);
+        dspay.sendWithCallbackPathOverride(
+            customPath, usdcAmount, onBehalfOfBytes32, merchant, memoBytes, itemId, callbackData
+        );
+    }
+
+    function testSendPathOverrideUserCustomPathAllowed() public {
+        address merchant = address(0x123);
+        uint248 usdcAmount = 100e6;
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
+        bytes memory memoBytes = "test memo";
+
+        vm.prank(merchant);
+        dspay.setMerchantConfig(
+            createSingleRecipientConfigWithCustomPathFlag(USDC, merchant, true), DummyData.getDestinationAssetPath(USDC)
+        );
+
+        bytes memory customPath = DummyData.getOriginAssetPath(USDC);
+
+        deal(USDC, address(this), usdcAmount);
+        IERC20(USDC).approve(address(dspay), usdcAmount);
+
+        dspay.sendPathOverride(customPath, usdcAmount, onBehalfOfBytes32, merchant, memoBytes, bytes32(0));
+
+        assertGt(IERC20(USDC).balanceOf(merchant), 0);
     }
 }

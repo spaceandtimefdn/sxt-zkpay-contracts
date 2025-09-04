@@ -236,6 +236,15 @@ contract SwapLogicTest is Test {
         assertEq(SwapLogic.extractPathDestinationAsset(result), token4);
     }
 
+    function testConnect2PathsUSDTToUSDT() public pure {
+        bytes memory path1 = abi.encodePacked(USDT);
+        bytes memory path2 = abi.encodePacked(USDT);
+        bytes memory result = SwapLogic._connect2Paths(path1, path2);
+        assertEq(result, path1);
+        assertEq(result.length, 20);
+        assertEq(SwapLogic.extractPathDestinationAsset(result), USDT);
+    }
+
     function testGetMerchantPayoutAsset() public {
         address payoutAsset = address(0x5555);
         bytes memory merchantPath = abi.encodePacked(USDT, bytes3(0x102030), payoutAsset);

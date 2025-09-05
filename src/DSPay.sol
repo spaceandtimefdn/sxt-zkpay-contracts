@@ -297,10 +297,10 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
 
         emit Authorized(transaction, transactionHash, onBehalfOf, memo, itemId);
 
-        MerchantLogic.MerchantConfig memory merchantConfig = _dsPayStorage.merchantLogicStorage.getConfig(merchant);
+        address payoutToken = _dsPayStorage.swapLogicStorage.getMerchantPayoutAsset(merchant);
 
         metadata = PaymentMetadata({
-            payoutToken: merchantConfig.payoutToken,
+            payoutToken: payoutToken,
             payoutAmount: 0,
             amountInUSD: amountInUSD,
             onBehalfOf: onBehalfOf,

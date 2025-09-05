@@ -86,9 +86,7 @@ contract PaymentFunctionsTest is Test {
 
     function _setupMerchantConfig() internal {
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
     }
 
     function _setupCallbackConfig(address contractAddress, bytes4 funcSig) internal {
@@ -158,7 +156,7 @@ contract PaymentFunctionsTest is Test {
         vm.stopPrank();
     }
 
-    function createSingleRecipientConfig(address payoutToken, address payoutAddress)
+    function createSingleRecipientConfig(address payoutAddress)
         internal
         pure
         returns (MerchantLogic.MerchantConfig memory)
@@ -170,18 +168,17 @@ contract PaymentFunctionsTest is Test {
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
 
         return MerchantLogic.MerchantConfig({
-            payoutToken: payoutToken,
             payoutAddresses: addresses,
             payoutPercentages: percentages,
             allowUserCustomPath: true
         });
     }
 
-    function createSingleRecipientConfigWithCustomPathFlag(
-        address payoutToken,
-        address payoutAddress,
-        bool allowUserCustomPath
-    ) internal pure returns (MerchantLogic.MerchantConfig memory) {
+    function createSingleRecipientConfigWithCustomPathFlag(address payoutAddress, bool allowUserCustomPath)
+        internal
+        pure
+        returns (MerchantLogic.MerchantConfig memory)
+    {
         address[] memory addresses = new address[](1);
         addresses[0] = payoutAddress;
 
@@ -189,7 +186,6 @@ contract PaymentFunctionsTest is Test {
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
 
         return MerchantLogic.MerchantConfig({
-            payoutToken: payoutToken,
             payoutAddresses: addresses,
             payoutPercentages: percentages,
             allowUserCustomPath: allowUserCustomPath
@@ -213,9 +209,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         IERC20(USDC).approve(address(dspay), usdcAmountTest);
         dspay.send(USDC, usdcAmountTest, onBehalfOfBytes32, targetMerchant, memoBytes, bytes32(0));
@@ -259,9 +253,7 @@ contract PaymentFunctionsTest is Test {
         uint248 sxtAmount = 100e18;
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         vm.startPrank(admin);
         address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
@@ -395,9 +387,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
@@ -430,9 +420,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
@@ -463,9 +451,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
@@ -493,9 +479,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         vm.startPrank(admin);
         address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
@@ -535,9 +519,7 @@ contract PaymentFunctionsTest is Test {
         bytes memory customPath = DummyData.getOriginAssetPath(USDC);
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         IERC20(USDC).approve(address(dspay), usdcAmount);
 
@@ -563,9 +545,7 @@ contract PaymentFunctionsTest is Test {
         bytes memory customPath = DummyData.getOriginAssetPath(USDC);
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
@@ -594,9 +574,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
@@ -637,9 +615,7 @@ contract PaymentFunctionsTest is Test {
         bytes memory customPath = DummyData.getOriginAssetPath(USDC);
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
@@ -693,9 +669,7 @@ contract PaymentFunctionsTest is Test {
             abi.encodePacked(SXT, uint24(3000), USDT, uint24(100), USDC, uint24(500), WETH, uint24(3000), USDT);
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         vm.startPrank(admin);
         address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
@@ -762,9 +736,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 generatedItemId = keccak256(abi.encode(address(callbackContract), selector));
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
             generatedItemId,
@@ -815,9 +787,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 generatedItemId = keccak256(abi.encode(address(callbackContract), selector));
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
             generatedItemId,
@@ -840,9 +810,7 @@ contract PaymentFunctionsTest is Test {
         bytes memory callbackData = abi.encode(123);
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         IERC20(USDC).approve(address(dspay), usdcAmount);
         vm.expectRevert(MerchantLogic.ItemIdCallbackNotConfigured.selector);
@@ -858,9 +826,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 generatedItemId = keccak256(abi.encode(address(callbackContract), selector));
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
             generatedItemId,
@@ -899,9 +865,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 generatedItemId = keccak256(abi.encode(address(callbackContract), selector));
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
             generatedItemId,
@@ -929,9 +893,7 @@ contract PaymentFunctionsTest is Test {
         bytes memory callbackData = abi.encode(123);
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
             bytes32(uint256(itemId)),
@@ -959,9 +921,7 @@ contract PaymentFunctionsTest is Test {
         bytes memory callbackData = abi.encode(456);
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
             bytes32(uint256(itemId)),
@@ -993,9 +953,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 generatedItemId = keccak256(abi.encode(address(callbackContract), selector));
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
         vm.prank(targetMerchant);
         dspay.setItemIdCallbackConfig(
             generatedItemId,
@@ -1025,8 +983,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(merchant);
         dspay.setMerchantConfig(
-            createSingleRecipientConfigWithCustomPathFlag(USDC, merchant, false),
-            DummyData.getDestinationAssetPath(USDC)
+            createSingleRecipientConfigWithCustomPathFlag(merchant, false), DummyData.getDestinationAssetPath(USDC)
         );
 
         bytes memory customPath = DummyData.getOriginAssetPath(USDC);
@@ -1050,8 +1007,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(merchant);
         dspay.setMerchantConfig(
-            createSingleRecipientConfigWithCustomPathFlag(USDC, merchant, false),
-            DummyData.getDestinationAssetPath(USDC)
+            createSingleRecipientConfigWithCustomPathFlag(merchant, false), DummyData.getDestinationAssetPath(USDC)
         );
 
         vm.prank(merchant);
@@ -1084,7 +1040,7 @@ contract PaymentFunctionsTest is Test {
 
         vm.prank(merchant);
         dspay.setMerchantConfig(
-            createSingleRecipientConfigWithCustomPathFlag(USDC, merchant, true), DummyData.getDestinationAssetPath(USDC)
+            createSingleRecipientConfigWithCustomPathFlag(merchant, true), DummyData.getDestinationAssetPath(USDC)
         );
 
         bytes memory customPath = DummyData.getOriginAssetPath(USDC);
@@ -1103,9 +1059,7 @@ contract PaymentFunctionsTest is Test {
         bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
 
         vm.prank(targetMerchant);
-        dspay.setMerchantConfig(
-            createSingleRecipientConfig(USDC, targetMerchant), DummyData.getDestinationAssetPath(USDC)
-        );
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
 
         vm.startPrank(admin);
         address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));

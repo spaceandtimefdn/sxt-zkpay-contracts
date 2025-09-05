@@ -6,16 +6,11 @@ import {ZERO_ADDRESS} from "./Constants.sol";
 library MerchantLogic {
     /// @notice Emitted when a merchant updates their configuration
     /// @param merchant Address of the merchant
-    /// @param payoutToken Target token address for payouts
     /// @param payoutAddresses Array of payout addresses
     /// @param payoutPercentages Array of payout percentages
     /// @param allowUserCustomPath Whether users can provide custom swap paths
     event MerchantConfigSet(
-        address indexed merchant,
-        address payoutToken,
-        address[] payoutAddresses,
-        uint32[] payoutPercentages,
-        bool allowUserCustomPath
+        address indexed merchant, address[] payoutAddresses, uint32[] payoutPercentages, bool allowUserCustomPath
     );
 
     /// @notice Error thrown when payout percentages don't sum to 100%
@@ -50,7 +45,6 @@ library MerchantLogic {
 
     struct MerchantConfig {
         bool allowUserCustomPath;
-        address payoutToken;
         address[] payoutAddresses;
         uint32[] payoutPercentages;
     }
@@ -103,9 +97,7 @@ library MerchantLogic {
 
         merchantLogicStorage.merchantConfigs[merchant] = config;
 
-        emit MerchantConfigSet(
-            merchant, config.payoutToken, config.payoutAddresses, config.payoutPercentages, config.allowUserCustomPath
-        );
+        emit MerchantConfigSet(merchant, config.payoutAddresses, config.payoutPercentages, config.allowUserCustomPath);
     }
 
     function getConfig(MerchantLogicStorage storage merchantLogicStorage, address merchant)

@@ -300,7 +300,6 @@ contract PaymentLogicProcessPaymentWrapper {
         dsPayStorage.merchantLogicStorage.setConfig(
             MERCHANT,
             MerchantLogic.MerchantConfig({
-                payoutToken: USDC,
                 payoutAddresses: addresses,
                 payoutPercentages: percentages,
                 allowUserCustomPath: true
@@ -448,7 +447,6 @@ contract PaymentLogicAuthorizePaymentWrapper {
         dsPayStorage.merchantLogicStorage.setConfig(
             MERCHANT,
             MerchantLogic.MerchantConfig({
-                payoutToken: USDC,
                 payoutAddresses: addresses,
                 payoutPercentages: percentages,
                 allowUserCustomPath: true

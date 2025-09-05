@@ -236,6 +236,23 @@ contract SwapLogicTest is Test {
         assertEq(SwapLogic.extractPathDestinationAsset(result), token4);
     }
 
+    function testConnect2PathsTotalOptimization() public pure {
+        address token1 = address(0x1111);
+        address token2 = address(0x2222);
+        address token3 = address(0x3333);
+
+        bytes memory pathA =
+            abi.encodePacked(token1, bytes3(0x112233), token2, bytes3(0x445566), token3, bytes3(0x778899), USDT);
+        bytes memory pathB =
+            abi.encodePacked(USDT, bytes3(0x102030), token3, bytes3(0x405060), token2, bytes3(0x708090), token1);
+        bytes memory result = SwapLogic._connect2Paths(pathA, pathB);
+
+        bytes memory expected = abi.encodePacked(token1);
+        assertEq(result, expected);
+        assertEq(SwapLogic.extractPathOriginAsset(result), token1);
+        assertEq(SwapLogic.extractPathDestinationAsset(result), token1);
+    }
+
     function testConnect2PathsUSDTToUSDT() public pure {
         bytes memory path1 = abi.encodePacked(USDT);
         bytes memory path2 = abi.encodePacked(USDT);

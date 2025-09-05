@@ -14,7 +14,7 @@ library SwapLogic {
     uint256 internal constant WORD_SIZE = 0x20;
     uint256 internal constant ADDRESS_SIZE = 20;
     uint256 internal constant FEE_SIZE = 3;
-    uint256 internal constant ADDRESS_PLUS_FEE = ADDRESS_SIZE + FEE_SIZE;
+    uint256 internal constant ADDRESS_PLUS_FEE = 23;
     uint256 internal constant ADDRESS_OFFSET_BITS = 96;
     uint256 internal constant MIN_AMOUNT_OUT = 0;
 
@@ -108,43 +108,6 @@ library SwapLogic {
         }
     }
 
-    /// @notice extract the second token from the path (token at index 1)
-    /// @param path the swap path
-    /// @return token the second token address
-    /// @dev this function assumes the path is valid and does not check for it. use isValidPath to check for validity
-    function extractSecondToken(bytes memory path) internal pure returns (address token) {
-        assembly {
-            token := shr(96, mload(add(add(path, 0x20), 23)))
-        }
-    }
-
-    /// @notice extract the second to last token from the path
-    /// @param path the swap path
-    /// @param pathLength the length of the path
-    /// @return token the second to last token address
-    /// @dev this function assumes the path is valid and does not check for it. use isValidPath to check for validity
-    function extractSecondToLastToken(bytes memory path, uint256 pathLength) internal pure returns (address token) {
-        uint256 offset = pathLength - ADDRESS_SIZE - ADDRESS_PLUS_FEE;
-        assembly {
-            token := shr(ADDRESS_OFFSET_BITS, mload(add(add(path, WORD_SIZE), offset)))
-        }
-    }
-
-    /// @notice slice a bytes array
-    /// @param data the bytes array to slice
-    /// @param start the start index
-    /// @param length the length to slice
-    /// @return result the sliced bytes array
-    /// @dev this function assumes the path is valid and does not check for it. use isValidPath to check for validity
-    function _slice(bytes memory data, uint256 start, uint256 length) internal pure returns (bytes memory result) {
-        result = new bytes(length);
-        assembly {
-            let dataPtr := add(data, WORD_SIZE)
-            let resultPtr := add(result, WORD_SIZE)
-            mcopy(resultPtr, add(dataPtr, start), length)
-        }
-    }
-
     /// @notice set the path for the source asset
     function setSourceAssetPath(SwapLogicStorage storage _swapLogicStorage, bytes calldata path) internal {
         if (!isValidPath(path)) {
@@ -208,36 +171,33 @@ library SwapLogic {
             revert PathsDoNotConnect();
         }
 
-        if (pathA.length == ADDRESS_SIZE && pathB.length == ADDRESS_SIZE) {
-            return pathA;
+        uint256 pathATrimmedLen = pathA.length - ADDRESS_SIZE;
+        uint256 pathBOffset = 0;
+        uint256 minPathLength = pathA.length < pathB.length ? pathA.length : pathB.length;
+        for (uint256 i = 0; i < (minPathLength - ADDRESS_SIZE) / (ADDRESS_PLUS_FEE); ++i) {
+            bool matches;
+            assembly {
+                let addressAPtr := add(add(pathA, sub(WORD_SIZE, ADDRESS_PLUS_FEE)), pathATrimmedLen)
+                let addressBPtr := add(add(pathB, add(WORD_SIZE, ADDRESS_PLUS_FEE)), pathBOffset)
+                matches :=
+                    eq(shr(ADDRESS_OFFSET_BITS, mload(addressAPtr)), shr(ADDRESS_OFFSET_BITS, mload(addressBPtr)))
+            }
+            if (!matches) {
+                break;
+            }
+            pathATrimmedLen -= ADDRESS_PLUS_FEE;
+            pathBOffset += ADDRESS_PLUS_FEE;
         }
 
-        if (pathA.length == ADDRESS_SIZE) {
-            return pathB;
-        }
-        if (pathB.length == ADDRESS_SIZE) {
-            return pathA;
-        }
-
-        address secondLastA = extractSecondToLastToken(pathA, pathA.length);
-        address secondB = extractSecondToken(pathB);
-
-        if (secondLastA == secondB) {
-            bytes memory newA = _slice(pathA, 0, pathA.length - ADDRESS_PLUS_FEE);
-            bytes memory newB = _slice(pathB, ADDRESS_PLUS_FEE, pathB.length - ADDRESS_PLUS_FEE);
-            return _connect2Paths(newA, newB);
-        }
-
-        uint256 pathALen = pathA.length - ADDRESS_SIZE;
-        uint256 pathBLen = pathB.length;
-        result = new bytes(pathALen + pathBLen);
+        uint256 pathBTrimmedLen = pathB.length - pathBOffset;
+        result = new bytes(pathATrimmedLen + pathBTrimmedLen);
 
         assembly {
             let resultPtr := add(result, WORD_SIZE)
             let pathAPtr := add(pathA, WORD_SIZE)
             let pathBPtr := add(pathB, WORD_SIZE)
-            mcopy(resultPtr, pathAPtr, pathALen)
-            mcopy(add(resultPtr, pathALen), pathBPtr, pathBLen)
+            mcopy(resultPtr, pathAPtr, pathATrimmedLen)
+            mcopy(add(resultPtr, pathATrimmedLen), add(pathBPtr, pathBOffset), pathBTrimmedLen)
         }
     }
 

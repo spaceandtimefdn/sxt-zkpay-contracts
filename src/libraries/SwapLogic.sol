@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ISwapRouter} from "../interfaces/ISwapRouter.sol";
 import {ZERO_ADDRESS} from "./Constants.sol";
+import {TWAP} from "./TWAP.sol";
 
 /// @title SwapLogic
 /// @dev Library for swapping assets
@@ -15,6 +16,7 @@ library SwapLogic {
     uint256 internal constant ADDRESS_SIZE = 20;
     uint256 internal constant ADDRESS_OFFSET_BITS = 96;
     uint256 internal constant MIN_AMOUNT_OUT = 0;
+    uint256 internal constant HOP_SIZE = 43;
 
     // solhint-disable-next-line gas-struct-packing
     struct SwapLogicConfig {
@@ -208,6 +210,7 @@ library SwapLogic {
     /// @param merchant the merchant address to get target asset path
     /// @param targetAssetRecipient the recipient of the target asset
     /// @return receivedTargetAssetAmount the amount of received target asset tokens from the swapping router
+    // slither-disable-next-line unimplemented-functions
     function swapExactSourceAssetAmount(
         SwapLogicStorage storage _swapLogicStorage,
         address sourceAsset,
@@ -216,20 +219,21 @@ library SwapLogic {
         address targetAssetRecipient,
         bytes memory customSourceAssetPath
     ) internal returns (uint256 receivedTargetAssetAmount) {
-        bytes memory swapPath;
+        bytes memory sourceAssetPath = _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset];
+        bytes memory merchantTargetAssetPath = _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant];
+
         if (customSourceAssetPath.length > 0) {
-            swapPath = _connect2Paths(
-                customSourceAssetPath, _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant]
-            );
-        } else {
-            swapPath = _connect2Paths(
-                _swapLogicStorage.assetSwapPaths.sourceAssetPaths[sourceAsset],
-                _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant]
-            );
+            sourceAssetPath = customSourceAssetPath;
         }
+
+        bytes memory swapPath = _connect2Paths(sourceAssetPath, merchantTargetAssetPath);
 
         receivedTargetAssetAmount = _swapExactAmountIn(
             _swapLogicStorage.swapLogicConfig.router, swapPath, sourceAssetAmountIn, targetAssetRecipient
+        );
+
+        TWAP.validateSlippageTWAP(
+            swapPath, sourceAssetAmountIn, receivedTargetAssetAmount, 5, _swapLogicStorage.swapLogicConfig.router
         );
     }
 }

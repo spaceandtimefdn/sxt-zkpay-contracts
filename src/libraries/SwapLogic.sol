@@ -5,6 +5,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ISwapRouter} from "../interfaces/ISwapRouter.sol";
 import {ZERO_ADDRESS} from "./Constants.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {MerchantLogic} from "./MerchantLogic.sol";
+import {AssetManagement} from "./AssetManagement.sol";
 
 /// @title SwapLogic
 /// @dev Library for swapping assets
@@ -183,6 +186,45 @@ library SwapLogic {
         }
     }
 
+    /// @notice validates slippage using price feeds
+    /// @param sourceAssetAmount amount of source asset
+    /// @param sourceAssetPriceFeed price feed of source asset
+    /// @param sourceAssetDecimals decimals of source asset
+    /// @param targetAssetAmount amount of target asset received
+    /// @param targetAssetPriceFeed price feed of target asset
+    /// @param targetAssetDecimals decimals of target asset
+    /// @param maxSlippage maximum allowed slippage in basis points (e.g., 300 = 3%)
+    function _validateSlippage(
+        uint256 sourceAssetAmount,
+        address sourceAssetPriceFeed,
+        uint8 sourceAssetDecimals,
+        uint256 targetAssetAmount,
+        address targetAssetPriceFeed,
+        uint8 targetAssetDecimals,
+        uint64 maxSlippage
+    ) internal view {
+        // slither-disable-next-line unused-return
+        (, int256 sourcePrice,,,) = AggregatorV3Interface(sourceAssetPriceFeed).latestRoundData();
+        // slither-disable-next-line unused-return
+        (, int256 targetPrice,,,) = AggregatorV3Interface(targetAssetPriceFeed).latestRoundData();
+
+        uint8 sourcePriceFeedDecimals = AggregatorV3Interface(sourceAssetPriceFeed).decimals();
+        uint8 targetPriceFeedDecimals = AggregatorV3Interface(targetAssetPriceFeed).decimals();
+
+        uint256 sourceValueInUSD =
+            (sourceAssetAmount * uint256(sourcePrice) * 1e18) / (10 ** (sourceAssetDecimals + sourcePriceFeedDecimals));
+
+        uint256 targetValueInUSD =
+            (targetAssetAmount * uint256(targetPrice) * 1e18) / (10 ** (targetAssetDecimals + targetPriceFeedDecimals));
+
+        if (sourceValueInUSD > 0) {
+            uint256 slippageBasisPoints = ((sourceValueInUSD - targetValueInUSD) * 10000) / sourceValueInUSD;
+            if (slippageBasisPoints > maxSlippage) {
+                revert MerchantLogic.SlippageToleranceExceeded();
+            }
+        }
+    }
+
     /// @notice does swap with uniswap v3 router using exact input amount
     /// @param router the uniswap v3 router address
     /// @param path the path to swap
@@ -207,6 +249,8 @@ library SwapLogic {
     /// @param sourceAsset the source asset to swap from
     /// @param merchant the merchant address to get target asset path
     /// @param targetAssetRecipient the recipient of the target asset
+    /// @param slippageProtection merchant's slippage protection configuration
+    /// @param assets mapping of assets to retrieve price feeds and decimals
     /// @return receivedTargetAssetAmount the amount of received target asset tokens from the swapping router
     function swapExactSourceAssetAmount(
         SwapLogicStorage storage _swapLogicStorage,
@@ -214,8 +258,14 @@ library SwapLogic {
         address merchant,
         uint256 sourceAssetAmountIn,
         address targetAssetRecipient,
-        bytes memory customSourceAssetPath
+        bytes memory customSourceAssetPath,
+        MerchantLogic.SlippageProtection memory slippageProtection,
+        mapping(address asset => AssetManagement.PaymentAsset) storage assets
     ) internal returns (uint256 receivedTargetAssetAmount) {
+        address targetAsset = getMerchantPayoutAsset(_swapLogicStorage, merchant);
+        address sourceAssetPriceFeed = assets[sourceAsset].priceFeed;
+        uint8 sourceAssetDecimals = assets[sourceAsset].tokenDecimals;
+        uint8 targetAssetDecimals = assets[targetAsset].tokenDecimals;
         bytes memory swapPath;
         if (customSourceAssetPath.length > 0) {
             swapPath = _connect2Paths(
@@ -231,5 +281,17 @@ library SwapLogic {
         receivedTargetAssetAmount = _swapExactAmountIn(
             _swapLogicStorage.swapLogicConfig.router, swapPath, sourceAssetAmountIn, targetAssetRecipient
         );
+
+        if (slippageProtection.targetAssetPriceFeed != ZERO_ADDRESS) {
+            _validateSlippage(
+                sourceAssetAmountIn,
+                sourceAssetPriceFeed,
+                sourceAssetDecimals,
+                receivedTargetAssetAmount,
+                slippageProtection.targetAssetPriceFeed,
+                targetAssetDecimals,
+                slippageProtection.slippage
+            );
+        }
     }
 }

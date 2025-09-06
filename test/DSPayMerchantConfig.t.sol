@@ -34,12 +34,17 @@ contract DSPayMerchantConfigTest is Test {
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
             payoutToken: address(1),
             payoutAddresses: addresses,
-            payoutPercentages: percentages
+            payoutPercentages: percentages,
+            slippageProtection: MerchantLogic.SlippageProtection({slippage: 0, targetAssetPriceFeed: address(0)})
         });
 
         vm.expectEmit(true, true, true, true);
         emit MerchantLogic.MerchantConfigSet(
-            address(this), merchantConfig.payoutToken, merchantConfig.payoutAddresses, merchantConfig.payoutPercentages
+            address(this),
+            merchantConfig.payoutToken,
+            merchantConfig.payoutAddresses,
+            merchantConfig.payoutPercentages,
+            merchantConfig.slippageProtection
         );
         _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
 
@@ -60,7 +65,8 @@ contract DSPayMerchantConfigTest is Test {
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
             payoutToken: address(1),
             payoutAddresses: addresses,
-            payoutPercentages: percentages
+            payoutPercentages: percentages,
+            slippageProtection: MerchantLogic.SlippageProtection({slippage: 0, targetAssetPriceFeed: address(0)})
         });
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
@@ -160,7 +166,8 @@ contract DSPayMerchantConfigTest is Test {
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
             payoutToken: address(1),
             payoutAddresses: addresses,
-            payoutPercentages: percentages
+            payoutPercentages: percentages,
+            slippageProtection: MerchantLogic.SlippageProtection({slippage: 0, targetAssetPriceFeed: address(0)})
         });
 
         vm.expectRevert(MerchantLogic.TooManyPayoutRecipients.selector);
@@ -186,7 +193,8 @@ contract DSPayMerchantConfigTest is Test {
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
             payoutToken: address(1),
             payoutAddresses: addresses,
-            payoutPercentages: percentages
+            payoutPercentages: percentages,
+            slippageProtection: MerchantLogic.SlippageProtection({slippage: 0, targetAssetPriceFeed: address(0)})
         });
 
         _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));

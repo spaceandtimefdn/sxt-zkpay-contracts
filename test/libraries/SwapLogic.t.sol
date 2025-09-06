@@ -3,6 +3,8 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {SwapLogic} from "../../src/libraries/SwapLogic.sol";
+import {MerchantLogic} from "../../src/libraries/MerchantLogic.sol";
+import {AssetManagement} from "../../src/libraries/AssetManagement.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
 import {RPC_URL, ROUTER, USDT, SXT, USDC, BLOCK_NUMBER} from "../data/MainnetConstants.sol";
@@ -231,6 +233,7 @@ contract SwapLogicTest is Test {
 
 contract SwapLogicWrapper {
     SwapLogic.SwapLogicStorage internal _swapLogicStorage;
+    mapping(address asset => AssetManagement.PaymentAsset) internal _assets;
 
     constructor() {
         // source paths
@@ -241,6 +244,14 @@ contract SwapLogicWrapper {
             abi.encodePacked(USDT, bytes3(uint24(3000)), USDC);
 
         _swapLogicStorage.swapLogicConfig = SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT});
+
+        // Mock assets with dummy values
+        _assets[SXT] =
+            AssetManagement.PaymentAsset({priceFeed: address(0), tokenDecimals: 18, stalePriceThresholdInSeconds: 0});
+        _assets[USDT] =
+            AssetManagement.PaymentAsset({priceFeed: address(0), tokenDecimals: 6, stalePriceThresholdInSeconds: 0});
+        _assets[USDC] =
+            AssetManagement.PaymentAsset({priceFeed: address(0), tokenDecimals: 6, stalePriceThresholdInSeconds: 0});
     }
 
     function _swapExactAmountIn(bytes memory path, uint256 amountIn, address recipient)
@@ -273,7 +284,14 @@ contract SwapLogicWrapper {
         address targetAssetRecipient
     ) external returns (uint256 receivedTargetAssetAmount) {
         return SwapLogic.swapExactSourceAssetAmount(
-            _swapLogicStorage, sourceAsset, merchant, sourceAssetAmountIn, targetAssetRecipient, ""
+            _swapLogicStorage,
+            sourceAsset,
+            merchant,
+            sourceAssetAmountIn,
+            targetAssetRecipient,
+            "",
+            MerchantLogic.SlippageProtection({slippage: 0, targetAssetPriceFeed: address(0)}),
+            _assets
         );
     }
 }

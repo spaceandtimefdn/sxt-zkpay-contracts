@@ -83,8 +83,15 @@ library PaymentLogic {
         if (receivedTransferAmount > 0) {
             MerchantLogic.MerchantConfig memory merchantConfig =
                 _dsPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
+
             uint256 swappedAmount = _dsPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
-                params.asset, params.merchant, receivedTransferAmount, address(this), params.customSourceAssetPath
+                params.asset,
+                params.merchant,
+                receivedTransferAmount,
+                address(this),
+                params.customSourceAssetPath,
+                merchantConfig.slippageProtection,
+                _dsPayStorage.assets
             );
 
             result.receivedPayoutAmount = _distributePayouts(
@@ -197,25 +204,34 @@ library PaymentLogic {
         );
 
         result.payoutToken = _dsPayStorage.swapLogicStorage.getMerchantPayoutAsset(params.merchant);
-        (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken) = _computeSettlementBreakdown(
-            _dsPayStorage.assets, params.sourceAsset, params.sourceAssetAmount, params.maxUsdValueOfTargetToken
-        );
 
         // 1. pay merchant
-        // slither-disable-next-line reentrancy-events
-        MerchantLogic.MerchantConfig memory merchantConfig =
-            _dsPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
-        uint256 swappedAmount = _dsPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
-            params.sourceAsset, params.merchant, toBePaidInSourceToken, address(this), params.customSourceAssetPath
-        );
+        {
+            (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken) = _computeSettlementBreakdown(
+                _dsPayStorage.assets, params.sourceAsset, params.sourceAssetAmount, params.maxUsdValueOfTargetToken
+            );
 
-        result.receivedTargetAssetAmount = _distributePayouts(
-            merchantConfig.payoutAddresses, merchantConfig.payoutPercentages, swappedAmount, result.payoutToken
-        );
+            MerchantLogic.MerchantConfig memory merchantConfig =
+                _dsPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
 
-        // 2. refund client
-        result.receivedRefundAmount =
-            AssetManagement.transferAsset(params.sourceAsset, toBeRefundedInSourceToken, params.from);
+            uint256 swappedAmount = _dsPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
+                params.sourceAsset,
+                params.merchant,
+                toBePaidInSourceToken,
+                address(this),
+                params.customSourceAssetPath,
+                merchantConfig.slippageProtection,
+                _dsPayStorage.assets
+            );
+
+            result.receivedTargetAssetAmount = _distributePayouts(
+                merchantConfig.payoutAddresses, merchantConfig.payoutPercentages, swappedAmount, result.payoutToken
+            );
+
+            // 2. refund client
+            result.receivedRefundAmount =
+                AssetManagement.transferAsset(params.sourceAsset, toBeRefundedInSourceToken, params.from);
+        }
     }
 
     /// @notice Distributes payout amount among multiple recipients according to their percentages

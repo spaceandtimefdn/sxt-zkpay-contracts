@@ -41,8 +41,11 @@ contract Deploy is Script {
         vm.startBroadcast();
 
         // Deploy DSPay
-        DSPay dspay =
-            new DSPay(config.dspayAdmin, SwapLogic.SwapLogicConfig({router: config.router, usdt: config.usdt}));
+        DSPay dspay = new DSPay(
+            config.dspayAdmin,
+            SwapLogic.SwapLogicConfig({router: config.router, usdt: config.usdt}),
+            AssetManagement.AssetManagementSequencerConfig({sequencerUptimeFeed: address(0), gracePeriod: 0})
+        );
 
         console.log("DSPay deployed at:", address(dspay));
 

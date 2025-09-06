@@ -132,7 +132,11 @@ contract PaymentFunctionsTest is Test {
 
         vm.startPrank(admin);
 
-        dspay = new DSPay(admin, DummyData.getSwapLogicConfig());
+        dspay = new DSPay(
+            admin,
+            DummyData.getSwapLogicConfig(),
+            AssetManagement.AssetManagementSequencerConfig({sequencerUptimeFeed: address(0), gracePeriod: 0})
+        );
 
         usdc = MockERC20(USDC);
 

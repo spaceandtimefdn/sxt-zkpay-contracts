@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 
 import {DSPay} from "../src/DSPay.sol";
+import {AssetManagement} from "../src/libraries/AssetManagement.sol";
 import {MerchantLogic} from "../src/libraries/MerchantLogic.sol";
 import {DummyData} from "./data/DummyData.sol";
 import {ZERO_ADDRESS} from "../src/libraries/Constants.sol";
@@ -21,7 +22,11 @@ contract DSPayMerchantConfigTest is Test {
         _sxt = vm.addr(0x3);
 
         vm.prank(_admin);
-        _dspay = new DSPay(_admin, DummyData.getSwapLogicConfig());
+        _dspay = new DSPay(
+            _admin,
+            DummyData.getSwapLogicConfig(),
+            AssetManagement.AssetManagementSequencerConfig({sequencerUptimeFeed: address(0), gracePeriod: 0})
+        );
     }
 
     function testSetAndGetMerchantConfig() public {

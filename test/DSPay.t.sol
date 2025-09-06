@@ -56,7 +56,11 @@ contract DSPayTest is Test {
         _priceFeed = address(new MockV3Aggregator(8, _tokenPrice));
         _sxt = address(new MockERC20());
 
-        dspay = new DSPay(_admin, DummyData.getSwapLogicConfig());
+        dspay = new DSPay(
+            _admin,
+            DummyData.getSwapLogicConfig(),
+            AssetManagement.AssetManagementSequencerConfig({sequencerUptimeFeed: address(0), gracePeriod: 0})
+        );
 
         paymentAssetInstance = AssetManagement.PaymentAsset({
             priceFeed: _priceFeed,
@@ -800,5 +804,29 @@ contract DSPayTest is Test {
         vm.expectRevert(PendingPayment.TransactionNotAuthorized.selector);
         vm.prank(merchant);
         dspay.settleAuthorizedPayment(address(mockToken), amount, address(this), keccak256("invalid"), 50 ether);
+    }
+
+    function testGetSequencerConfig() external {
+        AssetManagement.AssetManagementSequencerConfig memory retrieved = dspay.getSequencerConfig();
+        assertEq(retrieved.sequencerUptimeFeed, address(0));
+        assertEq(retrieved.gracePeriod, 0);
+    }
+
+    function testGetSequencerConfigWithCustomValues() external {
+        address customFeed = address(0x123);
+        uint256 customGracePeriod = 3600;
+
+        DSPay customDspay = new DSPay(
+            _admin,
+            DummyData.getSwapLogicConfig(),
+            AssetManagement.AssetManagementSequencerConfig({
+                sequencerUptimeFeed: customFeed,
+                gracePeriod: customGracePeriod
+            })
+        );
+
+        AssetManagement.AssetManagementSequencerConfig memory retrieved = customDspay.getSequencerConfig();
+        assertEq(retrieved.sequencerUptimeFeed, customFeed);
+        assertEq(retrieved.gracePeriod, customGracePeriod);
     }
 }

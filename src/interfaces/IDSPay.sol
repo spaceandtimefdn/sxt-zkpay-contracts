@@ -145,7 +145,7 @@ interface IDSPay {
 
     /// @notice Authorizes a payment to a target merchant
     /// the payment will be pulled from `msg.sender` and held pending in DSpay contract
-    /// the payment is accounted for `onBehalfOf` which means that any refunded amount will be send to `onBehalfOf`
+    /// the payment is accounted for `onBehalfOf` but any refunded amount will be send to `msg.sender`
     /// @param asset The address of the ERC20 token to send
     /// @param amount The amount of tokens to send
     /// @param onBehalfOf The identifier on whose behalf the payment is made
@@ -163,7 +163,7 @@ interface IDSPay {
 
     /// @notice Authorizes a payment to a target merchant with a callback contract
     /// the payment will be pulled from `msg.sender` and held pending in DSpay contract
-    /// the payment is accounted for `onBehalfOf` which means that any refunded amount will be send to `onBehalfOf`
+    /// the payment is accounted for `onBehalfOf` but any refunded amount will be send to `msg.sender`
     /// @param asset The address of the ERC20 token to send
     /// @param amount The amount of tokens to send
     /// @param onBehalfOf The identifier on whose behalf the payment is made

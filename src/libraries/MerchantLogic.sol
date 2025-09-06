@@ -9,8 +9,13 @@ library MerchantLogic {
     /// @param payoutToken Target token address for payouts
     /// @param payoutAddresses Array of payout addresses
     /// @param payoutPercentages Array of payout percentages
+    /// @param slippageProtection Slippage protection configuration
     event MerchantConfigSet(
-        address indexed merchant, address payoutToken, address[] payoutAddresses, uint32[] payoutPercentages
+        address indexed merchant,
+        address payoutToken,
+        address[] payoutAddresses,
+        uint32[] payoutPercentages,
+        SlippageProtection slippageProtection
     );
 
     /// @notice Error thrown when payout percentages don't sum to 100%
@@ -36,14 +41,23 @@ library MerchantLogic {
     /// @notice Error thrown when item ID callback is not configured
     error ItemIdCallbackNotConfigured();
 
+    /// @notice Error thrown when swap slippage exceeds merchant's tolerance
+    error SlippageToleranceExceeded();
+
     uint32 public constant PERCENTAGE_PRECISION = 1e6;
     uint32 public constant TOTAL_PERCENTAGE = 100 * PERCENTAGE_PRECISION;
     uint256 public constant MAX_PAYOUT_RECIPIENTS = 16;
+
+    struct SlippageProtection {
+        uint64 slippage;
+        address targetAssetPriceFeed;
+    }
 
     struct MerchantConfig {
         address payoutToken;
         address[] payoutAddresses;
         uint32[] payoutPercentages;
+        SlippageProtection slippageProtection;
     }
 
     struct MerchantLogicStorage {
@@ -94,7 +108,9 @@ library MerchantLogic {
 
         merchantLogicStorage.merchantConfigs[merchant] = config;
 
-        emit MerchantConfigSet(merchant, config.payoutToken, config.payoutAddresses, config.payoutPercentages);
+        emit MerchantConfigSet(
+            merchant, config.payoutToken, config.payoutAddresses, config.payoutPercentages, config.slippageProtection
+        );
     }
 
     function getConfig(MerchantLogicStorage storage merchantLogicStorage, address merchant)

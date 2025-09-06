@@ -167,7 +167,8 @@ contract PaymentFunctionsTest is Test {
         return MerchantLogic.MerchantConfig({
             payoutToken: payoutToken,
             payoutAddresses: addresses,
-            payoutPercentages: percentages
+            payoutPercentages: percentages,
+            slippageProtection: MerchantLogic.SlippageProtection({slippage: 0, targetAssetPriceFeed: address(0)})
         });
     }
 
@@ -985,5 +986,72 @@ contract PaymentFunctionsTest is Test {
         assertEq(callbackContract.callCount(), 1);
         assertTrue(callbackContract.receivedMetadata());
         assertEq(callbackContract.getLastPaymentMetadata().merchant, targetMerchant);
+    }
+
+    function testSlippageProtectionEnabled() public {
+        address merchant = address(0x555);
+        uint248 testAmount = 1000e6;
+
+        address targetAssetPriceFeed = address(new MockV3Aggregator(8, 1e8));
+
+        vm.prank(merchant);
+        dspay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({
+                payoutToken: USDC,
+                payoutAddresses: createAddressArray(merchant),
+                payoutPercentages: createPercentageArray(100),
+                slippageProtection: MerchantLogic.SlippageProtection({
+                    slippage: 500,
+                    targetAssetPriceFeed: targetAssetPriceFeed
+                })
+            }),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        deal(USDC, address(this), testAmount);
+        IERC20(USDC).approve(address(dspay), testAmount);
+
+        dspay.send(USDC, testAmount, getOnBehalfOfBytes32(), merchant, "test", bytes32(0));
+
+        assertGt(IERC20(USDC).balanceOf(merchant), 0);
+    }
+
+    function testSlippageProtectionExceedsThreshold() public {
+        address merchant = address(0x666);
+        uint248 testAmount = 1000e6;
+
+        address targetAssetPriceFeed = address(new MockV3Aggregator(8, 50000000));
+
+        vm.prank(merchant);
+        dspay.setMerchantConfig(
+            MerchantLogic.MerchantConfig({
+                payoutToken: USDC,
+                payoutAddresses: createAddressArray(merchant),
+                payoutPercentages: createPercentageArray(100),
+                slippageProtection: MerchantLogic.SlippageProtection({
+                    slippage: 100,
+                    targetAssetPriceFeed: targetAssetPriceFeed
+                })
+            }),
+            DummyData.getDestinationAssetPath(USDC)
+        );
+
+        deal(USDC, address(this), testAmount);
+        IERC20(USDC).approve(address(dspay), testAmount);
+
+        vm.expectRevert(MerchantLogic.SlippageToleranceExceeded.selector);
+        dspay.send(USDC, testAmount, getOnBehalfOfBytes32(), merchant, "test", bytes32(0));
+    }
+
+    function createAddressArray(address addr) internal pure returns (address[] memory) {
+        address[] memory addresses = new address[](1);
+        addresses[0] = addr;
+        return addresses;
+    }
+
+    function createPercentageArray(uint32 percentage) internal pure returns (uint32[] memory) {
+        uint32[] memory percentages = new uint32[](1);
+        percentages[0] = percentage * MerchantLogic.PERCENTAGE_PRECISION;
+        return percentages;
     }
 }

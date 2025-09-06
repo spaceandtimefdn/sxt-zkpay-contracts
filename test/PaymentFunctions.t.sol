@@ -13,6 +13,7 @@ import {DummyData} from "./data/DummyData.sol";
 import {MerchantLogic} from "../src/libraries/MerchantLogic.sol";
 import {RPC_URL, SXT, USDC, BLOCK_NUMBER, USDT, WETH} from "./data/MainnetConstants.sol";
 import {PendingPayment} from "../src/libraries/PendingPayment.sol";
+import {PaymentLogic} from "../src/module/PaymentLogic.sol";
 import {IDSPay} from "../src/interfaces/IDSPay.sol";
 
 contract MockCallbackContract {
@@ -1118,5 +1119,81 @@ contract PaymentFunctionsTest is Test {
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
         dspay.authorize(SXT, sxtAmount, onBehalfOfBytes32, targetMerchant, "test", bytes32(0));
+    }
+
+    function testAuthorizePaymentToNonexistingMerchant() public {
+        uint248 sxtAmount = 100 ether;
+
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
+
+        vm.prank(targetMerchant);
+
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
+
+        vm.startPrank(admin);
+
+        address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
+
+        dspay.setPaymentAsset(
+            SXT,
+            AssetManagement.PaymentAsset({
+                priceFeed: sxtPriceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 1000,
+                active: true
+            }),
+            DummyData.getOriginAssetPath(SXT)
+        );
+        vm.stopPrank();
+
+        deal(SXT, address(this), sxtAmount);
+        IERC20(SXT).approve(address(dspay), sxtAmount);
+
+        address nonexistingMerchant = vm.addr(0x999);
+
+        vm.expectRevert(PaymentLogic.MerchantNotConfigured.selector);
+        dspay.authorize(SXT, sxtAmount, onBehalfOfBytes32, nonexistingMerchant, "test", bytes32(0));
+
+        //sxt balance
+        uint256 protocolBalance = IERC20(SXT).balanceOf(address(dspay));
+        assertEq(protocolBalance, 0); // Should be 0 since transaction should revert
+    }
+
+    function testSendPaymentToNonexistingMerchant() public {
+        uint248 sxtAmount = 100 ether;
+
+        bytes32 onBehalfOfBytes32 = getOnBehalfOfBytes32();
+
+        vm.prank(targetMerchant);
+
+        dspay.setMerchantConfig(createSingleRecipientConfig(targetMerchant), DummyData.getDestinationAssetPath(USDC));
+
+        vm.startPrank(admin);
+
+        address sxtPriceFeed = address(new MockV3Aggregator(8, 10e8));
+
+        dspay.setPaymentAsset(
+            SXT,
+            AssetManagement.PaymentAsset({
+                priceFeed: sxtPriceFeed,
+                tokenDecimals: 18,
+                stalePriceThresholdInSeconds: 1000,
+                active: true
+            }),
+            DummyData.getOriginAssetPath(SXT)
+        );
+        vm.stopPrank();
+
+        deal(SXT, address(this), sxtAmount);
+        IERC20(SXT).approve(address(dspay), sxtAmount);
+
+        address nonexistingMerchant = vm.addr(0x999);
+
+        vm.expectRevert(PaymentLogic.MerchantNotConfigured.selector);
+        dspay.send(SXT, sxtAmount, onBehalfOfBytes32, nonexistingMerchant, "test", bytes32(0));
+
+        //sxt balance
+        uint256 protocolBalance = IERC20(SXT).balanceOf(address(dspay));
+        assertEq(protocolBalance, 0); // Should be 0 since transaction should revert
     }
 }

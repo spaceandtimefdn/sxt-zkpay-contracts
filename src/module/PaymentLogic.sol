@@ -153,11 +153,10 @@ library PaymentLogic {
         uint248 sourceAssetAmount,
         uint248 maxUsdValueOfTargetToken
     ) internal view returns (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken) {
-        uint248 sourceAssetInUsd = _assets.convertToUsd(sequencerConfig, sourceAsset, sourceAssetAmount);
-        uint248 toBePaidInUsd =
-            maxUsdValueOfTargetToken > sourceAssetInUsd ? sourceAssetInUsd : maxUsdValueOfTargetToken;
+        uint248 maxValueOfSourceToken =
+            _assets.convertUsdToToken(sequencerConfig, sourceAsset, maxUsdValueOfTargetToken);
 
-        toBePaidInSourceToken = _assets.convertUsdToToken(sequencerConfig, sourceAsset, toBePaidInUsd);
+        toBePaidInSourceToken = maxValueOfSourceToken > sourceAssetAmount ? sourceAssetAmount : maxValueOfSourceToken;
         toBeRefundedInSourceToken = sourceAssetAmount - toBePaidInSourceToken;
 
         return (toBePaidInSourceToken, toBeRefundedInSourceToken);

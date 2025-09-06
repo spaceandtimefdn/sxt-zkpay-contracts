@@ -717,3 +717,88 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         assertEq(IERC20(USDC).balanceOf(wrapper.MERCHANT_PAYOUT_ADDRESS()), result.receivedTargetAssetAmount);
     }
 }
+
+contract SettlementBreakdownTestWrapper {
+    using AssetManagement for mapping(address asset => AssetManagement.PaymentAsset);
+
+    mapping(address asset => AssetManagement.PaymentAsset) internal _assets;
+    AssetManagement.AssetManagementSequencerConfig internal _sequencerConfig;
+
+    constructor() {
+        _assets[address(0x1)] = AssetManagement.PaymentAsset({
+            priceFeed: address(new MockV3Aggregator(8, 1e8)),
+            tokenDecimals: 18,
+            stalePriceThresholdInSeconds: 100,
+            active: true
+        });
+        _assets[address(0x3)] = AssetManagement.PaymentAsset({
+            priceFeed: address(new MockV3Aggregator(8, 3e8)),
+            tokenDecimals: 18,
+            stalePriceThresholdInSeconds: 100,
+            active: true
+        });
+        _assets[address(0x9)] = AssetManagement.PaymentAsset({
+            priceFeed: address(new MockV3Aggregator(8, 99999999)),
+            tokenDecimals: 18,
+            stalePriceThresholdInSeconds: 100,
+            active: true
+        });
+
+        _sequencerConfig =
+            AssetManagement.AssetManagementSequencerConfig({sequencerUptimeFeed: address(0), gracePeriod: 0});
+    }
+
+    function computeSettlementBreakdown(
+        address sourceAsset,
+        uint248 sourceAssetAmount,
+        uint248 maxUsdValueOfTargetToken
+    ) external view returns (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken) {
+        return PaymentLogic._computeSettlementBreakdown(
+            _assets, _sequencerConfig, sourceAsset, sourceAssetAmount, maxUsdValueOfTargetToken
+        );
+    }
+}
+
+contract SettlementBreakdownTest is Test {
+    SettlementBreakdownTestWrapper internal _wrapper;
+
+    function setUp() public {
+        _wrapper = new SettlementBreakdownTestWrapper();
+    }
+
+    function testComputeSettlementBreakdown() public {
+        (uint248 toBePaid, uint248 toBeRefunded) = _wrapper.computeSettlementBreakdown(address(0x1), 100e18, 50e18);
+        assertEq(toBePaid, 50e18);
+        assertEq(toBeRefunded, 50e18);
+    }
+
+    function testComputeSettlementBreakdownWithMaxValueGreaterThanSource() public {
+        (uint248 toBePaid, uint248 toBeRefunded) = _wrapper.computeSettlementBreakdown(address(0x1), 50e18, 100e18);
+        assertEq(toBePaid, 50e18);
+        assertEq(toBeRefunded, 0);
+    }
+
+    function testComputeSettlementBreakdownWithMaxValueLessThanSourceAndRounding() public {
+        (uint248 toBePaid, uint248 toBeRefunded) = _wrapper.computeSettlementBreakdown(address(0x3), 100e18, 50e18);
+        assertEq(toBePaid, uint248(50e18) / 3);
+        assertEq(toBeRefunded, 100e18 - (uint248(50e18) / 3));
+    }
+
+    function testComputeSettlementBreakdownWithMaxValueGreaterThanSourceAndRounding() public {
+        (uint248 toBePaid, uint248 toBeRefunded) = _wrapper.computeSettlementBreakdown(address(0x3), 50e18, 200e18);
+        assertEq(toBePaid, 50e18);
+        assertEq(toBeRefunded, 0);
+    }
+
+    function testComputeSettlementBreakdownWithMaxValueLessThanSourceAndLowPrices() public {
+        (uint248 toBePaid, uint248 toBeRefunded) = _wrapper.computeSettlementBreakdown(address(0x9), 100e18, 1e7);
+        assertEq(toBePaid, 1e7);
+        assertEq(toBeRefunded, 100e18 - 1e7);
+    }
+
+    function testComputeSettlementBreakdownWithMaxValueGreaterThanSourceAndLowPrices() public {
+        (uint248 toBePaid, uint248 toBeRefunded) = _wrapper.computeSettlementBreakdown(address(0x9), 9e6, 1e7);
+        assertEq(toBePaid, 9e6);
+        assertEq(toBeRefunded, 0);
+    }
+}

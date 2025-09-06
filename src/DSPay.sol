@@ -27,6 +27,12 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     /// @notice Error thrown when the merchant address is zero
     error MerchantAddressCannotBeZero();
 
+    /// @notice Enum representing the payment method that triggered a callback
+    enum PaymentMethod {
+        SEND,
+        AUTHORIZE
+    }
+
     struct PaymentMetadata {
         address payoutToken;
         uint256 payoutAmount;
@@ -35,6 +41,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         address sender;
         bytes32 itemId;
         address merchant;
+        PaymentMethod method;
     }
 
     struct SendWithCallbackParams {
@@ -204,7 +211,8 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
                 onBehalfOf: params.onBehalfOf,
                 sender: msg.sender,
                 itemId: params.itemId,
-                merchant: params.merchant
+                merchant: params.merchant,
+                method: PaymentMethod.SEND
             });
 
             // slither-disable-next-line encode-packed-collision
@@ -298,7 +306,8 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
             onBehalfOf: onBehalfOf,
             sender: msg.sender,
             itemId: itemId,
-            merchant: merchant
+            merchant: merchant,
+            method: PaymentMethod.AUTHORIZE
         });
     }
 

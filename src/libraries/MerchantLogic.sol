@@ -9,8 +9,13 @@ library MerchantLogic {
     /// @param payoutToken Target token address for payouts
     /// @param payoutAddresses Array of payout addresses
     /// @param payoutPercentages Array of payout percentages
+    /// @param allowUserCustomPath Whether users can provide custom swap paths
     event MerchantConfigSet(
-        address indexed merchant, address payoutToken, address[] payoutAddresses, uint32[] payoutPercentages
+        address indexed merchant,
+        address payoutToken,
+        address[] payoutAddresses,
+        uint32[] payoutPercentages,
+        bool allowUserCustomPath
     );
 
     /// @notice Error thrown when payout percentages don't sum to 100%
@@ -36,11 +41,15 @@ library MerchantLogic {
     /// @notice Error thrown when item ID callback is not configured
     error ItemIdCallbackNotConfigured();
 
+    /// @notice Error thrown when user provides custom path but merchant doesn't allow it
+    error UserCustomPathNotAllowed();
+
     uint32 public constant PERCENTAGE_PRECISION = 1e6;
     uint32 public constant TOTAL_PERCENTAGE = 100 * PERCENTAGE_PRECISION;
     uint256 public constant MAX_PAYOUT_RECIPIENTS = 16;
 
     struct MerchantConfig {
+        bool allowUserCustomPath;
         address payoutToken;
         address[] payoutAddresses;
         uint32[] payoutPercentages;
@@ -94,7 +103,9 @@ library MerchantLogic {
 
         merchantLogicStorage.merchantConfigs[merchant] = config;
 
-        emit MerchantConfigSet(merchant, config.payoutToken, config.payoutAddresses, config.payoutPercentages);
+        emit MerchantConfigSet(
+            merchant, config.payoutToken, config.payoutAddresses, config.payoutPercentages, config.allowUserCustomPath
+        );
     }
 
     function getConfig(MerchantLogicStorage storage merchantLogicStorage, address merchant)

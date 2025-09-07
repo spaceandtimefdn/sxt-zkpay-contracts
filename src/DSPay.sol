@@ -147,6 +147,12 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         bytes calldata memo,
         bytes32 itemId
     ) external nonReentrant {
+        if (merchant == ZERO_ADDRESS) {
+            revert MerchantAddressCannotBeZero();
+        }
+        if (!_dsPayStorage.merchantLogicStorage.getConfig(merchant).allowUserCustomPath) {
+            revert MerchantLogic.UserCustomPathNotAllowed();
+        }
         _sendPayment(
             SwapLogic.calldataExtractPathOriginAsset(customSourceAssetPath),
             amount,
@@ -207,6 +213,12 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
         bytes32 itemId,
         bytes calldata callbackData
     ) external nonReentrant {
+        if (merchant == ZERO_ADDRESS) {
+            revert MerchantAddressCannotBeZero();
+        }
+        if (!_dsPayStorage.merchantLogicStorage.getConfig(merchant).allowUserCustomPath) {
+            revert MerchantLogic.UserCustomPathNotAllowed();
+        }
         _sendWithCallback(
             SendWithCallbackParams({
                 asset: SwapLogic.calldataExtractPathOriginAsset(customSourceAssetPath),

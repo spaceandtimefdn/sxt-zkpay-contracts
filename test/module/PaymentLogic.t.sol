@@ -298,7 +298,12 @@ contract PaymentLogicProcessPaymentWrapper {
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
         dsPayStorage.merchantLogicStorage.setConfig(
             MERCHANT,
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddresses: addresses, payoutPercentages: percentages})
+            MerchantLogic.MerchantConfig({
+                payoutToken: USDC,
+                payoutAddresses: addresses,
+                payoutPercentages: percentages,
+                allowUserCustomPath: true
+            })
         );
     }
 
@@ -439,7 +444,12 @@ contract PaymentLogicAuthorizePaymentWrapper {
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
         dsPayStorage.merchantLogicStorage.setConfig(
             MERCHANT,
-            MerchantLogic.MerchantConfig({payoutToken: USDC, payoutAddresses: addresses, payoutPercentages: percentages})
+            MerchantLogic.MerchantConfig({
+                payoutToken: USDC,
+                payoutAddresses: addresses,
+                payoutPercentages: percentages,
+                allowUserCustomPath: true
+            })
         );
     }
 

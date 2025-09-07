@@ -10,6 +10,9 @@ interface ISafeExecutor {
     /// @notice Thrown when the target address has no contract code
     error InvalidTarget();
 
+    /// @notice Thrown when caller is not authorized
+    error Unauthorized();
+
     /// @notice Executes a call to the target contract
     /// @param target The address of the target contract
     /// @param data The data to send to the target contract

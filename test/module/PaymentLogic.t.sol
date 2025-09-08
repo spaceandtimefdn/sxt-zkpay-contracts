@@ -475,6 +475,10 @@ contract PaymentLogicAuthorizePaymentWrapper {
     {
         return PaymentLogic.processSettlement(dsPayStorage, params);
     }
+
+    function setMerchantTargetAssetPath(address merchant, bytes calldata path) external {
+        dsPayStorage.swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant] = path;
+    }
 }
 
 contract PaymentLogicAuthorizePaymentTest is Test {
@@ -639,6 +643,8 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         itemPrice = uint248(bound(itemPrice, 0, type(uint248).max / 1e18));
         vm.assume(merchant != address(0));
 
+        wrapper.setMerchantTargetAssetPath(merchant, abi.encodePacked(USDT, bytes3(uint24(3000)), USDC));
+
         wrapper.setItemPrice(merchant, itemId, itemPrice);
 
         deal(SXT, USER, amount);
@@ -665,6 +671,8 @@ contract PaymentLogicAuthorizePaymentTest is Test {
     function testFuzzAuthorizePaymentSXT(uint248 amount, address merchant, bytes32 itemId) public {
         amount = uint248(bound(amount, 1, type(uint248).max / 1e18));
         vm.assume(merchant != address(0));
+
+        wrapper.setMerchantTargetAssetPath(merchant, abi.encodePacked(USDT, bytes3(uint24(3000)), USDC));
 
         deal(SXT, USER, amount);
 

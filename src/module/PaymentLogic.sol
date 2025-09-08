@@ -20,6 +20,7 @@ library PaymentLogic {
 
     error InsufficientPayment();
     error ZeroAmountReceived();
+    error MerchantNotConfigured();
 
     /// @notice Modifier to validate that an asset is supported for payment operations
     /// @param _assets The assets mapping
@@ -27,6 +28,16 @@ library PaymentLogic {
     modifier _validateAsset(mapping(address asset => AssetManagement.PaymentAsset) storage _assets, address asset) {
         if (!_assets.isSupported(asset)) {
             revert AssetManagement.AssetIsNotSupportedForThisMethod();
+        }
+        _;
+    }
+
+    /// @notice Modifier to validate that a merchant is properly configured
+    /// @param _swapLogicStorage The swap logic storage
+    /// @param merchant The merchant address to validate
+    modifier _validateMerchant(SwapLogic.SwapLogicStorage storage _swapLogicStorage, address merchant) {
+        if (_swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant].length == 0) {
+            revert MerchantNotConfigured();
         }
         _;
     }
@@ -73,6 +84,7 @@ library PaymentLogic {
     function processPayment(DSPay.DSPayStorage storage _dsPayStorage, ProcessPaymentParams memory params)
         internal
         _validateAsset(_dsPayStorage.assets, params.asset)
+        _validateMerchant(_dsPayStorage.swapLogicStorage, params.merchant)
         returns (ProcessPaymentResult memory result)
     {
         result.payoutToken = _dsPayStorage.swapLogicStorage.getMerchantPayoutAsset(params.merchant);
@@ -112,6 +124,7 @@ library PaymentLogic {
     function authorizePayment(DSPay.DSPayStorage storage _dsPayStorage, AuthorizePaymentParams memory params)
         internal
         _validateAsset(_dsPayStorage.assets, params.asset)
+        _validateMerchant(_dsPayStorage.swapLogicStorage, params.merchant)
         returns (PendingPayment.Transaction memory transaction, bytes32 transactionHash, uint248 amountInUSD)
     {
         uint248 receivedSourceAssetAmount =

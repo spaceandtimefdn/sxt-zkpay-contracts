@@ -627,6 +627,7 @@ contract PaymentFunctionsTest is Test {
         assertEq(metadata.sender, address(this));
         assertEq(metadata.itemId, bytes32(uint256(itemId)));
         assertEq(metadata.merchant, targetMerchant);
+        assertEq(uint256(metadata.method), uint256(DSPay.PaymentMethod.SEND));
     }
 
     function testSendWithCallbackPathOverrideWithPaymentMetadata() public {
@@ -888,6 +889,7 @@ contract PaymentFunctionsTest is Test {
         assertEq(metadata.sender, address(this));
         assertEq(metadata.itemId, generatedItemId);
         assertEq(metadata.merchant, targetMerchant);
+        assertEq(uint256(metadata.method), uint256(DSPay.PaymentMethod.AUTHORIZE));
     }
 
     function testAuthorizeWithCallbackWithoutMetadata() public {

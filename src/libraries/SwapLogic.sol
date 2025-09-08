@@ -13,6 +13,8 @@ library SwapLogic {
 
     uint256 internal constant WORD_SIZE = 0x20;
     uint256 internal constant ADDRESS_SIZE = 20;
+    uint256 internal constant FEE_SIZE = 3;
+    uint256 internal constant ADDRESS_PLUS_FEE = 23;
     uint256 internal constant ADDRESS_OFFSET_BITS = 96;
     uint256 internal constant MIN_AMOUNT_OUT = 0;
 
@@ -157,29 +159,45 @@ library SwapLogic {
         payoutAsset = extractPathDestinationAsset(targetAssetPath);
     }
 
-    /// @notice connect two paths (path1 -> path2)
-    /// @param path1 the first path
-    /// @param path2 the second path
-    /// @return result the connected path
-    /// @dev this function assumes the paths are valid and does not check for it for better gas performance. use isValidPath to check for validity
-    function _connect2Paths(bytes memory path1, bytes memory path2) internal pure returns (bytes memory result) {
-        address firstPathTokenOut = extractPathDestinationAsset(path1);
-        address secondPathTokenIn = extractPathOriginAsset(path2);
+    /// @notice connect two paths with optimization to remove redundant hops
+    /// @param pathA the first path
+    /// @param pathB the second path
+    /// @return result the optimized connected path
+    function _connect2Paths(bytes memory pathA, bytes memory pathB) internal pure returns (bytes memory result) {
+        address tokenOutA = extractPathDestinationAsset(pathA);
+        address tokenInB = extractPathOriginAsset(pathB);
 
-        if (firstPathTokenOut != secondPathTokenIn) {
+        if (tokenOutA != tokenInB) {
             revert PathsDoNotConnect();
         }
 
-        uint256 path1Len = path1.length - ADDRESS_SIZE;
-        uint256 path2Len = path2.length;
-        result = new bytes(path1Len + path2Len);
+        uint256 pathATrimmedLen = pathA.length - ADDRESS_SIZE;
+        uint256 pathBOffset = 0;
+        uint256 minPathLength = pathA.length < pathB.length ? pathA.length : pathB.length;
+        for (uint256 i = 0; i < (minPathLength - ADDRESS_SIZE) / (ADDRESS_PLUS_FEE); ++i) {
+            bool matches;
+            assembly {
+                let addressAPtr := add(add(pathA, sub(WORD_SIZE, ADDRESS_PLUS_FEE)), pathATrimmedLen)
+                let addressBPtr := add(add(pathB, add(WORD_SIZE, ADDRESS_PLUS_FEE)), pathBOffset)
+                matches :=
+                    eq(shr(ADDRESS_OFFSET_BITS, mload(addressAPtr)), shr(ADDRESS_OFFSET_BITS, mload(addressBPtr)))
+            }
+            if (!matches) {
+                break;
+            }
+            pathATrimmedLen -= ADDRESS_PLUS_FEE;
+            pathBOffset += ADDRESS_PLUS_FEE;
+        }
+
+        uint256 pathBTrimmedLen = pathB.length - pathBOffset;
+        result = new bytes(pathATrimmedLen + pathBTrimmedLen);
 
         assembly {
             let resultPtr := add(result, WORD_SIZE)
-            let path1Ptr := add(path1, WORD_SIZE)
-            let path2Ptr := add(path2, WORD_SIZE)
-            mcopy(resultPtr, path1Ptr, path1Len)
-            mcopy(add(resultPtr, path1Len), path2Ptr, path2Len)
+            let pathAPtr := add(pathA, WORD_SIZE)
+            let pathBPtr := add(pathB, WORD_SIZE)
+            mcopy(resultPtr, pathAPtr, pathATrimmedLen)
+            mcopy(add(resultPtr, pathATrimmedLen), add(pathBPtr, pathBOffset), pathBTrimmedLen)
         }
     }
 
@@ -216,6 +234,12 @@ library SwapLogic {
         address targetAssetRecipient,
         bytes memory customSourceAssetPath
     ) internal returns (uint256 receivedTargetAssetAmount) {
+        address targetAsset = getMerchantPayoutAsset(_swapLogicStorage, merchant);
+
+        if (sourceAsset == targetAsset) {
+            return sourceAssetAmountIn;
+        }
+
         bytes memory swapPath;
         if (customSourceAssetPath.length > 0) {
             swapPath = _connect2Paths(

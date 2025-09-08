@@ -48,7 +48,6 @@ contract MerchantLogicTest is Test {
         percentages[1] = 40 * MerchantLogic.PERCENTAGE_PRECISION;
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
             payoutAddresses: addresses,
             payoutPercentages: percentages,
             allowUserCustomPath: true
@@ -57,7 +56,6 @@ contract MerchantLogicTest is Test {
         vm.expectEmit(true, true, true, true);
         emit MerchantLogic.MerchantConfigSet(
             address(this),
-            merchantConfig.payoutToken,
             merchantConfig.payoutAddresses,
             merchantConfig.payoutPercentages,
             merchantConfig.allowUserCustomPath
@@ -65,7 +63,6 @@ contract MerchantLogicTest is Test {
         _wrapper.setConfig(address(this), merchantConfig);
 
         MerchantLogic.MerchantConfig memory result = _wrapper.getConfig(address(this));
-        assertEq(result.payoutToken, merchantConfig.payoutToken);
         assertEq(result.payoutAddresses.length, 2);
         assertEq(result.payoutAddresses[0], address(2));
         assertEq(result.payoutPercentages[0], 60 * MerchantLogic.PERCENTAGE_PRECISION);
@@ -81,7 +78,6 @@ contract MerchantLogicTest is Test {
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
             payoutAddresses: addresses,
             payoutPercentages: percentages,
             allowUserCustomPath: true
@@ -119,7 +115,6 @@ contract MerchantLogicTest is Test {
         percentages[1] = 30 * MerchantLogic.PERCENTAGE_PRECISION; // Total is only 80%
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
             payoutAddresses: addresses,
             payoutPercentages: percentages,
             allowUserCustomPath: true
@@ -134,7 +129,6 @@ contract MerchantLogicTest is Test {
         uint32[] memory percentages = new uint32[](0);
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
             payoutAddresses: addresses,
             payoutPercentages: percentages,
             allowUserCustomPath: true
@@ -155,7 +149,6 @@ contract MerchantLogicTest is Test {
         percentages[2] = 20;
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
             payoutAddresses: addresses,
             payoutPercentages: percentages,
             allowUserCustomPath: true
@@ -177,7 +170,6 @@ contract MerchantLogicTest is Test {
         percentages[2] = 50 * MerchantLogic.PERCENTAGE_PRECISION;
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
             payoutAddresses: addresses,
             payoutPercentages: percentages,
             allowUserCustomPath: true

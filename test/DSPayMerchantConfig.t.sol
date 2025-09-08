@@ -37,7 +37,6 @@ contract DSPayMerchantConfigTest is Test {
         percentages[0] = 70 * MerchantLogic.PERCENTAGE_PRECISION;
         percentages[1] = 30 * MerchantLogic.PERCENTAGE_PRECISION;
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
             payoutAddresses: addresses,
             payoutPercentages: percentages,
             allowUserCustomPath: true
@@ -46,15 +45,13 @@ contract DSPayMerchantConfigTest is Test {
         vm.expectEmit(true, true, true, true);
         emit MerchantLogic.MerchantConfigSet(
             address(this),
-            merchantConfig.payoutToken,
             merchantConfig.payoutAddresses,
             merchantConfig.payoutPercentages,
             merchantConfig.allowUserCustomPath
         );
-        _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
+        _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(address(1)));
 
         MerchantLogic.MerchantConfig memory r = _dspay.getMerchantConfig(address(this));
-        assertEq(r.payoutToken, merchantConfig.payoutToken);
         assertEq(r.payoutAddresses.length, 2);
         assertEq(r.payoutAddresses[0], address(3));
         assertEq(r.payoutPercentages[0], 70 * MerchantLogic.PERCENTAGE_PRECISION);
@@ -68,14 +65,13 @@ contract DSPayMerchantConfigTest is Test {
         uint32[] memory percentages = new uint32[](1);
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
             payoutAddresses: addresses,
             payoutPercentages: percentages,
             allowUserCustomPath: true
         });
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
-        _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
+        _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(address(1)));
     }
 
     function testSetAndGetItemIdCallbackConfig() public {
@@ -169,14 +165,13 @@ contract DSPayMerchantConfigTest is Test {
         }
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
             payoutAddresses: addresses,
             payoutPercentages: percentages,
             allowUserCustomPath: true
         });
 
         vm.expectRevert(MerchantLogic.TooManyPayoutRecipients.selector);
-        _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
+        _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(address(1)));
     }
 
     function testSetMerchantConfigMaxRecipients() public {
@@ -196,13 +191,12 @@ contract DSPayMerchantConfigTest is Test {
         }
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutToken: address(1),
             payoutAddresses: addresses,
             payoutPercentages: percentages,
             allowUserCustomPath: true
         });
 
-        _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(merchantConfig.payoutToken));
+        _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(address(1)));
 
         MerchantLogic.MerchantConfig memory result = _dspay.getMerchantConfig(address(this));
         assertEq(result.payoutAddresses.length, numRecipients);

@@ -94,11 +94,11 @@ library AssetManagement {
         }
 
         // slither-disable-next-line unused-return
-        (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) =
+        (, int256 answer, uint256 startedAt, uint256 updatedAt,) =
             AggregatorV3Interface(paymentAsset.priceFeed).latestRoundData();
 
         // Check for invalid or incomplete price data
-        if (answer <= 0 || startedAt == 0 || answeredInRound < roundId) {
+        if (answer <= 0 || startedAt == 0) {
             revert InvalidPriceFeedData();
         }
 
@@ -189,11 +189,10 @@ library AssetManagement {
         AggregatorV3Interface priceFeedContract = AggregatorV3Interface(paymentAsset.priceFeed);
 
         // slither-disable-next-line unused-return
-        (uint80 roundId, int256 price, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) =
-            priceFeedContract.latestRoundData();
+        (, int256 price, uint256 startedAt, uint256 updatedAt,) = priceFeedContract.latestRoundData();
 
         // Check for invalid or incomplete price data
-        if (price <= 0 || startedAt == 0 || answeredInRound < roundId) {
+        if (price <= 0 || startedAt == 0) {
             revert InvalidPriceFeedData();
         }
 

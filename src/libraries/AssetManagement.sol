@@ -47,6 +47,8 @@ library AssetManagement {
         uint8 tokenDecimals;
         /// @notice threshold for price feed data in seconds
         uint64 stalePriceThresholdInSeconds;
+        /// @notice whether the asset is active for new payments
+        bool active;
     }
 
     /// @notice Validates the price feed
@@ -88,11 +90,14 @@ library AssetManagement {
         );
     }
 
-    /// @notice Removes an asset from the assets mapping
+    /// @notice Disables an asset for new payments while preserving configuration for existing authorized payments
     /// @param _assets assets mapping
     /// @param asset token address
     function remove(mapping(address asset => PaymentAsset) storage _assets, address asset) internal {
-        delete _assets[asset];
+        if (!exists(_assets, asset)) {
+            revert AssetNotFound();
+        }
+        _assets[asset].active = false;
         emit AssetRemoved(asset);
     }
 
@@ -109,11 +114,23 @@ library AssetManagement {
         if (asset.priceFeed == ZERO_ADDRESS) revert AssetNotFound();
     }
 
-    /// @notice Checks if an asset is supported (exists in the mapping)
+    /// @notice Checks if an asset is supported for new payments
+    /// @param _assets assets mapping
+    /// @param assetAddress token address
+    /// @return true if the asset exists and is active, false otherwise
+    function isSupported(mapping(address asset => PaymentAsset) storage _assets, address assetAddress)
+        internal
+        view
+        returns (bool)
+    {
+        return _assets[assetAddress].priceFeed != ZERO_ADDRESS && _assets[assetAddress].active;
+    }
+
+    /// @notice Checks if an asset exists in the mapping (regardless of active status)
     /// @param _assets assets mapping
     /// @param assetAddress token address
     /// @return true if the asset exists, false otherwise
-    function isSupported(mapping(address asset => PaymentAsset) storage _assets, address assetAddress)
+    function exists(mapping(address asset => PaymentAsset) storage _assets, address assetAddress)
         internal
         view
         returns (bool)

@@ -50,7 +50,8 @@ contract Deploy is Script {
         AssetManagement.PaymentAsset memory usdcPaymentAsset = AssetManagement.PaymentAsset({
             priceFeed: config.usdcTokenPriceFeed,
             tokenDecimals: config.usdcTokenDecimals,
-            stalePriceThresholdInSeconds: config.usdcTokenStalePriceThresholdInSeconds
+            stalePriceThresholdInSeconds: config.usdcTokenStalePriceThresholdInSeconds,
+            active: true
         });
         dspay.setPaymentAsset(config.usdcTokenAddress, usdcPaymentAsset, config.usdcToUsdtPath);
 

@@ -18,7 +18,8 @@ library Setup {
         _assets[usdcAddress] = AssetManagement.PaymentAsset({
             priceFeed: usdcPriceFeed,
             tokenDecimals: usdcDecimals,
-            stalePriceThresholdInSeconds: usdcStalePriceThresholdInSeconds
+            stalePriceThresholdInSeconds: usdcStalePriceThresholdInSeconds,
+            active: true
         });
     }
 }

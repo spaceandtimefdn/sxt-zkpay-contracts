@@ -51,6 +51,7 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     struct DSPayStorage {
         address executorAddress;
         mapping(address asset => AssetManagement.PaymentAsset) assets;
+        AssetManagement.AssetManagementSequencerConfig assetManagementSequencerConfig;
         MerchantLogic.MerchantLogicStorage merchantLogicStorage;
         SwapLogic.SwapLogicStorage swapLogicStorage;
         PayWallLogic.PayWallLogicStorage paywallLogicStorage;
@@ -59,11 +60,14 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
 
     DSPayStorage internal _dsPayStorage;
 
-    constructor(address admin, SwapLogic.SwapLogicConfig memory swapLogicConfig)
-        AccessControlDefaultAdminRules(0, admin)
-    {
+    constructor(
+        address admin,
+        SwapLogic.SwapLogicConfig memory swapLogicConfig,
+        AssetManagement.AssetManagementSequencerConfig memory sequencerConfig
+    ) AccessControlDefaultAdminRules(0, admin) {
         _deployExecutor();
         _dsPayStorage.swapLogicStorage.setConfig(swapLogicConfig);
+        _dsPayStorage.assetManagementSequencerConfig = sequencerConfig;
     }
 
     function _deployExecutor() internal {
@@ -98,6 +102,15 @@ contract DSPay is IDSPay, AccessControlDefaultAdminRules, ReentrancyGuard {
     /// @inheritdoc IDSPay
     function getPaymentAsset(address asset) external view returns (AssetManagement.PaymentAsset memory paymentAsset) {
         return AssetManagement.get(_dsPayStorage.assets, asset);
+    }
+
+    /// @inheritdoc IDSPay
+    function getSequencerConfig()
+        external
+        view
+        returns (AssetManagement.AssetManagementSequencerConfig memory sequencerConfig)
+    {
+        return _dsPayStorage.assetManagementSequencerConfig;
     }
 
     function _sendPayment(

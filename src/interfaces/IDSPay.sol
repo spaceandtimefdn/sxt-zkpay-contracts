@@ -207,6 +207,13 @@ interface IDSPay {
     /// @return executor The executor address
     function getExecutorAddress() external view returns (address executor);
 
+    /// @notice Gets the sequencer configuration
+    /// @return sequencerConfig The current sequencer configuration
+    function getSequencerConfig()
+        external
+        view
+        returns (AssetManagement.AssetManagementSequencerConfig memory sequencerConfig);
+
     /// @notice Settles an authorized payment
     /// @param sourceAsset The source asset of the payment
     /// @param sourceAssetAmount The amount of source asset that was authorized

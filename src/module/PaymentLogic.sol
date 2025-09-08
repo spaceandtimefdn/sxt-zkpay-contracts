@@ -92,7 +92,9 @@ library PaymentLogic {
             );
         }
 
-        result.amountInUSD = _dsPayStorage.assets.convertToUsd(params.asset, receivedTransferAmount);
+        result.amountInUSD = _dsPayStorage.assets.convertToUsd(
+            _dsPayStorage.assetManagementSequencerConfig, params.asset, receivedTransferAmount
+        );
 
         _validateItemPrice(_dsPayStorage.paywallLogicStorage, params.merchant, params.itemId, result.amountInUSD);
     }
@@ -114,7 +116,9 @@ library PaymentLogic {
     {
         uint248 receivedSourceAssetAmount =
             AssetManagement.transferAssetFromCaller(params.asset, params.amount, address(this));
-        amountInUSD = _dsPayStorage.assets.convertToUsd(params.asset, receivedSourceAssetAmount);
+        amountInUSD = _dsPayStorage.assets.convertToUsd(
+            _dsPayStorage.assetManagementSequencerConfig, params.asset, receivedSourceAssetAmount
+        );
 
         if (receivedSourceAssetAmount == 0) {
             revert ZeroAmountReceived();
@@ -136,23 +140,24 @@ library PaymentLogic {
 
     /// @notice Computes the breakdown of amounts for settlement (payment, refund)
     /// @param _assets The assets mapping
+    /// @param sequencerConfig The sequencer configuration for L2 uptime checks
     /// @param sourceAsset The source asset address
     /// @param sourceAssetAmount The total source asset amount
     /// @param maxUsdValueOfTargetToken Maximum USD value allowed for the target token
     /// @return toBePaidInSourceToken Amount to be paid to merchant in source token
     /// @return toBeRefundedInSourceToken Amount to be refunded to client in source token
-
     function _computeSettlementBreakdown(
         mapping(address asset => AssetManagement.PaymentAsset) storage _assets,
+        AssetManagement.AssetManagementSequencerConfig storage sequencerConfig,
         address sourceAsset,
         uint248 sourceAssetAmount,
         uint248 maxUsdValueOfTargetToken
     ) internal view returns (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken) {
-        uint248 sourceAssetInUsd = _assets.convertToUsd(sourceAsset, sourceAssetAmount);
+        uint248 sourceAssetInUsd = _assets.convertToUsd(sequencerConfig, sourceAsset, sourceAssetAmount);
         uint248 toBePaidInUsd =
             maxUsdValueOfTargetToken > sourceAssetInUsd ? sourceAssetInUsd : maxUsdValueOfTargetToken;
 
-        toBePaidInSourceToken = _assets.convertUsdToToken(sourceAsset, toBePaidInUsd);
+        toBePaidInSourceToken = _assets.convertUsdToToken(sequencerConfig, sourceAsset, toBePaidInUsd);
         toBeRefundedInSourceToken = sourceAssetAmount - toBePaidInSourceToken;
 
         return (toBePaidInSourceToken, toBeRefundedInSourceToken);
@@ -198,7 +203,11 @@ library PaymentLogic {
 
         result.payoutToken = _dsPayStorage.swapLogicStorage.getMerchantPayoutAsset(params.merchant);
         (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken) = _computeSettlementBreakdown(
-            _dsPayStorage.assets, params.sourceAsset, params.sourceAssetAmount, params.maxUsdValueOfTargetToken
+            _dsPayStorage.assets,
+            _dsPayStorage.assetManagementSequencerConfig,
+            params.sourceAsset,
+            params.sourceAssetAmount,
+            params.maxUsdValueOfTargetToken
         );
 
         // 1. pay merchant

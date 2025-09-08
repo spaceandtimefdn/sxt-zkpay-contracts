@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {ISequencerUptimeFeed} from "../interfaces/ISequencerUptimeFeed.sol";
 import {Utils} from "./Utils.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -23,6 +24,10 @@ library AssetManagement {
     error StalePriceFeedData();
     /// @notice Error thrown when the asset is not supported for this method
     error AssetIsNotSupportedForThisMethod();
+    /// @notice Error thrown when the L2 sequencer is down
+    error SequencerDown();
+    /// @notice Error thrown when the sequencer uptime feed grace period has not passed
+    error GracePeriodNotOver();
 
     /// @notice Emitted when a new asset is added
     /// @param asset The asset address
@@ -49,6 +54,36 @@ library AssetManagement {
         uint64 stalePriceThresholdInSeconds;
         /// @notice whether the asset is active for new payments
         bool active;
+    }
+
+    /**
+     * @notice Global configuration for asset management sequencer
+     */
+    struct AssetManagementSequencerConfig {
+        /// @notice Chainlink L2 sequencer uptime feed address
+        address sequencerUptimeFeed;
+        /// @notice Grace period in seconds after sequencer is back up
+        uint256 gracePeriod;
+    }
+
+    /// @notice Checks L2 sequencer uptime before allowing price feed operations
+    /// @param sequencerConfig asset management sequencer configuration
+    function _checkSequencerUptime(AssetManagementSequencerConfig storage sequencerConfig) internal view {
+        if (sequencerConfig.sequencerUptimeFeed == ZERO_ADDRESS) return;
+
+        // slither-disable-next-line unused-return
+        (, int256 answer, uint256 startedAt,,) =
+            ISequencerUptimeFeed(sequencerConfig.sequencerUptimeFeed).latestRoundData();
+
+        bool isSequencerUp = answer == 0;
+        if (!isSequencerUp) {
+            revert SequencerDown();
+        }
+
+        // slither-disable-next-line timestamp
+        if (startedAt != 0 && block.timestamp - startedAt < sequencerConfig.gracePeriod) {
+            revert GracePeriodNotOver();
+        }
     }
 
     /// @notice Validates the price feed
@@ -141,13 +176,15 @@ library AssetManagement {
     /// @notice Gets the price of an asset
     /// @param _assets assets mapping
     /// @param assetAddress token address
+    /// @param sequencerConfig asset management sequencer configuration
     /// @return safePrice price of the asset
     /// @return priceFeedDecimals price feed decimals
-    function _getPrice(mapping(address asset => PaymentAsset) storage _assets, address assetAddress)
-        internal
-        view
-        returns (uint256 safePrice, uint8 priceFeedDecimals)
-    {
+    function _getPrice(
+        mapping(address asset => PaymentAsset) storage _assets,
+        AssetManagementSequencerConfig storage sequencerConfig,
+        address assetAddress
+    ) internal view returns (uint256 safePrice, uint8 priceFeedDecimals) {
+        _checkSequencerUptime(sequencerConfig);
         PaymentAsset storage paymentAsset = _assets[assetAddress];
         AggregatorV3Interface priceFeedContract = AggregatorV3Interface(paymentAsset.priceFeed);
 
@@ -174,16 +211,18 @@ library AssetManagement {
      * @param _assets assets mapping
      * @param tokenAmount The amount of the token (in its smallest unit, e.g., wei for ETH).
      * @param assetAddress The address of the asset to convert.
+     * @param sequencerConfig asset management sequencer configuration
      * @return usdValue The equivalent USD value in 18 decimal places.
      * @dev This function could revert if `tokenAmount * safePrice` overflows uint248
      */
     function convertToUsd(
         mapping(address asset => PaymentAsset) storage _assets,
+        AssetManagementSequencerConfig storage sequencerConfig,
         address assetAddress,
         uint248 tokenAmount
     ) internal view returns (uint248 usdValue) {
         PaymentAsset storage paymentAsset = _assets[assetAddress];
-        (uint256 safePrice, uint8 priceFeedDecimals) = _getPrice(_assets, assetAddress);
+        (uint256 safePrice, uint8 priceFeedDecimals) = _getPrice(_assets, sequencerConfig, assetAddress);
 
         if (paymentAsset.tokenDecimals + priceFeedDecimals > 18) {
             usdValue = uint248((tokenAmount * safePrice) / 10 ** (paymentAsset.tokenDecimals + priceFeedDecimals - 18));
@@ -196,14 +235,16 @@ library AssetManagement {
      * @dev Internal helper function to convert a USD value to its equivalent token amount.
      * @param usdValue The USD value to convert in 18 decimals.
      * @param asset The address of the asset to convert.
+     * @param sequencerConfig asset management sequencer configuration
      * @return tokenAmount The equivalent token amount.
      */
-    function convertUsdToToken(mapping(address asset => PaymentAsset) storage _assets, address asset, uint248 usdValue)
-        internal
-        view
-        returns (uint248 tokenAmount)
-    {
-        (uint256 safePrice, uint8 priceFeedDecimals) = _getPrice(_assets, asset);
+    function convertUsdToToken(
+        mapping(address asset => PaymentAsset) storage _assets,
+        AssetManagementSequencerConfig storage sequencerConfig,
+        address asset,
+        uint248 usdValue
+    ) internal view returns (uint248 tokenAmount) {
+        (uint256 safePrice, uint8 priceFeedDecimals) = _getPrice(_assets, sequencerConfig, asset);
 
         uint248 adjustedPrice = uint248(safePrice) * uint248(10 ** (18 - priceFeedDecimals)); // price in 18 decimals
         tokenAmount = (usdValue * uint248(10 ** _assets[asset].tokenDecimals)) / adjustedPrice;

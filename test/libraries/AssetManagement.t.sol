@@ -8,6 +8,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {ZERO_ADDRESS} from "../../src/libraries/Constants.sol";
 import {Setup} from "./Setup.sol";
+import {MockSequencerFeedDown, MockSequencerFeedGracePeriod} from "../MockSequencerFeed.sol";
 
 // Mock contract that simulates incomplete round data from Chainlink price feed
 contract MockIncompleteRoundDataAggregator {
@@ -50,6 +51,7 @@ contract MockZeroPriceAggregator {
 
 contract AssetManagementTestWrapper {
     mapping(address asset => AssetManagement.PaymentAsset) internal _assets;
+    AssetManagement.AssetManagementSequencerConfig internal _sequencerConfig;
     address internal _usdcAddress;
 
     constructor() {
@@ -63,7 +65,7 @@ contract AssetManagementTestWrapper {
     }
 
     function getPrice(address assetAddress) external view returns (uint256 safePrice, uint8 priceFeedDecimals) {
-        return AssetManagement._getPrice(_assets, assetAddress);
+        return AssetManagement._getPrice(_assets, _sequencerConfig, assetAddress);
     }
 
     function setPaymentAsset(address asset, AssetManagement.PaymentAsset calldata paymentAsset) external {
@@ -91,17 +93,25 @@ contract AssetManagementTestWrapper {
     }
 
     function convertToUsd(address asset, uint248 amount) external view returns (uint248) {
-        return AssetManagement.convertToUsd(_assets, asset, amount);
+        return AssetManagement.convertToUsd(_assets, _sequencerConfig, asset, amount);
     }
 
     function convertUsdToToken(address asset, uint248 usdValue) external view returns (uint248) {
-        return AssetManagement.convertUsdToToken(_assets, asset, usdValue);
+        return AssetManagement.convertUsdToToken(_assets, _sequencerConfig, asset, usdValue);
     }
 }
 
 contract TransferHelper {
+    AssetManagement.AssetManagementSequencerConfig internal _sequencerConfig;
+
     function transferAssetFromCaller(address asset, uint248 amount, address recipient) external returns (uint248) {
         return AssetManagement.transferAssetFromCaller(asset, amount, recipient);
+    }
+
+    function checkSequencerUptime(AssetManagement.AssetManagementSequencerConfig calldata sequencerConfig) external {
+        // Copy calldata to storage to match the function signature
+        _sequencerConfig = sequencerConfig;
+        AssetManagement._checkSequencerUptime(_sequencerConfig);
     }
 }
 
@@ -431,5 +441,23 @@ contract AssetManagementTest is Test {
         uint248 actualAmountReceived = AssetManagement.transferAssetFromCaller(address(0x1234), 0, address(0x5678));
 
         assertEq(actualAmountReceived, 0);
+    }
+
+    function testSequencerDown() public {
+        MockSequencerFeedDown mockFeed = new MockSequencerFeedDown();
+        AssetManagement.AssetManagementSequencerConfig memory sequencerConfig =
+            AssetManagement.AssetManagementSequencerConfig({sequencerUptimeFeed: address(mockFeed), gracePeriod: 3600});
+
+        vm.expectRevert(AssetManagement.SequencerDown.selector);
+        _transferHelper.checkSequencerUptime(sequencerConfig);
+    }
+
+    function testSequencerGracePeriod() public {
+        MockSequencerFeedGracePeriod mockFeed = new MockSequencerFeedGracePeriod();
+        AssetManagement.AssetManagementSequencerConfig memory sequencerConfig =
+            AssetManagement.AssetManagementSequencerConfig({sequencerUptimeFeed: address(mockFeed), gracePeriod: 3600});
+
+        vm.expectRevert(AssetManagement.GracePeriodNotOver.selector);
+        _transferHelper.checkSequencerUptime(sequencerConfig);
     }
 }

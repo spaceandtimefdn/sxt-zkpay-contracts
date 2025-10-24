@@ -278,7 +278,7 @@ contract PaymentLogicProcessPaymentWrapper {
     address public constant MERCHANT_PAYOUT_ADDRESS = address(0x8001);
 
     constructor() {
-        dsPayStorage.swapLogicStorage.swapLogicConfig = SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT});
+        dsPayStorage.swapLogicStorage.swapLogicConfig = SwapLogic.SwapLogicConfig({router: ROUTER, usd: USDT});
 
         dsPayStorage.swapLogicStorage.assetSwapPaths.sourceAssetPaths[SXT] =
             abi.encodePacked(SXT, bytes3(uint24(3000)), USDT);
@@ -400,7 +400,7 @@ contract PaymentLogicAuthorizePaymentWrapper {
     address public constant MERCHANT_PAYOUT_ADDRESS = address(0x8001);
 
     constructor() {
-        dsPayStorage.swapLogicStorage.swapLogicConfig = SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT});
+        dsPayStorage.swapLogicStorage.swapLogicConfig = SwapLogic.SwapLogicConfig({router: ROUTER, usd: USDT});
 
         dsPayStorage.swapLogicStorage.assetSwapPaths.sourceAssetPaths[SXT] =
             abi.encodePacked(SXT, bytes3(uint24(3000)), USDT);

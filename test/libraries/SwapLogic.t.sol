@@ -18,7 +18,7 @@ contract SwapLogicTest is Test {
     function setUp() public {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ROUTER;
-        cfg.usdt = USDT;
+        cfg.usd = USDT;
         this._setConfig(cfg);
         wrapper = new SwapLogicWrapper();
     }
@@ -38,13 +38,13 @@ contract SwapLogicTest is Test {
     function testSetAndGetConfig() public view {
         SwapLogic.SwapLogicConfig memory cfg = _swapLogicStorage.swapLogicConfig;
         assertEq(cfg.router, ROUTER, "router addr mismatch");
-        assertEq(cfg.usdt, USDT, "usdt addr mismatch");
+        assertEq(cfg.usd, USDT, "usd addr mismatch");
     }
 
     function testSetConfigRouterZeroAddressReverts() public {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ZERO_ADDRESS;
-        cfg.usdt = USDT;
+        cfg.usd = USDT;
         vm.expectRevert(SwapLogic.ZeroAddress.selector);
         this._setConfig(cfg);
     }
@@ -52,7 +52,7 @@ contract SwapLogicTest is Test {
     function testSetConfigUsdtZeroAddressReverts() public {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ROUTER;
-        cfg.usdt = ZERO_ADDRESS;
+        cfg.usd = ZERO_ADDRESS;
         vm.expectRevert(SwapLogic.ZeroAddress.selector);
         this._setConfig(cfg);
     }
@@ -108,18 +108,18 @@ contract SwapLogicTest is Test {
 
     function testSetSourceAssetPathWrongTokenOutReverts() public {
         bytes memory wrongPath = abi.encodePacked(address(0xDEAD)); // ends with wrong token
-        vm.expectRevert(SwapLogic.PathMustEndWithUSDT.selector);
+        vm.expectRevert(SwapLogic.PathMustEndWithUSD.selector);
         this._setSourceAssetPath(wrongPath);
     }
 
     function testSetSourceAssetPathZeroAddressReverts() public {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ROUTER;
-        cfg.usdt = address(0x1234);
+        cfg.usd = address(0x1234);
         this._setConfig(cfg);
 
         bytes memory zeroPath = abi.encodePacked(ZERO_ADDRESS);
-        vm.expectRevert(SwapLogic.PathMustEndWithUSDT.selector);
+        vm.expectRevert(SwapLogic.PathMustEndWithUSD.selector);
         this._setSourceAssetPath(zeroPath);
     }
 
@@ -131,18 +131,18 @@ contract SwapLogicTest is Test {
 
     function testSetMerchantTargetAssetPathWrongTokenInReverts() public {
         bytes memory wrongPath = abi.encodePacked(address(0xDEAD));
-        vm.expectRevert(SwapLogic.PathMustStartWithUSDT.selector);
+        vm.expectRevert(SwapLogic.PathMustStartWithUSD.selector);
         this._setMerchantTargetAssetPath(MERCHANT, wrongPath);
     }
 
     function testSetMerchantTargetAssetPathZeroAddressReverts() public {
         SwapLogic.SwapLogicConfig memory cfg;
         cfg.router = ROUTER;
-        cfg.usdt = address(0x1234);
+        cfg.usd = address(0x1234);
         this._setConfig(cfg);
 
         bytes memory zeroPath = abi.encodePacked(ZERO_ADDRESS);
-        vm.expectRevert(SwapLogic.PathMustStartWithUSDT.selector);
+        vm.expectRevert(SwapLogic.PathMustStartWithUSD.selector);
         this._setMerchantTargetAssetPath(MERCHANT, zeroPath);
     }
 
@@ -284,7 +284,7 @@ contract SwapLogicWrapper {
         _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[USDT] =
             abi.encodePacked(USDT, bytes3(uint24(3000)), USDC);
 
-        _swapLogicStorage.swapLogicConfig = SwapLogic.SwapLogicConfig({router: ROUTER, usdt: USDT});
+        _swapLogicStorage.swapLogicConfig = SwapLogic.SwapLogicConfig({router: ROUTER, usd: USDT});
     }
 
     function _swapExactAmountIn(bytes memory path, uint256 amountIn, address recipient)

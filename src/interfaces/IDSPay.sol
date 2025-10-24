@@ -59,7 +59,7 @@ interface IDSPay {
     /// @notice Sets the payment asset
     /// @param assetAddress The asset to set
     /// @param paymentAsset AssetManagement.PaymentAsset struct
-    /// @param path The path for the source asset to swap to USDT (sourceAsset => USDT)
+    /// @param path The path for the source asset to swap to USD (sourceAsset => USD)
     function setPaymentAsset(
         address assetAddress,
         AssetManagement.PaymentAsset calldata paymentAsset,
@@ -183,7 +183,7 @@ interface IDSPay {
 
     /// @notice Sets the merchant configuration for the caller
     /// @param config Merchant configuration struct
-    /// @param path The path for the target asset to swap to USDT (USDT => targetAsset)
+    /// @param path The path for the target asset to swap to USD (USD => targetAsset)
     function setMerchantConfig(MerchantLogic.MerchantConfig calldata config, bytes calldata path) external;
 
     /// @notice Returns the merchant configuration for a given merchant

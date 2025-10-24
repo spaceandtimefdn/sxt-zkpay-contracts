@@ -21,7 +21,7 @@ library SwapLogic {
     // solhint-disable-next-line gas-struct-packing
     struct SwapLogicConfig {
         address router;
-        address usdt;
+        address usd;
     }
 
     struct AssetSwapPaths {
@@ -36,10 +36,10 @@ library SwapLogic {
 
     /// @notice Error thrown when the provided swap path bytes are not a valid Uniswap V3 path encoding
     error InvalidPath();
-    /// @notice Error thrown when the swap path does not end with the USDT token defined in the contract config
-    error PathMustEndWithUSDT();
-    /// @notice Error thrown when the swap path does not start with the USDT token defined in the contract config
-    error PathMustStartWithUSDT();
+    /// @notice Error thrown when the swap path does not end with the USD token defined in the contract config
+    error PathMustEndWithUSD();
+    /// @notice Error thrown when the swap path does not start with the USD token defined in the contract config
+    error PathMustStartWithUSD();
     /// @notice Error thrown when the provided address is the zero address
     error ZeroAddress();
     /// @notice Error thrown when the paths do not connect
@@ -52,7 +52,7 @@ library SwapLogic {
 
     /// @notice set the essential config for swaps
     function setConfig(SwapLogicStorage storage _swapLogicStorage, SwapLogicConfig memory newConfig) internal {
-        if (newConfig.router == ZERO_ADDRESS || newConfig.usdt == ZERO_ADDRESS) {
+        if (newConfig.router == ZERO_ADDRESS || newConfig.usd == ZERO_ADDRESS) {
             revert ZeroAddress();
         }
 
@@ -116,8 +116,8 @@ library SwapLogic {
 
         address tokenOut = calldataExtractPathDestinationAsset(path);
 
-        if (tokenOut != _swapLogicStorage.swapLogicConfig.usdt) {
-            revert PathMustEndWithUSDT();
+        if (tokenOut != _swapLogicStorage.swapLogicConfig.usd) {
+            revert PathMustEndWithUSD();
         }
 
         address sourceAsset = calldataExtractPathOriginAsset(path);
@@ -138,8 +138,8 @@ library SwapLogic {
 
         address tokenIn = calldataExtractPathOriginAsset(path);
 
-        if (tokenIn != _swapLogicStorage.swapLogicConfig.usdt) {
-            revert PathMustStartWithUSDT();
+        if (tokenIn != _swapLogicStorage.swapLogicConfig.usd) {
+            revert PathMustStartWithUSD();
         }
 
         _swapLogicStorage.assetSwapPaths.merchantTargetAssetPaths[merchant] = path;

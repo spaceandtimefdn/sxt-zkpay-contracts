@@ -28,8 +28,6 @@ contract Deploy is Script {
         address usdcTokenAddress;
         address usdcTokenPriceFeed;
         address router;
-        address usdt;
-        bytes usdcToUsdtPath;
     }
     /* solhint-enable gas-struct-packing */
 
@@ -43,7 +41,7 @@ contract Deploy is Script {
         // Deploy DSPay
         DSPay dspay = new DSPay(
             config.dspayAdmin,
-            SwapLogic.SwapLogicConfig({router: config.router, usdt: config.usdt}),
+            SwapLogic.SwapLogicConfig({router: config.router, usd: config.usdcTokenAddress}),
             AssetManagement.AssetManagementSequencerConfig({sequencerUptimeFeed: address(0), gracePeriod: 0})
         );
 
@@ -56,7 +54,7 @@ contract Deploy is Script {
             stalePriceThresholdInSeconds: config.usdcTokenStalePriceThresholdInSeconds,
             active: true
         });
-        dspay.setPaymentAsset(config.usdcTokenAddress, usdcPaymentAsset, config.usdcToUsdtPath);
+        dspay.setPaymentAsset(config.usdcTokenAddress, usdcPaymentAsset, abi.encodePacked(config.usdcTokenAddress));
 
         vm.stopBroadcast();
 
@@ -72,7 +70,7 @@ contract Deploy is Script {
     /// @notice Read configuration from JSON file
     /// @return config The configuration struct populated with values from the JSON file
     function _readConfig() internal view returns (Config memory config) {
-        string memory configPath = string.concat(vm.projectRoot(), "/script/config.json");
+        string memory configPath = string.concat(vm.projectRoot(), "/script/input/config.json");
         string memory configJson = vm.readFile(configPath);
 
         // dspay section
@@ -87,8 +85,6 @@ contract Deploy is Script {
 
         // swap logic section
         config.router = configJson.readAddress(".router");
-        config.usdt = configJson.readAddress(".usdt");
-        config.usdcToUsdtPath = configJson.readBytes(".usdcToUsdtPath");
     }
 
     /// @notice Create a formatted JSON output with deployed contract addresses and configuration
@@ -119,9 +115,6 @@ contract Deploy is Script {
             "\",\n",
             "    \"router\": \"",
             _addressToString(config.router),
-            "\",\n",
-            "    \"usdt\": \"",
-            _addressToString(config.usdt),
             "\"\n",
             "  }"
         );

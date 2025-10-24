@@ -63,10 +63,7 @@ contract DSPayTest is Test {
         );
 
         paymentAssetInstance = AssetManagement.PaymentAsset({
-            priceFeed: _priceFeed,
-            tokenDecimals: 18,
-            stalePriceThresholdInSeconds: 1000,
-            active: true
+            priceFeed: _priceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 1000, active: true
         });
     }
 
@@ -82,9 +79,7 @@ contract DSPayTest is Test {
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
 
         return MerchantLogic.MerchantConfig({
-            allowUserCustomPath: true,
-            payoutAddresses: addresses,
-            payoutPercentages: percentages
+            allowUserCustomPath: true, payoutAddresses: addresses, payoutPercentages: percentages
         });
     }
 
@@ -374,17 +369,11 @@ contract DSPayTest is Test {
         _setupMerchantConfig(address(0x6666), address(mockToken));
 
         PendingPayment.Transaction memory transaction1 = PendingPayment.Transaction({
-            asset: address(mockToken),
-            amount: 100,
-            from: address(this),
-            to: address(0x3333)
+            asset: address(mockToken), amount: 100, from: address(this), to: address(0x3333)
         });
 
         PendingPayment.Transaction memory transaction2 = PendingPayment.Transaction({
-            asset: address(mockToken),
-            amount: 200,
-            from: address(this),
-            to: address(0x6666)
+            asset: address(mockToken), amount: 200, from: address(this), to: address(0x6666)
         });
 
         bytes32 expectedHash1 = keccak256(abi.encode(transaction1, 1, block.chainid));
@@ -879,8 +868,7 @@ contract DSPayTest is Test {
             _admin,
             DummyData.getSwapLogicConfig(),
             AssetManagement.AssetManagementSequencerConfig({
-                sequencerUptimeFeed: customFeed,
-                gracePeriod: customGracePeriod
+                sequencerUptimeFeed: customFeed, gracePeriod: customGracePeriod
             })
         );
 

@@ -37,9 +37,7 @@ contract DSPayMerchantConfigTest is Test {
         percentages[0] = 70 * MerchantLogic.PERCENTAGE_PRECISION;
         percentages[1] = 30 * MerchantLogic.PERCENTAGE_PRECISION;
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutAddresses: addresses,
-            payoutPercentages: percentages,
-            allowUserCustomPath: true
+            payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
         });
 
         vm.expectEmit(true, true, true, true);
@@ -65,9 +63,7 @@ contract DSPayMerchantConfigTest is Test {
         uint32[] memory percentages = new uint32[](1);
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutAddresses: addresses,
-            payoutPercentages: percentages,
-            allowUserCustomPath: true
+            payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
         });
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
@@ -165,9 +161,7 @@ contract DSPayMerchantConfigTest is Test {
         }
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutAddresses: addresses,
-            payoutPercentages: percentages,
-            allowUserCustomPath: true
+            payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
         });
 
         vm.expectRevert(MerchantLogic.TooManyPayoutRecipients.selector);
@@ -191,9 +185,7 @@ contract DSPayMerchantConfigTest is Test {
         }
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutAddresses: addresses,
-            payoutPercentages: percentages,
-            allowUserCustomPath: true
+            payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
         });
 
         _dspay.setMerchantConfig(merchantConfig, DummyData.getDestinationAssetPath(address(1)));

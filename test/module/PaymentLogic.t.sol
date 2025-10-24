@@ -254,7 +254,8 @@ contract PaymentLogicDistributePayoutsTest is Test {
             assertTrue(
                 (totalAmount * percentages[i]) / MerchantLogic.TOTAL_PERCENTAGE <= amounts[i]
                     && amounts[i]
-                        <= (totalAmount * percentages[i] + MerchantLogic.TOTAL_PERCENTAGE - 1) / MerchantLogic.TOTAL_PERCENTAGE
+                        <= (totalAmount * percentages[i] + MerchantLogic.TOTAL_PERCENTAGE - 1)
+                            / MerchantLogic.TOTAL_PERCENTAGE
             );
         }
 
@@ -286,10 +287,7 @@ contract PaymentLogicProcessPaymentWrapper {
 
         MockV3Aggregator sxtPriceFeed = new MockV3Aggregator(8, 1000000000);
         AssetManagement.PaymentAsset memory sxtAsset = AssetManagement.PaymentAsset({
-            priceFeed: address(sxtPriceFeed),
-            tokenDecimals: 18,
-            stalePriceThresholdInSeconds: 3600,
-            active: true
+            priceFeed: address(sxtPriceFeed), tokenDecimals: 18, stalePriceThresholdInSeconds: 3600, active: true
         });
         AssetManagement.set(dsPayStorage.assets, SXT, sxtAsset);
 
@@ -297,14 +295,13 @@ contract PaymentLogicProcessPaymentWrapper {
         addresses[0] = MERCHANT_PAYOUT_ADDRESS;
         uint32[] memory percentages = new uint32[](1);
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
-        dsPayStorage.merchantLogicStorage.setConfig(
-            MERCHANT,
-            MerchantLogic.MerchantConfig({
-                payoutAddresses: addresses,
-                payoutPercentages: percentages,
-                allowUserCustomPath: true
-            })
-        );
+        dsPayStorage.merchantLogicStorage
+            .setConfig(
+                MERCHANT,
+                MerchantLogic.MerchantConfig({
+                    payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
+                })
+            );
     }
 
     function processPayment(PaymentLogic.ProcessPaymentParams calldata params)
@@ -341,11 +338,7 @@ contract PaymentLogicProcessPaymentTest is Test {
         IERC20(SXT).approve(address(wrapper), amount);
 
         PaymentLogic.ProcessPaymentParams memory params = PaymentLogic.ProcessPaymentParams({
-            asset: SXT,
-            amount: amount,
-            merchant: MERCHANT,
-            itemId: itemId,
-            customSourceAssetPath: ""
+            asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId, customSourceAssetPath: ""
         });
 
         try wrapper.processPayment(params) returns (PaymentLogic.ProcessPaymentResult memory result) {
@@ -372,11 +365,7 @@ contract PaymentLogicProcessPaymentTest is Test {
         IERC20(SXT).approve(address(wrapper), amount);
 
         PaymentLogic.ProcessPaymentParams memory params = PaymentLogic.ProcessPaymentParams({
-            asset: SXT,
-            amount: amount,
-            merchant: MERCHANT,
-            itemId: itemId,
-            customSourceAssetPath: ""
+            asset: SXT, amount: amount, merchant: MERCHANT, itemId: itemId, customSourceAssetPath: ""
         });
 
         vm.expectRevert(PaymentLogic.InsufficientPayment.selector);
@@ -389,11 +378,7 @@ contract PaymentLogicProcessPaymentTest is Test {
         address unsupportedAsset = address(0xDEAD);
 
         PaymentLogic.ProcessPaymentParams memory params = PaymentLogic.ProcessPaymentParams({
-            asset: unsupportedAsset,
-            amount: amount,
-            merchant: MERCHANT,
-            itemId: itemId,
-            customSourceAssetPath: ""
+            asset: unsupportedAsset, amount: amount, merchant: MERCHANT, itemId: itemId, customSourceAssetPath: ""
         });
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
@@ -424,19 +409,13 @@ contract PaymentLogicAuthorizePaymentWrapper {
 
         MockV3Aggregator sxtPriceFeed = new MockV3Aggregator(8, 1000000000);
         AssetManagement.PaymentAsset memory sxtAsset = AssetManagement.PaymentAsset({
-            priceFeed: address(sxtPriceFeed),
-            tokenDecimals: 18,
-            stalePriceThresholdInSeconds: 3600,
-            active: true
+            priceFeed: address(sxtPriceFeed), tokenDecimals: 18, stalePriceThresholdInSeconds: 3600, active: true
         });
         AssetManagement.set(dsPayStorage.assets, SXT, sxtAsset);
 
         MockV3Aggregator usdtPriceFeed = new MockV3Aggregator(8, 100000000);
         AssetManagement.PaymentAsset memory usdtAsset = AssetManagement.PaymentAsset({
-            priceFeed: address(usdtPriceFeed),
-            tokenDecimals: 6,
-            stalePriceThresholdInSeconds: 3600,
-            active: true
+            priceFeed: address(usdtPriceFeed), tokenDecimals: 6, stalePriceThresholdInSeconds: 3600, active: true
         });
         AssetManagement.set(dsPayStorage.assets, USDT, usdtAsset);
 
@@ -444,14 +423,13 @@ contract PaymentLogicAuthorizePaymentWrapper {
         addresses[0] = MERCHANT_PAYOUT_ADDRESS;
         uint32[] memory percentages = new uint32[](1);
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
-        dsPayStorage.merchantLogicStorage.setConfig(
-            MERCHANT,
-            MerchantLogic.MerchantConfig({
-                payoutAddresses: addresses,
-                payoutPercentages: percentages,
-                allowUserCustomPath: true
-            })
-        );
+        dsPayStorage.merchantLogicStorage
+            .setConfig(
+                MERCHANT,
+                MerchantLogic.MerchantConfig({
+                    payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
+                })
+            );
     }
 
     function authorizePayment(PaymentLogic.AuthorizePaymentParams calldata params)
@@ -578,10 +556,7 @@ contract PaymentLogicAuthorizePaymentTest is Test {
         vm.startPrank(USER);
 
         PaymentLogic.AuthorizePaymentParams memory params = PaymentLogic.AuthorizePaymentParams({
-            asset: unsupportedAsset,
-            amount: amount,
-            merchant: MERCHANT,
-            itemId: itemId
+            asset: unsupportedAsset, amount: amount, merchant: MERCHANT, itemId: itemId
         });
 
         vm.expectRevert(AssetManagement.AssetIsNotSupportedForThisMethod.selector);
@@ -699,10 +674,7 @@ contract PaymentLogicAuthorizePaymentTest is Test {
 
         (, bytes32 txHash,) = wrapper.authorizePayment(
             PaymentLogic.AuthorizePaymentParams({
-                asset: SXT,
-                amount: amount,
-                merchant: MERCHANT,
-                itemId: bytes32("test_item")
+                asset: SXT, amount: amount, merchant: MERCHANT, itemId: bytes32("test_item")
             })
         );
         vm.stopPrank();

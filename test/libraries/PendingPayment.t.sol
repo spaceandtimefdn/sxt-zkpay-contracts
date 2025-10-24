@@ -47,10 +47,7 @@ contract PendingPaymentTest is Test {
         _wrapper = new PendingPaymentWrapper();
 
         _sampleTransaction = PendingPayment.Transaction({
-            asset: address(0x1234),
-            amount: 1000,
-            from: address(0x5678),
-            to: address(0x9abc)
+            asset: address(0x1234), amount: 1000, from: address(0x5678), to: address(0x9abc)
         });
     }
 
@@ -81,17 +78,11 @@ contract PendingPaymentTest is Test {
 
     function testAuthorizeMultipleTransactions() public {
         PendingPayment.Transaction memory transaction1 = PendingPayment.Transaction({
-            asset: address(0x1111),
-            amount: 100,
-            from: address(0x2222),
-            to: address(0x3333)
+            asset: address(0x1111), amount: 100, from: address(0x2222), to: address(0x3333)
         });
 
         PendingPayment.Transaction memory transaction2 = PendingPayment.Transaction({
-            asset: address(0x4444),
-            amount: 200,
-            from: address(0x5555),
-            to: address(0x6666)
+            asset: address(0x4444), amount: 200, from: address(0x5555), to: address(0x6666)
         });
 
         bytes32 hash1 = _wrapper.generateTransactionHash(transaction1, 1);
@@ -159,10 +150,7 @@ contract PendingPaymentTest is Test {
         assertNotEq(hash1, hash2);
 
         PendingPayment.Transaction memory differentTransaction = PendingPayment.Transaction({
-            asset: address(0x1234),
-            amount: 2000,
-            from: address(0x5678),
-            to: address(0x9abc)
+            asset: address(0x1234), amount: 2000, from: address(0x5678), to: address(0x9abc)
         });
 
         bytes32 hash3 = _wrapper.generateTransactionHash(differentTransaction, 1);
@@ -214,10 +202,7 @@ contract PendingPaymentTest is Test {
         _wrapper.authorize(_sampleTransaction);
 
         PendingPayment.Transaction memory differentTransaction = PendingPayment.Transaction({
-            asset: address(0x1234),
-            amount: 2000,
-            from: address(0x5678),
-            to: address(0x9abc)
+            asset: address(0x1234), amount: 2000, from: address(0x5678), to: address(0x9abc)
         });
 
         vm.expectRevert(PendingPayment.TransactionHashMismatch.selector);
@@ -229,10 +214,7 @@ contract PendingPaymentTest is Test {
         _wrapper.authorize(_sampleTransaction);
 
         PendingPayment.Transaction memory transaction2 = PendingPayment.Transaction({
-            asset: address(0x1111),
-            amount: 200,
-            from: address(0x2222),
-            to: address(0x3333)
+            asset: address(0x1111), amount: 200, from: address(0x2222), to: address(0x3333)
         });
         bytes32 hash2 = _wrapper.generateTransactionHash(transaction2, 2);
         _wrapper.authorize(transaction2);

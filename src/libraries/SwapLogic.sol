@@ -179,8 +179,10 @@ library SwapLogic {
             assembly {
                 let addressAPtr := add(add(pathA, sub(WORD_SIZE, ADDRESS_PLUS_FEE)), pathATrimmedLen)
                 let addressBPtr := add(add(pathB, add(WORD_SIZE, ADDRESS_PLUS_FEE)), pathBOffset)
-                matches :=
-                    eq(shr(ADDRESS_OFFSET_BITS, mload(addressAPtr)), shr(ADDRESS_OFFSET_BITS, mload(addressBPtr)))
+                matches := eq(
+                    shr(ADDRESS_OFFSET_BITS, mload(addressAPtr)),
+                    shr(ADDRESS_OFFSET_BITS, mload(addressBPtr))
+                )
             }
             if (!matches) {
                 break;

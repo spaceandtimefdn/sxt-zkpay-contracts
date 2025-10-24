@@ -95,18 +95,18 @@ library PaymentLogic {
         if (receivedTransferAmount > 0) {
             MerchantLogic.MerchantConfig memory merchantConfig =
                 _dsPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
-            uint256 swappedAmount = _dsPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
-                params.asset, params.merchant, receivedTransferAmount, address(this), params.customSourceAssetPath
-            );
+            uint256 swappedAmount = _dsPayStorage.swapLogicStorage
+                .swapExactSourceAssetAmount(
+                    params.asset, params.merchant, receivedTransferAmount, address(this), params.customSourceAssetPath
+                );
 
             result.receivedPayoutAmount = _distributePayouts(
                 merchantConfig.payoutAddresses, merchantConfig.payoutPercentages, swappedAmount, result.payoutToken
             );
         }
 
-        result.amountInUSD = _dsPayStorage.assets.convertToUsd(
-            _dsPayStorage.assetManagementSequencerConfig, params.asset, receivedTransferAmount
-        );
+        result.amountInUSD = _dsPayStorage.assets
+            .convertToUsd(_dsPayStorage.assetManagementSequencerConfig, params.asset, receivedTransferAmount);
 
         _validateItemPrice(_dsPayStorage.paywallLogicStorage, params.merchant, params.itemId, result.amountInUSD);
     }
@@ -129,9 +129,8 @@ library PaymentLogic {
     {
         uint248 receivedSourceAssetAmount =
             AssetManagement.transferAssetFromCaller(params.asset, params.amount, address(this));
-        amountInUSD = _dsPayStorage.assets.convertToUsd(
-            _dsPayStorage.assetManagementSequencerConfig, params.asset, receivedSourceAssetAmount
-        );
+        amountInUSD = _dsPayStorage.assets
+            .convertToUsd(_dsPayStorage.assetManagementSequencerConfig, params.asset, receivedSourceAssetAmount);
 
         if (receivedSourceAssetAmount == 0) {
             revert ZeroAmountReceived();
@@ -140,10 +139,7 @@ library PaymentLogic {
         _validateItemPrice(_dsPayStorage.paywallLogicStorage, params.merchant, params.itemId, amountInUSD);
 
         transaction = PendingPayment.Transaction({
-            asset: params.asset,
-            amount: receivedSourceAssetAmount,
-            from: msg.sender,
-            to: params.merchant
+            asset: params.asset, amount: receivedSourceAssetAmount, from: msg.sender, to: params.merchant
         });
 
         transactionHash = PendingPayment.authorize(_dsPayStorage.pendingPaymentStorage, transaction);
@@ -203,15 +199,13 @@ library PaymentLogic {
         internal
         returns (ProcessSettlementResult memory result)
     {
-        _dsPayStorage.pendingPaymentStorage.completeAuthorizedTransaction(
-            PendingPayment.Transaction({
-                asset: params.sourceAsset,
-                amount: params.sourceAssetAmount,
-                from: params.from,
-                to: params.merchant
-            }),
-            params.transactionHash
-        );
+        _dsPayStorage.pendingPaymentStorage
+            .completeAuthorizedTransaction(
+                PendingPayment.Transaction({
+                    asset: params.sourceAsset, amount: params.sourceAssetAmount, from: params.from, to: params.merchant
+                }),
+                params.transactionHash
+            );
 
         result.payoutToken = _dsPayStorage.swapLogicStorage.getMerchantPayoutAsset(params.merchant);
         (uint248 toBePaidInSourceToken, uint248 toBeRefundedInSourceToken) = _computeSettlementBreakdown(
@@ -226,9 +220,10 @@ library PaymentLogic {
         // slither-disable-next-line reentrancy-events
         MerchantLogic.MerchantConfig memory merchantConfig =
             _dsPayStorage.merchantLogicStorage.merchantConfigs[params.merchant];
-        uint256 swappedAmount = _dsPayStorage.swapLogicStorage.swapExactSourceAssetAmount(
-            params.sourceAsset, params.merchant, toBePaidInSourceToken, address(this), params.customSourceAssetPath
-        );
+        uint256 swappedAmount = _dsPayStorage.swapLogicStorage
+            .swapExactSourceAssetAmount(
+                params.sourceAsset, params.merchant, toBePaidInSourceToken, address(this), params.customSourceAssetPath
+            );
 
         result.receivedTargetAssetAmount = _distributePayouts(
             merchantConfig.payoutAddresses, merchantConfig.payoutPercentages, swappedAmount, result.payoutToken

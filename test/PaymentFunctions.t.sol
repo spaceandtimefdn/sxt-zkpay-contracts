@@ -146,10 +146,7 @@ contract PaymentFunctionsTest is Test {
         dspay.setPaymentAsset(
             USDC,
             AssetManagement.PaymentAsset({
-                priceFeed: usdcPriceFeed,
-                tokenDecimals: 6,
-                stalePriceThresholdInSeconds: 1000,
-                active: true
+                priceFeed: usdcPriceFeed, tokenDecimals: 6, stalePriceThresholdInSeconds: 1000, active: true
             }),
             DummyData.getOriginAssetPath(USDC)
         );
@@ -169,9 +166,7 @@ contract PaymentFunctionsTest is Test {
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
 
         return MerchantLogic.MerchantConfig({
-            payoutAddresses: addresses,
-            payoutPercentages: percentages,
-            allowUserCustomPath: true
+            payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
         });
     }
 
@@ -187,9 +182,7 @@ contract PaymentFunctionsTest is Test {
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
 
         return MerchantLogic.MerchantConfig({
-            payoutAddresses: addresses,
-            payoutPercentages: percentages,
-            allowUserCustomPath: allowUserCustomPath
+            payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: allowUserCustomPath
         });
     }
 
@@ -261,10 +254,7 @@ contract PaymentFunctionsTest is Test {
         dspay.setPaymentAsset(
             SXT,
             AssetManagement.PaymentAsset({
-                priceFeed: sxtPriceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 1000,
-                active: true
+                priceFeed: sxtPriceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 1000, active: true
             }),
             DummyData.getOriginAssetPath(SXT)
         );
@@ -487,10 +477,7 @@ contract PaymentFunctionsTest is Test {
         dspay.setPaymentAsset(
             SXT,
             AssetManagement.PaymentAsset({
-                priceFeed: sxtPriceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 1000,
-                active: true
+                priceFeed: sxtPriceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 1000, active: true
             }),
             DummyData.getOriginAssetPath(SXT)
         );
@@ -677,10 +664,7 @@ contract PaymentFunctionsTest is Test {
         dspay.setPaymentAsset(
             SXT,
             AssetManagement.PaymentAsset({
-                priceFeed: sxtPriceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 1000,
-                active: true
+                priceFeed: sxtPriceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 1000, active: true
             }),
             DummyData.getOriginAssetPath(SXT)
         );
@@ -1067,10 +1051,7 @@ contract PaymentFunctionsTest is Test {
         dspay.setPaymentAsset(
             SXT,
             AssetManagement.PaymentAsset({
-                priceFeed: sxtPriceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 1000,
-                active: true
+                priceFeed: sxtPriceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 1000, active: true
             }),
             DummyData.getOriginAssetPath(SXT)
         );
@@ -1103,10 +1084,7 @@ contract PaymentFunctionsTest is Test {
         dspay.setPaymentAsset(
             SXT,
             AssetManagement.PaymentAsset({
-                priceFeed: sxtPriceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 1000,
-                active: true
+                priceFeed: sxtPriceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 1000, active: true
             }),
             DummyData.getOriginAssetPath(SXT)
         );
@@ -1137,10 +1115,7 @@ contract PaymentFunctionsTest is Test {
         dspay.setPaymentAsset(
             SXT,
             AssetManagement.PaymentAsset({
-                priceFeed: sxtPriceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 1000,
-                active: true
+                priceFeed: sxtPriceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 1000, active: true
             }),
             DummyData.getOriginAssetPath(SXT)
         );
@@ -1175,10 +1150,7 @@ contract PaymentFunctionsTest is Test {
         dspay.setPaymentAsset(
             SXT,
             AssetManagement.PaymentAsset({
-                priceFeed: sxtPriceFeed,
-                tokenDecimals: 18,
-                stalePriceThresholdInSeconds: 1000,
-                active: true
+                priceFeed: sxtPriceFeed, tokenDecimals: 18, stalePriceThresholdInSeconds: 1000, active: true
             }),
             DummyData.getOriginAssetPath(SXT)
         );

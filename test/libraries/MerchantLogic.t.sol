@@ -48,9 +48,7 @@ contract MerchantLogicTest is Test {
         percentages[1] = 40 * MerchantLogic.PERCENTAGE_PRECISION;
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutAddresses: addresses,
-            payoutPercentages: percentages,
-            allowUserCustomPath: true
+            payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
         });
 
         vm.expectEmit(true, true, true, true);
@@ -78,9 +76,7 @@ contract MerchantLogicTest is Test {
         percentages[0] = 100 * MerchantLogic.PERCENTAGE_PRECISION;
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutAddresses: addresses,
-            payoutPercentages: percentages,
-            allowUserCustomPath: true
+            payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
         });
 
         vm.expectRevert(MerchantLogic.PayoutAddressCannotBeZero.selector);
@@ -115,9 +111,7 @@ contract MerchantLogicTest is Test {
         percentages[1] = 30 * MerchantLogic.PERCENTAGE_PRECISION; // Total is only 80%
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutAddresses: addresses,
-            payoutPercentages: percentages,
-            allowUserCustomPath: true
+            payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
         });
 
         vm.expectRevert(MerchantLogic.InvalidPayoutPercentageSum.selector);
@@ -129,9 +123,7 @@ contract MerchantLogicTest is Test {
         uint32[] memory percentages = new uint32[](0);
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutAddresses: addresses,
-            payoutPercentages: percentages,
-            allowUserCustomPath: true
+            payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
         });
 
         vm.expectRevert(MerchantLogic.NoPayoutRecipients.selector);
@@ -149,9 +141,7 @@ contract MerchantLogicTest is Test {
         percentages[2] = 20;
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutAddresses: addresses,
-            payoutPercentages: percentages,
-            allowUserCustomPath: true
+            payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
         });
 
         vm.expectRevert(MerchantLogic.PayoutArrayLengthMismatch.selector);
@@ -170,9 +160,7 @@ contract MerchantLogicTest is Test {
         percentages[2] = 50 * MerchantLogic.PERCENTAGE_PRECISION;
 
         MerchantLogic.MerchantConfig memory merchantConfig = MerchantLogic.MerchantConfig({
-            payoutAddresses: addresses,
-            payoutPercentages: percentages,
-            allowUserCustomPath: true
+            payoutAddresses: addresses, payoutPercentages: percentages, allowUserCustomPath: true
         });
 
         vm.expectRevert(MerchantLogic.ZeroPayoutPercentage.selector);

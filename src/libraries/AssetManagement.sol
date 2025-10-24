@@ -254,10 +254,7 @@ library AssetManagement {
     /// @param amount The amount to transfer
     /// @param recipient The recipient of the transfer
     /// @return amountReceived The amount actually received by recipient
-    function transferAsset(address asset, uint248 amount, address recipient)
-        internal
-        returns (uint248 amountReceived)
-    {
+    function transferAsset(address asset, uint248 amount, address recipient) internal returns (uint248 amountReceived) {
         if (amount == 0) return 0;
         IERC20 token = IERC20(asset);
         uint256 beforeBalance = token.balanceOf(recipient);
